@@ -1432,6 +1432,8 @@ class Module
      * @param   bool    $alwaysRun      To run the hook always (e.g. without permission check)
      *
      * @return  $this
+     *
+     * @deprecated Use {@link Hook\Essentials::register} instead
      */
     protected function provideHook($name, $implementation = null, $alwaysRun = false)
     {
