@@ -6,6 +6,7 @@
 namespace Icinga\Web;
 
 use Exception;
+use Icinga\Application\Hook\ThemeLoaderHook;
 use Icinga\Application\Icinga;
 use Icinga\Application\Logger;
 use Icinga\Authentication\Auth;
@@ -313,7 +314,7 @@ class StyleSheet
         $app = Icinga::app();
 
         if ($theme && $theme !== self::DEFAULT_THEME) {
-            if (Hook::has('ThemeLoader')) {
+            if (ThemeLoaderHook::isRegistered()) {
                 try {
                     $path = Hook::first('ThemeLoader')->getThemeFile($theme);
                 } catch (Exception $e) {
