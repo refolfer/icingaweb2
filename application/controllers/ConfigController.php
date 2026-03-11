@@ -7,6 +7,7 @@ namespace Icinga\Controllers;
 
 use Exception;
 use Icinga\Application\Version;
+use Icinga\Util\Csp;
 use InvalidArgumentException;
 use Icinga\Application\Config;
 use Icinga\Application\Icinga;
@@ -25,6 +26,7 @@ use Icinga\Web\Controller;
 use Icinga\Web\Notification;
 use Icinga\Web\Url;
 use Icinga\Web\Widget;
+use ipl\Html\Table;
 
 /**
  * Application and module configuration
@@ -113,6 +115,38 @@ class ConfigController extends Controller
 
         $this->view->form = $form;
         $this->view->title = $this->translate('General');
+
+        $this->view->cspTable = "";
+        if ($form->getSubForm('form_config_general_application')->getValue('security_use_strict_csp')) {
+            $table = new Table();
+            $table->add(Table::tr([
+                Table::th(t('Type')),
+                Table::th(t('Info')),
+                Table::th(t('Directive')),
+                Table::th(t('Value')),
+            ]));
+            $policyDirectives = Csp::collectContentSecurityPolicyDirectives();
+            foreach ($policyDirectives as $directiveGroup) {
+                $reason = $directiveGroup['reason'];
+                $type = $reason['type'];
+                $info = match ($type) {
+                    'dashlet' => $reason['pane'] . '/' . $reason['dashlet'],
+                    'hook' => $reason['hook'],
+                    default => '-',
+                };
+                foreach ($directiveGroup['directives'] as $directive => $policies) {
+                    $table->add(Table::tr([
+                        Table::td($type),
+                        Table::td($info),
+                        Table::td($directive),
+                        Table::td(join(', ', $policies)),
+                    ]));
+                }
+            }
+
+            $this->view->cspTable = $table->render();
+        }
+
         $this->createApplicationTabs()->activate('general');
     }
 
