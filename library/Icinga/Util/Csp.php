@@ -5,13 +5,11 @@
 
 namespace Icinga\Util;
 
-use Icinga\Application\Hook;
 use Icinga\Application\Hook\CspDirectiveHook;
 use Icinga\Application\Icinga;
 use Icinga\Application\Logger;
 use Icinga\Authentication\Auth;
 use Icinga\Data\ConfigObject;
-use Icinga\User;
 use Icinga\Web\Response;
 use Icinga\Web\Window;
 use Icinga\Application\Config;
@@ -35,11 +33,11 @@ use function ipl\Stdlib\get_php_type;
  */
 class Csp
 {
-    /** @var static */
-    protected static $instance;
+    /** @var self|null */
+    protected static ?self $instance = null;
 
     /** @var ?string */
-    protected $styleNonce;
+    protected ?string $styleNonce = null;
 
     /** Singleton */
     private function __construct()
@@ -47,7 +45,7 @@ class Csp
     }
 
     /**
-     * Add Content-Security-Policy header with a nonce for dynamic CSS
+     * Add a Content-Security-Policy header with a nonce for dynamic CSS
      *
      * Note that {@see static::createNonce()} must be called beforehand.
      *
@@ -59,6 +57,11 @@ class Csp
     {
         $header = static::getContentSecurityPolicy();
         $response->setHeader('Content-Security-Policy', $header, true);
+    }
+
+    public static function isCspEnabled(): bool
+    {
+        return Config::app()->get('security', 'use_strict_csp', 'n') === 'y';
     }
 
     public static function collectContentSecurityPolicyDirectives(): array
@@ -266,7 +269,7 @@ class Csp
      * @return array An array containing both navigation items and dashlet configurations.
      * // returns [['name' => 'Item Name', 'url' => 'https://example.com'], ...]
      */
-    protected static function fetchDashletNavigationItemConfigs()
+    protected static function fetchDashletNavigationItemConfigs(): array
     {
         return array_merge(
             self::fetchNavigationItems(),
@@ -283,7 +286,7 @@ class Csp
      * @return array Each item is an associative array with 'name' and 'url' keys.
      * Example: [ ['name' => 'Home', 'url' => '/'], ['name' => 'Profile', 'url' => '/profile'] ]
      */
-    protected static function fetchNavigationItems()
+    protected static function fetchNavigationItems(): array
     {
         $user = Auth::getInstance()->getUser();
         $menuItems = [];
@@ -335,7 +338,7 @@ class Csp
      * @return array A list of dashlets with their names and absolute URLs.
      * // returns [['name' => 'Dashlet Name', 'url' => 'https://external.dashlet.com'], ...]
      */
-    protected static function fetchDashletsItems()
+    protected static function fetchDashletsItems(): array
     {
        $user = Auth::getInstance()->getUser();
        $dashlets = [];
