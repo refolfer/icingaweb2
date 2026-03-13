@@ -64,13 +64,19 @@ class Csp
         return Config::app()->get('security', 'use_strict_csp', 'n') === 'y';
     }
 
+    /**
+     * Collects all CSP directives in an array where the system defaults are first.
+     * This is done over using a Generator because the order of the directives is important.
+     *
+     * @return array the list of CSP directives
+     */
     public static function collectContentSecurityPolicyDirectives(): array
     {
         // Create an array here because system origins should always come first.
         return array_merge(
             iterator_to_array(self::yieldSystemOrigins()),
             iterator_to_array(self::yieldNavigationOrigins()),
-            iterator_to_array(self::yieldDashletItems()),
+            iterator_to_array(self::yieldDashletOrigins()),
             iterator_to_array(self::yieldModuleOrigins()),
         );
     }
@@ -92,7 +98,13 @@ class Csp
         return self::getAutomaticContentSecurityPolicy();
     }
 
-    protected static function getCustomContentSecurityPolicy(): ?string
+    /**
+     * Get the custom Content-Security-Policy set in the config.
+     * This method automatically replaces new-lines and the {style_nonce} placeholder with the generated nonce.
+     *
+     * @return string Returns the custom CSP header value.
+     */
+    protected static function getCustomContentSecurityPolicy(): string
     {
         $csp = static::getInstance();
 
@@ -113,7 +125,6 @@ class Csp
      *
      * @return string Returns the generated header value.
      * @throws RuntimeException If no nonce set for CSS
-     *
      */
     public static function getAutomaticContentSecurityPolicy(): string
     {
@@ -197,6 +208,12 @@ class Csp
         return static::$instance;
     }
 
+    /**
+     * Yields the system origins.
+     * These directives should always be added first.
+     *
+     * @return Generator
+     */
     protected static function yieldSystemOrigins(): Generator
     {
         $csp = static::getInstance();
@@ -225,6 +242,10 @@ class Csp
         }
     }
 
+    /**
+     * Yield all CSP directives from modules. See {@see CspDirectiveHook} for details.
+     * @return Generator
+     */
     protected static function yieldModuleOrigins(): Generator
     {
         // Allow modules to add their own csp directives in a limited fashion.
@@ -306,6 +327,12 @@ class Csp
         }
     }
 
+    /**
+     * Recursively yield all navigation items that have an external URL.
+     *
+     * @param NavigationItem $item The top-level navigation item to start from.
+     * @return Generator
+     */
     protected static function yieldNavigation(NavigationItem $item): Generator
     {
         if ($item->hasChildren()) {
@@ -328,7 +355,7 @@ class Csp
      *
      * @return Generator A list of CSP directives, one for each dashlet that has an external URL.
      */
-    protected static function yieldDashletItems(): Generator
+    protected static function yieldDashletOrigins(): Generator
     {
         $user = Auth::getInstance()->getUser();
         if ($user === null) {

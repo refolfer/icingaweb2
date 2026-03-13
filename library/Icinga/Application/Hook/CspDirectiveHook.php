@@ -10,8 +10,8 @@ abstract class CspDirectiveHook
 {
     /**
      * Allow the module to provide custom directives for the CSP header. The return value should be an array
-     * with directive as the key and the policies in an array as the value. The valid values can either be
-     * a concrete host, whitelisting subdomains for hosts or a custom nonce for that module.
+     * with a directive as the key and the policies in an array as the value. The valid values can either be
+     * a concrete host, allowlisting subdomains for hosts or custom nonce for that module.
      *
      * Example: [ 'img-src' => [ 'https://*.media.tumblr.com', 'https://http.cat/' ] ]
      *
@@ -30,7 +30,7 @@ abstract class CspDirectiveHook
     }
 
     /**
-     * Register the class as a RequestHook implementation
+     * Register the class as a CspDirectiveHook implementation
      *
      * Call this method on your implementation during module initialization to make Icinga Web aware of your hook.
      */
