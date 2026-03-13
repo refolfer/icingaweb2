@@ -6,6 +6,7 @@
 namespace Icinga\Util;
 
 use Generator;
+use Icinga\Application\ClassLoader;
 use Icinga\Application\Config;
 use Icinga\Application\Hook\CspDirectiveHook;
 use Icinga\Application\Icinga;
@@ -279,10 +280,10 @@ class Csp
                 }
 
                 yield [
-                    "directives" => $directives,
-                    "reason"     => [
-                        "type" => "hook",
-                        "hook" => get_class($hook),
+                    'directives' => $directives,
+                    'reason' => [
+                        'type' => 'module',
+                        'module' => ClassLoader::extractModuleName(get_class($hook)),
                     ],
                 ];
             } catch (Throwable $e) {

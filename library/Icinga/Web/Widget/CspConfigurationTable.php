@@ -36,7 +36,7 @@ class CspConfigurationTable extends Table
                     . '/' . ($reason['parent'] !== null ? ($reason['parent'] . '/') : '')
                     . $reason['name'],
                 'dashlet' => $reason['pane'] . '/' . $reason['dashlet'],
-                'hook' => $reason['hook'],
+                'module' => $reason['module'],
                 default => '-',
             };
             foreach ($directiveGroup['directives'] as $directive => $policies) {
