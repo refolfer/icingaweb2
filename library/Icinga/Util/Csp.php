@@ -56,11 +56,11 @@ class Csp
      */
     public static function addHeader(Response $response): void
     {
-        $header = static::getContentSecurityPolicy();
+        $header = static::getHeader();
         $response->setHeader('Content-Security-Policy', $header, true);
     }
 
-    public static function isCspEnabled(): bool
+    public static function isEnabled(): bool
     {
         $value = Config::app()->get('security', 'use_strict_csp', 'n');
 
@@ -73,7 +73,7 @@ class Csp
      *
      * @return array the list of CSP directives
      */
-    public static function collectContentSecurityPolicyDirectives(): array
+    public static function collectDirectives(): array
     {
         // Create an array here because system origins should always come first.
         return array_merge(
@@ -85,20 +85,19 @@ class Csp
     }
 
     /**
-     * Get the Content-Security-Policy.
+     * Get the Content-Security-Policy header.
      *
-     * @return string Returns the generated header value.
+     * @return string Returns the CSP header for this request.
      * @throws RuntimeException If no nonce set for CSS
-     *
      */
-    public static function getContentSecurityPolicy(): string
+    public static function getHeader(): string
     {
         $config = Config::app();
         if ($config->get('security', 'use_custom_csp', 'y') === 'y') {
-            return self::getCustomContentSecurityPolicy();
+            return self::getCustomHeaderValue();
         }
 
-        return self::getAutomaticContentSecurityPolicy();
+        return self::getAutomaticHeaderValue();
     }
 
     /**
@@ -107,7 +106,7 @@ class Csp
      *
      * @return string Returns the custom CSP header value.
      */
-    protected static function getCustomContentSecurityPolicy(): string
+    protected static function getCustomHeaderValue(): string
     {
         $csp = static::getInstance();
 
@@ -130,11 +129,11 @@ class Csp
      * @return string Returns the generated header value.
      * @throws RuntimeException If no nonce set for CSS
      */
-    public static function getAutomaticContentSecurityPolicy(): string
+    public static function getAutomaticHeaderValue(): string
     {
         $cspDirectives = [];
 
-        $policyDirectives = self::collectContentSecurityPolicyDirectives();
+        $policyDirectives = self::collectDirectives();
 
         foreach ($policyDirectives as $directive) {
             foreach ($directive['directives'] as $directive => $policies) {

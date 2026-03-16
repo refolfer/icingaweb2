@@ -88,7 +88,7 @@ class CspConfigForm extends CompatForm
                         . ' Enable Custom CSP checkbox above.',
                     ),
                     'disabled'    => true,
-                    'value'       => Csp::getAutomaticContentSecurityPolicy(),
+                    'value'       => Csp::getAutomaticHeaderValue(),
                 ]);
             }
         }

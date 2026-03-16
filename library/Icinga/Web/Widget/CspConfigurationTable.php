@@ -26,7 +26,7 @@ class CspConfigurationTable extends Table
             static::th($this->translate('Value')),
         ]));
 
-        $policyDirectives = Csp::collectContentSecurityPolicyDirectives();
+        $policyDirectives = Csp::collectDirectives();
 
         foreach ($policyDirectives as $directiveGroup) {
             $reason = $directiveGroup['reason'];

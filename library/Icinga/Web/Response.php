@@ -383,7 +383,7 @@ class Response extends Zend_Controller_Response_Http
                 $this->setRedirect($redirectUrl->getAbsoluteUrl());
             }
 
-            if (Csp::getStyleNonce() && Csp::isCspEnabled()) {
+            if (Csp::getStyleNonce() && Csp::isEnabled()) {
                 Csp::addHeader($this);
             }
         }
