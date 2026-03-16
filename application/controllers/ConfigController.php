@@ -9,6 +9,7 @@ use Exception;
 use GuzzleHttp\Psr7\ServerRequest;
 use Icinga\Application\Version;
 use Icinga\Forms\Config\General\CspConfigForm;
+use Icinga\Util\Csp;
 use Icinga\Web\Widget\CspConfigurationTable;
 use InvalidArgumentException;
 use Icinga\Application\Config;
@@ -112,12 +113,12 @@ class ConfigController extends Controller
         $config = Config::app();
         $cspForm = new CspConfigForm($config);
         $cspForm->populate([
-            'use_strict_csp' => $config->get('security', 'use_strict_csp'),
+            'use_strict_csp' => Csp::isCspEnabled(),
             'use_custom_csp' => $config->get('security', 'use_custom_csp'),
         ]);
 
         $cspForm->on(Form::ON_SUBMIT, function (Form $form) use ($config) {
-            $useCsp = $form->getPopulatedValue('use_strict_csp', 'n') === 'y';
+            $useCsp = $form->getValue('use_strict_csp') === 'y';
             if ($useCsp) {
                 $this->getResponse()->setReloadWindow(true);
             }
@@ -125,7 +126,7 @@ class ConfigController extends Controller
         $cspForm->handleRequest(ServerRequest::fromGlobals());
         $this->view->cspForm = $cspForm;
 
-        if ($cspForm->getPopulatedValue('use_strict_csp', 'n') === 'y') {
+        if ($cspForm->getValue('use_strict_csp') === 'y') {
             $this->view->cspTable = (new CspConfigurationTable())->render();
         } else {
             $this->view->cspTable = '';

@@ -46,7 +46,7 @@ class CspConfigForm extends CompatForm
             ],
         );
 
-        $useCsp = $this->getPopulatedValue('use_strict_csp', 'n') === 'y';
+        $useCsp = $this->getValue('use_strict_csp') === 'y';
         if ($useCsp) {
             $this->addElement(
                 'checkbox',
@@ -62,7 +62,7 @@ class CspConfigForm extends CompatForm
 
             $this->addElement('hidden', 'hidden_custom_csp');
 
-            $useCustomCsp = $this->getPopulatedValue('use_custom_csp', 'n') === 'y';
+            $useCustomCsp = $this->getValue('use_custom_csp') === 'y';
             if ($useCustomCsp) {
                 $this->addHtml((new Callout(
                     CalloutType::Warning,
@@ -112,7 +112,7 @@ class CspConfigForm extends CompatForm
         }
 
         if ($useCustomCsp) {
-            $value = $this->getPopulatedValue('hidden_custom_csp');
+            $value = $this->getValue('hidden_custom_csp');
             if (! empty($value)) {
                 $customCspElement->setValue($value);
             } else {
