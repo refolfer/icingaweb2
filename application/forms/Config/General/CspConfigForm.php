@@ -18,11 +18,8 @@ class CspConfigForm extends CompatForm
     use FormUid;
     use CsrfCounterMeasure;
 
-    protected Config $config;
-
-    public function __construct(Config $config)
+    public function __construct(protected Config $config)
     {
-        $this->config = $config;
         $this->setAttribute("name", "csp_config");
         $this->applyDefaultElementDecorators();
     }
