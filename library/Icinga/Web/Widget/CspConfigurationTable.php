@@ -19,11 +19,11 @@ class CspConfigurationTable extends Table
 
     protected function assemble(): void
     {
-        $this->add(self::tr([
-            self::th($this->translate('Type')),
-            self::th($this->translate('Info')),
-            self::th($this->translate('Directive')),
-            self::th($this->translate('Value')),
+        $this->add(static::tr([
+            static::th($this->translate('Type')),
+            static::th($this->translate('Info')),
+            static::th($this->translate('Directive')),
+            static::th($this->translate('Value')),
         ]));
 
         $policyDirectives = Csp::collectContentSecurityPolicyDirectives();
@@ -40,11 +40,11 @@ class CspConfigurationTable extends Table
                 default => '-',
             };
             foreach ($directiveGroup['directives'] as $directive => $policies) {
-                $this->add(self::tr([
-                    self::td($type),
-                    self::td($info),
-                    self::td($directive),
-                    self::td(join(', ', $policies)),
+                $this->add(static::tr([
+                    static::td($type),
+                    static::td($info),
+                    static::td($directive),
+                    static::td(join(', ', $policies)),
                 ]));
             }
         }

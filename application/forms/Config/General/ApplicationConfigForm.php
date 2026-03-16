@@ -6,10 +6,8 @@
 namespace Icinga\Forms\Config\General;
 
 use Icinga\Application\Icinga;
-use Icinga\Authentication\Auth;
 use Icinga\Data\ResourceFactory;
 use Icinga\Web\Form;
-use Icinga\Util\Csp;
 
 /**
  * Configuration form for general application options
