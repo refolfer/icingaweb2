@@ -115,6 +115,7 @@ class ConfigController extends Controller
         $cspForm->populate([
             'use_strict_csp' => Csp::isCspEnabled(),
             'use_custom_csp' => $config->get('security', 'use_custom_csp'),
+            'custom_csp' => $config->get('security', 'custom_csp'),
         ]);
 
         $cspForm->on(Form::ON_SUBMIT, function (Form $form) use ($config) {

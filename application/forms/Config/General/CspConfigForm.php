@@ -46,8 +46,7 @@ class CspConfigForm extends CompatForm
             ],
         );
 
-        $useCsp = $this->getValue('use_strict_csp') === 'y';
-        if ($useCsp) {
+        if ($this->getValue('use_strict_csp') === 'y') {
             $this->addElement(
                 'checkbox',
                 'use_custom_csp',
@@ -60,10 +59,7 @@ class CspConfigForm extends CompatForm
                 ],
             );
 
-            $this->addElement('hidden', 'hidden_custom_csp');
-
-            $useCustomCsp = $this->getValue('use_custom_csp') === 'y';
-            if ($useCustomCsp) {
+            if ($this->getValue('use_custom_csp') === 'y') {
                 $this->addHtml((new Callout(
                     CalloutType::Warning,
                     $this->translate(
@@ -80,16 +76,19 @@ class CspConfigForm extends CompatForm
                         'Set a custom CSP-Header. This completely overrides the automatically generated one.'
                         . ' Use the placeholder {style_nonce} to insert the automatically generated style nonce.',
                     ),
-                    'disabled'    => false,
                 ]);
             } else {
-                $this->addElement('textarea', 'custom_csp', [
+                $this->addElement('hidden', 'custom_csp');
+
+                Csp::createNonce();
+                $this->addElement('textarea', 'generated_csp', [
                     'label'       => $this->translate('Generated CSP'),
                     'description' => $this->translate(
                         'This is the current CSP-Header. You can always safely go back to this by disabling the'
                         . ' Enable Custom CSP checkbox above.',
                     ),
                     'disabled'    => true,
+                    'value'       => Csp::getAutomaticContentSecurityPolicy(),
                 ]);
             }
         }
@@ -97,32 +96,6 @@ class CspConfigForm extends CompatForm
         $this->addElement('submit', 'submit', [
             'label' => t('Save changes'),
         ]);
-
-        if (! $useCsp) {
-            return;
-        }
-
-        $customCspElement = $this->getElement('custom_csp');
-        if ($this->hasBeenSubmitted()) {
-            if (! $useCustomCsp) {
-                Csp::createNonce();
-                $customCspElement->setValue(Csp::getAutomaticContentSecurityPolicy());
-            }
-            return;
-        }
-
-        if ($useCustomCsp) {
-            $value = $this->getValue('hidden_custom_csp');
-            if (! empty($value)) {
-                $customCspElement->setValue($value);
-            } else {
-                $customCspElement->setValue($this->config->get('security', 'custom_csp'));
-            }
-        } else {
-            $this->getElement('hidden_custom_csp')->setValue($this->getValue('custom_csp'));
-            Csp::createNonce();
-            $customCspElement->setValue(Csp::getAutomaticContentSecurityPolicy());
-        }
     }
 
     protected function onSuccess(): void
