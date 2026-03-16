@@ -62,7 +62,9 @@ class Csp
 
     public static function isCspEnabled(): bool
     {
-        return Config::app()->get('security', 'use_strict_csp', 'n') === 'y';
+        $value = Config::app()->get('security', 'use_strict_csp', 'n');
+
+        return in_array($value, ['y', '1']);
     }
 
     /**
@@ -118,6 +120,7 @@ class Csp
         $customCsp = str_replace("\r\n", ' ', $customCsp);
         $customCsp = str_replace("\n", ' ', $customCsp);
         $customCsp = str_replace('{style_nonce}', "'nonce-{$csp->styleNonce}'", $customCsp);
+
         return $customCsp;
     }
 
