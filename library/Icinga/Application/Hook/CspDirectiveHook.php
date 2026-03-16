@@ -6,6 +6,10 @@ namespace Icinga\Application\Hook;
 
 use Icinga\Application\Hook;
 
+/**
+ * Allow modules to provide custom CSP directives.
+ * This hook is only used if the CSP header is enabled.
+ */
 abstract class CspDirectiveHook
 {
     /**
@@ -13,7 +17,7 @@ abstract class CspDirectiveHook
      * with a directive as the key and the policies in an array as the value. The valid values can either be
      * a concrete host, allowlisting subdomains for hosts or custom nonce for that module.
      *
-     * Example: [ 'img-src' => [ 'https://*.media.tumblr.com', 'https://http.cat/' ] ]
+     * Example: [ 'img-src' => [ 'https://*.icinga.com', 'https://example.com/' ] ]
      *
      * @return array<string, string[]> The CSP directives are the keys and the policies the values.
      */
