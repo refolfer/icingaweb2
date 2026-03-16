@@ -37,62 +37,70 @@ class CspConfigForm extends CompatForm
             'checkbox',
             'use_strict_csp',
             [
-                'label'         => $this->translate('Enable strict CSP'),
-                'description'   => $this->translate(
+                'label'       => $this->translate('Enable strict CSP'),
+                'description' => $this->translate(
                     'Set whether to use strict content security policy (CSP).'
-                    . ' This setting helps to protect from cross-site scripting (XSS).'
+                    . ' This setting helps to protect from cross-site scripting (XSS).',
                 ),
+                'class' => 'autosubmit',
             ],
         );
 
-        $this->addElement(
-            'checkbox',
-            'use_custom_csp',
-            [
-                'label'         => $this->translate('Enable Custom CSP'),
-                'description'   => $this->translate(
-                    'Specify whether to use a custom, user provided, string as the CSP-Header.'
-                ),
-                'class' => 'autosubmit',
-            ]
-        );
+        $useCsp = $this->getPopulatedValue('use_strict_csp', 'n') === 'y';
+        if ($useCsp) {
+            $this->addElement(
+                'checkbox',
+                'use_custom_csp',
+                [
+                    'label'       => $this->translate('Enable Custom CSP'),
+                    'description' => $this->translate(
+                        'Specify whether to use a custom, user provided, string as the CSP-Header.',
+                    ),
+                    'class'       => 'autosubmit',
+                ],
+            );
 
-        $this->addElement('hidden', 'hidden_custom_csp');
+            $this->addElement('hidden', 'hidden_custom_csp');
 
-        $useCustomCsp = $this->getPopulatedValue('use_custom_csp', 'n') === 'y';
-        if ($useCustomCsp) {
-            $this->addHtml((new Callout(
-                CalloutType::Warning,
-                $this->translate(
-                    'Be aware that the custom CSP-Header completely overrides the automatically generated one.'
-                    . ' This means that you are solely responsible for keeping the custom CSP-Header up-to-date'
-                    . ' and secure.',
-                ),
-                $this->translate('Warning: Use at your own risk!'),
-            ))->setFormElement());
+            $useCustomCsp = $this->getPopulatedValue('use_custom_csp', 'n') === 'y';
+            if ($useCustomCsp) {
+                $this->addHtml((new Callout(
+                    CalloutType::Warning,
+                    $this->translate(
+                        'Be aware that the custom CSP-Header completely overrides the automatically generated one.'
+                        . ' This means that you are solely responsible for keeping the custom CSP-Header up-to-date'
+                        . ' and secure.',
+                    ),
+                    $this->translate('Warning: Use at your own risk!'),
+                ))->setFormElement());
 
-            $this->addElement('textarea', 'custom_csp', [
-                'label'       => $this->translate('Custom CSP'),
-                'description' => $this->translate(
-                    'Set a custom CSP-Header. This completely overrides the automatically generated one.'
-                    . ' Use the placeholder {style_nonce} to insert the automatically generated style nonce.'
-                ),
-                'disabled'    => false,
-            ]);
-        } else {
-            $this->addElement('textarea', 'custom_csp', [
-                'label'       => $this->translate('Generated CSP'),
-                'description' => $this->translate(
-                    'This is the current CSP-Header. You can always safely go back to this by disabling the'
-                    . ' Enable Custom CSP checkbox above.'
-                ),
-                'disabled'    => true,
-            ]);
+                $this->addElement('textarea', 'custom_csp', [
+                    'label'       => $this->translate('Custom CSP'),
+                    'description' => $this->translate(
+                        'Set a custom CSP-Header. This completely overrides the automatically generated one.'
+                        . ' Use the placeholder {style_nonce} to insert the automatically generated style nonce.',
+                    ),
+                    'disabled'    => false,
+                ]);
+            } else {
+                $this->addElement('textarea', 'custom_csp', [
+                    'label'       => $this->translate('Generated CSP'),
+                    'description' => $this->translate(
+                        'This is the current CSP-Header. You can always safely go back to this by disabling the'
+                        . ' Enable Custom CSP checkbox above.',
+                    ),
+                    'disabled'    => true,
+                ]);
+            }
         }
 
         $this->addElement('submit', 'submit', [
             'label' => t('Save changes'),
         ]);
+
+        if (! $useCsp) {
+            return;
+        }
 
         $customCspElement = $this->getElement('custom_csp');
         if ($this->hasBeenSubmitted()) {
@@ -123,10 +131,13 @@ class CspConfigForm extends CompatForm
 
         $section = $config->getSection('security');
         $section['use_strict_csp'] = $this->getValue('use_strict_csp');
-        $section['use_custom_csp'] = $this->getValue('use_custom_csp');
-        $useCustomCsp = $this->getPopulatedValue('use_custom_csp', 'n') === 'y';
-        if ($useCustomCsp) {
-            $section['custom_csp'] = $this->getValue('custom_csp');
+        $useCsp = $this->getPopulatedValue('use_strict_csp', 'n') === 'y';
+        if ($useCsp) {
+            $section['use_custom_csp'] = $this->getValue('use_custom_csp');
+            $useCustomCsp = $this->getPopulatedValue('use_custom_csp', 'n') === 'y';
+            if ($useCustomCsp) {
+                $section['custom_csp'] = $this->getValue('custom_csp');
+            }
         }
         $config->setSection('security', $section);
 
