@@ -9,7 +9,6 @@ use Exception;
 use GuzzleHttp\Psr7\ServerRequest;
 use Icinga\Application\Version;
 use Icinga\Forms\Config\General\CspConfigForm;
-use Icinga\Util\Csp;
 use Icinga\Web\Widget\CspConfigurationTable;
 use InvalidArgumentException;
 use Icinga\Application\Config;
@@ -29,6 +28,7 @@ use Icinga\Web\Controller;
 use Icinga\Web\Notification;
 use Icinga\Web\Url;
 use Icinga\Web\Widget;
+use ipl\Html\Form;
 
 /**
  * Application and module configuration
@@ -115,6 +115,13 @@ class ConfigController extends Controller
             'use_strict_csp' => $config->get('security', 'use_strict_csp'),
             'use_custom_csp' => $config->get('security', 'use_custom_csp'),
         ]);
+
+        $cspForm->on(Form::ON_SUBMIT, function (Form $form) use ($config) {
+            $useCsp = $form->getPopulatedValue('use_strict_csp', 'n') === 'y';
+            if ($useCsp) {
+                $this->getResponse()->setReloadWindow(true);
+            }
+        });
         $cspForm->handleRequest(ServerRequest::fromGlobals());
         $this->view->cspForm = $cspForm;
 
