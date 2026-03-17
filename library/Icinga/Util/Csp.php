@@ -63,9 +63,7 @@ class Csp
 
     public static function isEnabled(): bool
     {
-        $value = Config::app()->get('security', 'use_strict_csp', 'n');
-
-        return in_array($value, ['y', '1']);
+        return Config::app()->get('security', 'use_strict_csp', '0') === '1';
     }
 
     /**
@@ -94,7 +92,7 @@ class Csp
     public static function getHeader(): string
     {
         $config = Config::app();
-        if ($config->get('security', 'use_custom_csp', 'y') === 'y') {
+        if ($config->get('security', 'use_custom_csp', '0') === '1') {
             return self::getCustomHeaderValue();
         }
 
