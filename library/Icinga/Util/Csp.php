@@ -15,6 +15,7 @@ use Icinga\Authentication\Auth;
 use Icinga\Web\Navigation\Navigation;
 use Icinga\Web\Navigation\NavigationItem;
 use Icinga\Web\Response;
+use Icinga\Web\Url;
 use Icinga\Web\Widget\Dashboard;
 use Icinga\Web\Window;
 use RuntimeException;
@@ -314,9 +315,13 @@ class Csp
             $navigation = new Navigation();
             foreach ($navigation->load($type) as $navItem) {
                 foreach (self::yieldNavigation($navItem) as $name => $url) {
+                    $cspUrl = $url->getScheme() . '://' . $url->getHost();
+                    if (($port = $url->getPort()) !== null) {
+                        $cspUrl .= ':' . $port;
+                    }
                     yield [
                         'directives' => [
-                            'frame-src' => [$url->getScheme() . '://' . $url->getHost()],
+                            'frame-src' => [$cspUrl],
                         ],
                         'reason' => [
                             'type'   => 'navigation',
@@ -385,9 +390,16 @@ class Csp
                     continue;
                 }
 
+                $absoluteUrl = Url::fromPath($absoluteUrl);
+
+                $cspUrl = $absoluteUrl->getScheme() . '://' . $absoluteUrl->getHost();
+                if (($port = $absoluteUrl->getPort()) !== null) {
+                    $cspUrl .= ':' . $port;
+                }
+
                 yield [
                     'directives' => [
-                        'frame-src' => [$absoluteUrl],
+                        'frame-src' => [$cspUrl],
                     ],
                     'reason' => [
                         'type'    => 'dashlet',
