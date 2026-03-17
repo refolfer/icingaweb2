@@ -26,10 +26,8 @@ class CspConfigurationTable extends Table
             static::th($this->translate('Value')),
         ]));
 
-        $policyDirectives = Csp::collectDirectives();
-
-        foreach ($policyDirectives as $directiveGroup) {
-            $reason = $directiveGroup['reason'];
+        foreach (Csp::collectDirectives() as $directive) {
+            $reason = $directive['reason'];
             $type = $reason['type'];
             $info = match ($type) {
                 'navigation' => $reason['navType']
@@ -39,7 +37,7 @@ class CspConfigurationTable extends Table
                 'module' => $reason['module'],
                 default => '-',
             };
-            foreach ($directiveGroup['directives'] as $directive => $policies) {
+            foreach ($directive['directives'] as $directive => $policies) {
                 $this->add(static::tr([
                     static::td($type),
                     static::td($info),

@@ -68,19 +68,15 @@ class Csp
 
     /**
      * Collects all CSP directives in an array where the system defaults are first.
-     * This is done over using a Generator because the order of the directives is important.
      *
-     * @return array the list of CSP directives
+     * @return Generator the list of CSP directives
      */
-    public static function collectDirectives(): array
+    public static function collectDirectives(): Generator
     {
-        // Create an array here because system origins should always come first.
-        return array_merge(
-            iterator_to_array(self::yieldSystemOrigins()),
-            iterator_to_array(self::yieldNavigationOrigins()),
-            iterator_to_array(self::yieldDashletOrigins()),
-            iterator_to_array(self::yieldModuleOrigins()),
-        );
+        yield from self::yieldSystemOrigins();
+        yield from self::yieldNavigationOrigins();
+        yield from self::yieldDashletOrigins();
+        yield from self::yieldModuleOrigins();
     }
 
     /**
@@ -131,10 +127,7 @@ class Csp
     public static function getAutomaticHeaderValue(): string
     {
         $cspDirectives = [];
-
-        $policyDirectives = self::collectDirectives();
-
-        foreach ($policyDirectives as $directive) {
+        foreach (self::collectDirectives() as $directive) {
             foreach ($directive['directives'] as $directive => $policies) {
                 if (! isset($cspDirectives[$directive])) {
                     $cspDirectives[$directive] = [];
@@ -142,6 +135,8 @@ class Csp
                 $cspDirectives[$directive] = array_merge($cspDirectives[$directive], $policies);
             }
         }
+
+        unset($policyDirectives);
 
         $headerSegments = [];
         foreach ($cspDirectives as $directive => $policyDirectives) {
