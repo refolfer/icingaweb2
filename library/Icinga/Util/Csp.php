@@ -342,14 +342,14 @@ class Csp
             foreach ($item as $child) {
                 yield from self::yieldNavigation($child);
             }
-        } else {
-            $url = $item->getUrl();
-            if ($url === null) {
-                return;
-            }
-            if ($item->getTarget() !== '_blank' && $url->isExternal()) {
-                yield $item->getName() => $item->getUrl();
-            }
+        }
+
+        $url = $item->getUrl();
+        if ($url === null) {
+            return;
+        }
+        if ($item->getTarget() !== '_blank' && $url->isExternal()) {
+            yield $item->getName() => $item->getUrl();
         }
     }
 
