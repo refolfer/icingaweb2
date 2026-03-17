@@ -401,7 +401,6 @@ class Csp
                     ],
                     'reason' => [
                         'type'    => 'dashlet',
-                        'user'    => $user->getUsername(),
                         'pane'    => $pane->getName(),
                         'dashlet' => $dashlet->getName(),
                     ]
