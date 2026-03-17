@@ -43,7 +43,10 @@ class CspConfigForm extends CompatForm
             ],
         );
 
-        if ($this->getValue('use_strict_csp') === 'y') {
+        if ($this->getValue('use_strict_csp') !== 'y') {
+            $this->addElement('hidden', 'use_custom_csp');
+            $this->addElement('hidden', 'custom_csp');
+        } else {
             $this->addElement(
                 'checkbox',
                 'use_custom_csp',
