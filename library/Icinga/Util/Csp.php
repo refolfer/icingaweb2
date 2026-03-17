@@ -144,16 +144,16 @@ class Csp
             }
         }
 
-        $header = "default-src 'self'; ";
+        $headerSegments = [];
         foreach ($cspDirectives as $directive => $policyDirectives) {
-            if (! empty($policyDirectives)) {
-                $header .= ' ' .
-                    implode(' ', array_merge([$directive], array_unique($policyDirectives)))
-                    . ';';
+            if (empty($policyDirectives)) {
+                continue;
             }
+
+            $headerSegments[] = implode(' ', array_merge([$directive], array_unique($policyDirectives)));
         }
 
-        return $header;
+        return implode('; ', $headerSegments);
     }
 
     /**
