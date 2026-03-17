@@ -326,7 +326,7 @@ class Csp
                         'reason' => [
                             'type'   => 'navigation',
                             'name'   => $name,
-                            'parent' => $navItem->getName(),
+                            'parent' => $name !== $navItem->getName() ? $navItem->getName() : null,
                             'navType' => $type,
                         ]
                     ];
