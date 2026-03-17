@@ -18,6 +18,8 @@ class CspConfigForm extends CompatForm
     use FormUid;
     use CsrfCounterMeasure;
 
+    protected bool $changed = false;
+
     public function __construct(protected Config $config)
     {
         $this->setAttribute("name", "csp_config");
@@ -43,7 +45,7 @@ class CspConfigForm extends CompatForm
             ],
         );
 
-        if ($this->getValue('use_strict_csp') !== 'y') {
+        if (! $this->isCspEnabled()) {
             $this->addElement('hidden', 'use_custom_csp');
             $this->addElement('hidden', 'custom_csp');
         } else {
@@ -59,7 +61,7 @@ class CspConfigForm extends CompatForm
                 ],
             );
 
-            if ($this->getValue('use_custom_csp') === 'y') {
+            if ($this->isCustomCspEnabled()) {
                 $this->addHtml((new Callout(
                     CalloutType::Warning,
                     $this->translate(
@@ -103,17 +105,39 @@ class CspConfigForm extends CompatForm
         $config = Config::app();
 
         $section = $config->getSection('security');
+        $beforeSection = clone $section;
         $section['use_strict_csp'] = $this->getValue('use_strict_csp');
-        $useCsp = $this->getPopulatedValue('use_strict_csp', 'n') === 'y';
-        if ($useCsp) {
+        if ($this->isCspEnabled()) {
             $section['use_custom_csp'] = $this->getValue('use_custom_csp');
-            $useCustomCsp = $this->getPopulatedValue('use_custom_csp', 'n') === 'y';
-            if ($useCustomCsp) {
+            if ($this->isCustomCspEnabled()) {
                 $section['custom_csp'] = $this->getValue('custom_csp');
             }
         }
-        $config->setSection('security', $section);
+
+        $this->changed = ! empty(array_diff_assoc(
+            iterator_to_array($section),
+            iterator_to_array($beforeSection)
+        ));
+
+        if (! $this->changed) {
+            return;
+        }
 
         $config->saveIni();
+    }
+
+    public function hasConfigChanged(): bool
+    {
+        return $this->changed;
+    }
+
+    public function isCspEnabled(): bool
+    {
+        return $this->getValue('use_strict_csp') === 'y';
+    }
+
+    public function isCustomCspEnabled(): bool
+    {
+        return $this->getValue('use_custom_csp') === 'y';
     }
 }

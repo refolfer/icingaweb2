@@ -29,6 +29,7 @@ use Icinga\Web\Controller;
 use Icinga\Web\Notification;
 use Icinga\Web\Url;
 use Icinga\Web\Widget;
+use ipl\Html\Contract\Form as ContractForm;
 use ipl\Html\Form;
 
 /**
@@ -118,16 +119,15 @@ class ConfigController extends Controller
             'custom_csp' => $config->get('security', 'custom_csp'),
         ]);
 
-        $cspForm->on(Form::ON_SUBMIT, function (Form $form) use ($config) {
-            $useCsp = $form->getValue('use_strict_csp') === 'y';
-            if ($useCsp) {
+        $cspForm->on(ContractForm::ON_SUBMIT, function (CspConfigForm $form) use ($config) {
+            if ($form->isCspEnabled() && $form->hasConfigChanged()) {
                 $this->getResponse()->setReloadWindow(true);
             }
         });
         $cspForm->handleRequest(ServerRequest::fromGlobals());
         $this->view->cspForm = $cspForm;
 
-        if ($cspForm->getValue('use_strict_csp') === 'y') {
+        if ($cspForm->isCspEnabled()) {
             $this->view->cspTable = (new CspConfigurationTable())->render();
         } else {
             $this->view->cspTable = '';
