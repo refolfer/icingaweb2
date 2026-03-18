@@ -9,6 +9,7 @@ use ipl\Html\BaseHtmlElement;
 use ipl\Html\HtmlElement;
 use ipl\Html\Table;
 use ipl\I18n\Translation;
+use ipl\Web\Widget\Link;
 
 class CspConfigurationTable extends BaseHtmlElement
 {
@@ -217,15 +218,7 @@ class CspConfigurationTable extends BaseHtmlElement
                 'span', ['class' => 'nonce'], $policy
             );
         } else if (filter_var($policy, FILTER_VALIDATE_URL) !== false) {
-            $result = HtmlElement::create(
-                'a',
-                [
-                    'href' => $policy,
-                    'class' => 'url',
-                    'target' => '_blank',
-                ],
-                $policy,
-            );
+            $result = new Link($policy, $policy, ['target' => '_blank']);
         } else {
             $result = HtmlElement::create('span', null, $policy);
         }
