@@ -7,6 +7,8 @@ namespace Icinga\Forms\Config\General;
 use Icinga\Application\Config;
 use Icinga\Util\Csp;
 use Icinga\Web\Session;
+use Icinga\Web\Widget\CspConfigurationTable;
+use ipl\Html\HtmlElement;
 use ipl\Web\Common\CalloutType;
 use ipl\Web\Common\CsrfCounterMeasure;
 use ipl\Web\Common\FormUid;
@@ -23,6 +25,7 @@ class CspConfigForm extends CompatForm
     public function __construct(protected Config $config)
     {
         $this->setAttribute("name", "csp_config");
+        $this->getAttributes()->add("class", "csp-config-form");
         $this->applyDefaultElementDecorators();
     }
 
@@ -96,6 +99,16 @@ class CspConfigForm extends CompatForm
                     'disabled'    => true,
                     'value'       => Csp::getAutomaticHeaderValue(),
                 ]);
+
+
+                $this->add(HtmlElement::create(
+                    'div',
+                    [
+                        'class'               => 'collapsible',
+                        'data-visible-height' => 250,
+                    ],
+                    new CspConfigurationTable(),
+                ));
             }
         }
 

@@ -127,12 +127,6 @@ class ConfigController extends Controller
         $cspForm->handleRequest(ServerRequest::fromGlobals());
         $this->view->cspForm = $cspForm;
 
-        if ($cspForm->isCspEnabled()) {
-            $this->view->cspTable = (new CspConfigurationTable())->render();
-        } else {
-            $this->view->cspTable = '';
-        }
-
         $this->createApplicationTabs()->activate('general');
     }
 

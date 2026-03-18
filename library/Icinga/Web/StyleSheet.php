@@ -74,6 +74,7 @@ class StyleSheet
         'css/icinga/login.less',
         'css/icinga/about.less',
         'css/icinga/controls.less',
+        'css/icinga/csp-config-editor.less',
         'css/icinga/dev.less',
         'css/icinga/spinner.less',
         'css/icinga/compat.less',

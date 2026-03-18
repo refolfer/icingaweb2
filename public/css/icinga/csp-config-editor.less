@@ -1,0 +1,97 @@
+/*! Icinga Web 2 | (c) 2026 Icinga Development Team | GPLv2+ */
+
+// Layout
+.csp-config-table {
+  h3 {
+    margin-top: 0;
+
+    &:not(:first-child) {
+      margin-top: 1em;
+    }
+  }
+
+  table {
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-right: 0;
+  }
+
+  th:last-child,
+  td:last-child {
+    width: 100%;
+  }
+
+  .csp-policies {
+    display: flex;
+    flex-direction: row;
+    justify-content: end;
+    gap: 0.25em;
+  }
+}
+
+// Style
+.csp-config-table {
+  text-align: left;
+
+  tr:not(:last-child) {
+    border-bottom: 1px solid @gray-lighter;
+  }
+
+  td {
+    .text-ellipsis();
+  }
+
+  th {
+    font-size: .857em;
+    font-weight: normal;
+    letter-spacing: .05em;
+  }
+
+  th:last-child,
+  td:last-child {
+    text-align: right;
+  }
+
+  .self {
+    opacity: 0.5;
+  }
+
+  .warning,
+  .wildcard {
+    color: @color-warning;
+  }
+
+  .secure {
+    color: @color-ok;
+  }
+
+  .nonce {
+    color: @color-unknown;
+  }
+
+  a {
+    font-weight: bold;
+
+    &:hover {
+      color: @icinga-blue;
+      text-decoration: none;
+    }
+  }
+}
+
+// Form layout
+.csp-config-form {
+  .csp-config-table {
+    padding-bottom: 2em;
+    margin-left: 14em;
+  }
+
+  .btn-primary {
+    margin-top: 1em;
+  }
+}
