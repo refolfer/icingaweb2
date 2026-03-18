@@ -39,9 +39,9 @@ class CspConfigForm extends CompatForm
             'checkbox',
             'use_strict_csp',
             [
-                'label'          => $this->translate('Enable strict CSP'),
+                'label'          => $this->translate('Send CSP-Header'),
                 'description'    => $this->translate(
-                    'Set whether to use strict content security policy (CSP).'
+                    'Use strict content security policy (CSP).'
                     . ' This setting helps to protect from cross-site scripting (XSS).',
                 ),
                 'class'          => 'autosubmit',
