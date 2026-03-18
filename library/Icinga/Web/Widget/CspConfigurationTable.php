@@ -21,18 +21,14 @@ class CspConfigurationTable extends BaseHtmlElement
         $this->getAttributes()->add('class', 'csp-config-table');
     }
 
-    protected function buildTable(
+    protected function addPolicyTable(
+        string $title,
         string $filterType,
         array $csp,
         array $header,
         callable $rowBuilder
-    ): Table {
-        $table = new Table();
-        $headerRow = Table::tr();
-        foreach ($header as $h) {
-            $headerRow->add(Table::th($h));
-        }
-        $table->add($headerRow);
+    ): void {
+        $rows = [];
         foreach ($csp as $row) {
             $reason = $row['reason'];
             $type = $reason['type'];
@@ -44,19 +40,37 @@ class CspConfigurationTable extends BaseHtmlElement
                     continue;
                 }
                 foreach ($policies as $k => $policy) {
-                    $table->add($rowBuilder($reason, $directive, $policy));
+                    $rows[] = $rowBuilder($reason, $directive, $policy);
                 }
             }
         }
-        return $table;
+
+        if (count($rows) === 0) {
+            return;
+        }
+
+        $this->add(HtmlElement::create('h3', null, $title));
+
+        $table = new Table();
+        $headerRow = Table::tr();
+        foreach ($header as $h) {
+            $headerRow->add(Table::th($h));
+        }
+        $table->add($headerRow);
+
+        foreach ($rows as $row) {
+            $table->add($row);
+        }
+
+        $this->add($table);
     }
 
     protected function assemble(): void
     {
         $csp = iterator_to_array(Csp::collectDirectives(), false);
 
-        $this->add(HtmlElement::create('h3', null, $this->translate('System')));
-        $this->add($this->buildTable(
+        $this->addPolicyTable(
+            t('System'),
             'system',
             $csp,
             [t('Directive'), t('Value')],
@@ -66,10 +80,10 @@ class CspConfigurationTable extends BaseHtmlElement
                     $this->buildPolicy($policy),
                 ]);
             },
-        ));
+        );
 
-        $this->add(HtmlElement::create('h3', null, $this->translate('Dashboards')));
-        $this->add($this->buildTable(
+        $this->addPolicyTable(
+            t('Dashboard'),
             'dashlet',
             $csp,
             [t('Dashboard'), t('Dashlet'), t('Directive'), t('Value')],
@@ -81,11 +95,11 @@ class CspConfigurationTable extends BaseHtmlElement
                     $this->buildPolicy($policy),
                 ]);
             }
-        ));
+        );
 
         // TODO: Handle other types of navigation in extra tables
-        $this->add(HtmlElement::create('h3', null, $this->translate('Navigation')));
-        $this->add($this->buildTable(
+        $this->addPolicyTable(
+            t('Navigation'),
             'navigation',
             $csp,
             [t('Type'), t('Name'), t('Parent'), t('Directive'), t('Value')],
@@ -98,10 +112,10 @@ class CspConfigurationTable extends BaseHtmlElement
                     $this->buildPolicy($policy),
                 ]);
             }
-        ));
+        );
 
-        $this->add(HtmlElement::create('h3', null, $this->translate('Modules')));
-        $this->add($this->buildTable(
+        $this->addPolicyTable(
+            t('Modules'),
             'module',
             $csp,
             [t('Module'), t('Directive'), t('Value')],
@@ -112,7 +126,7 @@ class CspConfigurationTable extends BaseHtmlElement
                     $this->buildPolicy($policy),
                 ]);
             }
-        ));
+        );
     }
 
     protected function getKeywordType(string $policy): ?string
