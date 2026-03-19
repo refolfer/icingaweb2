@@ -110,7 +110,7 @@ class Csp
         }
 
         $config = Config::app();
-        $customCsp = $config->get('security', 'custom_csp');
+        $customCsp = $config->get('security', 'custom_csp', '');
         $customCsp = str_replace("\r\n", ' ', $customCsp);
         $customCsp = str_replace("\n", ' ', $customCsp);
         $customCsp = str_replace('{style_nonce}', "'nonce-{$csp->styleNonce}'", $customCsp);
