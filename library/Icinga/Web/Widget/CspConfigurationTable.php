@@ -15,6 +15,53 @@ class CspConfigurationTable extends BaseHtmlElement
 {
     use Translation;
 
+    /** @var string[] */
+    protected const SECURE_KEYWORDS = [
+        "'self'",
+        "'none'",
+        "'strict-dynamic'",
+        "'report-sample'",
+        "'report-sha256'",
+        "'report-sha384'",
+        "'report-sha512'",
+    ];
+
+    /** @var string[] */
+    protected const WARNING_KEYWORDS = [
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "'unsafe-hashes'",
+    ];
+
+    /** @var string[] */
+    protected const SECURE_SCHEMAS = [
+        'https',
+        'wss',
+    ];
+
+    /** @var string[] */
+    protected const WARNING_SCHEMAS = [
+        'http',
+        'ws',
+        'blob',
+    ];
+
+    /** @var string[] */
+    protected const CRITICAL_DATA_DIRECTIVES = [
+        'default-src',
+        'script-src',
+        'object-src',
+        'frame-src',
+    ];
+
+    /** @var string[] */
+    protected const WARNING_DATA_DIRECTIVES = [
+        'style-src',
+        'worker-src',
+        'child-src',
+        'base-uri',
+    ];
+
     protected $tag = 'div';
 
     public function __construct()
@@ -132,27 +179,11 @@ class CspConfigurationTable extends BaseHtmlElement
 
     protected function getKeywordType(string $policy): ?string
     {
-        $secureKeywords = [
-            "'self'",
-            "'none'",
-            "'strict-dynamic'",
-            "'report-sample'",
-            "'report-sha256'",
-            "'report-sha384'",
-            "'report-sha512'",
-        ];
-
-        if (in_array($policy, $secureKeywords)) {
+        if (in_array($policy, static::SECURE_KEYWORDS)) {
             return 'secure';
         }
 
-        $warningKeywords = [
-            "'unsafe-inline'",
-            "'unsafe-eval'",
-            "'unsafe-hashes'",
-        ];
-
-        if (in_array($policy, $warningKeywords)) {
+        if (in_array($policy, static::WARNING_KEYWORDS)) {
             return 'warning';
         }
 
@@ -171,42 +202,19 @@ class CspConfigurationTable extends BaseHtmlElement
 
         $schema = substr($policy, 0, -1);
 
-        $secureSchemas = [
-            'https',
-            'wss',
-        ];
-
-        if (in_array($schema, $secureSchemas)) {
+        if (in_array($schema, static::SECURE_SCHEMAS)) {
             return 'secure';
         }
 
-        $warningSchemas = [
-            'http',
-            'ws',
-            'blob',
-        ];
-
-        if (in_array($schema, $warningSchemas)) {
+        if (in_array($schema, static::WARNING_SCHEMAS)) {
             return 'warning';
         }
 
-        if ($schema === 'data' && in_array($directive,
-                [
-                    'default-src',
-                    'script-src',
-                    'object-src',
-                    'frame-src',
-                ])) {
+        if ($schema === 'data' && in_array($directive, static::CRITICAL_DATA_DIRECTIVES)) {
             return 'critical';
         }
 
-        if ($schema === 'data' && in_array($directive,
-                [
-                    'style-src',
-                    'worker-src',
-                    'child-src',
-                    'base-uri',
-                ])) {
+        if ($schema === 'data' && in_array($directive, static::WARNING_DATA_DIRECTIVES)) {
             return 'warning';
         }
 
@@ -222,21 +230,15 @@ class CspConfigurationTable extends BaseHtmlElement
     {
         if ($policy === '*') {
             $result = HtmlElement::create('span', ['class' => 'wildcard'], $policy);
-        } else if ($policy === "'self'") {
+        } elseif ($policy === "'self'") {
             $result = HtmlElement::create('span', ['class' => 'self'], $policy);
-        } else if (($keyword = $this->getKeywordType($policy)) !== null) {
-            $result = HtmlElement::create(
-                'span', ['class' => ['keyword', $keyword]], $policy
-            );
-        } else if (($scheme = $this->getSchemeType($directive, $policy)) !== null) {
-            $result = HtmlElement::create(
-                'span', ['class' => ['scheme', $scheme]], $policy
-            );
-        } else if ($this->isNonce($policy)) {
-            $result = HtmlElement::create(
-                'span', ['class' => 'nonce'], $policy
-            );
-        } else if (filter_var($policy, FILTER_VALIDATE_URL) !== false) {
+        } elseif (($keyword = $this->getKeywordType($policy)) !== null) {
+            $result = HtmlElement::create('span', ['class' => ['keyword', $keyword]], $policy);
+        } elseif (($scheme = $this->getSchemeType($directive, $policy)) !== null) {
+            $result = HtmlElement::create('span', ['class' => ['scheme', $scheme]], $policy);
+        } elseif ($this->isNonce($policy)) {
+            $result = HtmlElement::create('span', ['class' => 'nonce'], $policy);
+        } elseif (filter_var($policy, FILTER_VALIDATE_URL) !== false) {
             $result = new Link($policy, $policy, ['target' => '_blank']);
         } else {
             $result = HtmlElement::create('span', null, $policy);
