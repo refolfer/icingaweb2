@@ -125,7 +125,7 @@ class ConfigController extends Controller
      *
      * @throws SecurityException If the user lacks the permission for configuring the security configuration
      */
-    public function securityAction()
+    public function securityAction(): void
     {
         $this->assertPermission('config/security');
 
@@ -140,9 +140,8 @@ class ConfigController extends Controller
             'include_user_content' => $config->get('security', 'include_user_content'),
         ]);
 
-        $wasCspEnabled = Csp::isEnabled();
-        $cspForm->on(ContractForm::ON_SUBMIT, function (CspConfigForm $form) use ($config, $wasCspEnabled) {
-            if ($form->hasConfigChanged() && ($form->isCspEnabled() || $wasCspEnabled)) {
+        $cspForm->on(ContractForm::ON_SUBMIT, function (CspConfigForm $form) use ($config) {
+            if ($form->hasConfigChanged()) {
                 $this->getResponse()->setReloadWindow(true);
             }
         });

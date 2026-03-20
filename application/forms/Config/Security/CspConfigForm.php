@@ -116,7 +116,7 @@ class CspConfigForm extends CompatForm
                         . ' Enable Custom CSP checkbox above.',
                     ),
                     'disabled'    => true,
-                    'value'       => Csp::getAutomaticHeaderValue($this->shouldIncludeUserContent()),
+                    'value'       => Csp::getAutomaticHeader($this->shouldIncludeUserContent())->getHeader(),
                 ]);
 
                 $this->add(HtmlElement::create(
