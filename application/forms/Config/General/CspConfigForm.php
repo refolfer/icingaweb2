@@ -53,6 +53,7 @@ class CspConfigForm extends CompatForm
         if (! $this->isCspEnabled()) {
             $this->addElement('hidden', 'use_custom_csp');
             $this->addElement('hidden', 'custom_csp');
+            $this->addElement('hidden', 'include_user_content');
         } else {
             $this->addElement(
                 'checkbox',
@@ -69,6 +70,8 @@ class CspConfigForm extends CompatForm
             );
 
             if ($this->isCustomCspEnabled()) {
+                $this->addElement('hidden', 'include_user_content');
+
                 $this->addHtml((new Callout(
                     CalloutType::Warning,
                     $this->translate(
@@ -89,6 +92,22 @@ class CspConfigForm extends CompatForm
             } else {
                 $this->addElement('hidden', 'custom_csp');
 
+                $this->addElement(
+                    'checkbox',
+                    'include_user_content',
+                    [
+                        'label'          => $this->translate('Include User Content'),
+                        'description'    => $this->translate(
+                            'If enabled, the user defined content like iframes in dashboards or '
+                            . 'menus will be included. Note: You will only be able to see the content that you '
+                            . 'have access to. There is no way to know what others have configured for themselves',
+                        ),
+                        'class'          => 'autosubmit',
+                        'checkedValue'   => '1',
+                        'uncheckedValue' => '0',
+                    ],
+                );
+
                 Csp::createNonce();
                 $this->addElement('textarea', 'generated_csp', [
                     'label'       => $this->translate('Generated CSP'),
@@ -97,9 +116,8 @@ class CspConfigForm extends CompatForm
                         . ' Enable Custom CSP checkbox above.',
                     ),
                     'disabled'    => true,
-                    'value'       => Csp::getAutomaticHeaderValue(),
+                    'value'       => Csp::getAutomaticHeaderValue($this->shouldIncludeUserContent()),
                 ]);
-
 
                 $this->add(HtmlElement::create(
                     'div',
@@ -107,7 +125,7 @@ class CspConfigForm extends CompatForm
                         'class'               => 'collapsible',
                         'data-visible-height' => 250,
                     ],
-                    new CspConfigurationTable(),
+                    new CspConfigurationTable($this->shouldIncludeUserContent()),
                 ));
             }
         }
@@ -128,6 +146,8 @@ class CspConfigForm extends CompatForm
             $section['use_custom_csp'] = $this->getValue('use_custom_csp');
             if ($this->isCustomCspEnabled()) {
                 $section['custom_csp'] = $this->getValue('custom_csp');
+            } else {
+                $section['include_user_content'] = $this->getValue('include_user_content');
             }
         }
 
@@ -146,6 +166,11 @@ class CspConfigForm extends CompatForm
     public function hasConfigChanged(): bool
     {
         return $this->changed;
+    }
+
+    public function shouldIncludeUserContent(): bool
+    {
+        return $this->getValue('include_user_content') === '1';
     }
 
     public function isCspEnabled(): bool

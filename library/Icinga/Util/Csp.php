@@ -69,14 +69,21 @@ class Csp
     /**
      * Collects all CSP directives in an array where the system defaults are first.
      *
+     * @param bool|null $includeUserContent
+     *
      * @return Generator the list of CSP directives
      */
-    public static function collectDirectives(): Generator
+    public static function collectDirectives(?bool $includeUserContent = null): Generator
     {
+        if ($includeUserContent === null) {
+            $includeUserContent = Config::app()->get('security', 'include_user_content', '0') === '1';
+        }
         yield from self::yieldSystemOrigins();
-        yield from self::yieldNavigationOrigins();
-        yield from self::yieldDashletOrigins();
         yield from self::yieldModuleOrigins();
+        if ($includeUserContent) {
+            yield from self::yieldNavigationOrigins();
+            yield from self::yieldDashletOrigins();
+        }
     }
 
     /**
@@ -124,10 +131,10 @@ class Csp
      * @return string Returns the generated header value.
      * @throws RuntimeException If no nonce set for CSS
      */
-    public static function getAutomaticHeaderValue(): string
+    public static function getAutomaticHeaderValue(?bool $includeUserContent = null): string
     {
         $cspDirectives = [];
-        foreach (self::collectDirectives() as $directive) {
+        foreach (self::collectDirectives($includeUserContent) as $directive) {
             foreach ($directive['directives'] as $directive => $policies) {
                 if (! isset($cspDirectives[$directive])) {
                     $cspDirectives[$directive] = [];

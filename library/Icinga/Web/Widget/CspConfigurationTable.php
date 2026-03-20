@@ -66,6 +66,11 @@ class CspConfigurationTable extends BaseHtmlElement
 
     protected $tag = 'div';
 
+    public function __construct(
+        protected ?bool $includeUserContent = null,
+    ) {
+    }
+
     protected function addPolicyTable(
         string $title,
         string $filterType,
@@ -112,7 +117,7 @@ class CspConfigurationTable extends BaseHtmlElement
 
     protected function assemble(): void
     {
-        $csp = iterator_to_array(Csp::collectDirectives(), false);
+        $csp = iterator_to_array(Csp::collectDirectives($this->includeUserContent), false);
 
         $this->addPolicyTable(
             t('System'),
