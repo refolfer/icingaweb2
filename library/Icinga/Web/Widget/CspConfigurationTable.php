@@ -15,6 +15,8 @@ class CspConfigurationTable extends BaseHtmlElement
 {
     use Translation;
 
+    protected $defaultAttributes = ['class' => 'csp-config-table'];
+
     /** @var string[] */
     protected const SECURE_KEYWORDS = [
         "'self'",
@@ -63,11 +65,6 @@ class CspConfigurationTable extends BaseHtmlElement
     ];
 
     protected $tag = 'div';
-
-    public function __construct()
-    {
-        $this->getAttributes()->add('class', 'csp-config-table');
-    }
 
     protected function addPolicyTable(
         string $title,
@@ -155,7 +152,7 @@ class CspConfigurationTable extends BaseHtmlElement
                 return Table::tr([
                     Table::td($reason['navType']),
                     Table::td($reason['name']),
-                    Table::td($reason['parent'] ?? 'NA'),
+                    Table::td($reason['parent'] ?? t('NA')),
                     Table::td($directive),
                     $this->buildPolicy($directive, $policy),
                 ]);

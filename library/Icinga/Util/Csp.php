@@ -136,15 +136,13 @@ class Csp
             }
         }
 
-        unset($policyDirectives);
-
         $headerSegments = [];
-        foreach ($cspDirectives as $directive => $policyDirectives) {
-            if (empty($policyDirectives)) {
+        foreach ($cspDirectives as $directive => $directivePolicies) {
+            if (empty($directivePolicies)) {
                 continue;
             }
 
-            $headerSegments[] = implode(' ', array_merge([$directive], array_unique($policyDirectives)));
+            $headerSegments[] = implode(' ', array_merge([$directive], array_unique($directivePolicies)));
         }
 
         return implode('; ', $headerSegments);

@@ -119,8 +119,9 @@ class ConfigController extends Controller
             'custom_csp' => $config->get('security', 'custom_csp'),
         ]);
 
-        $cspForm->on(ContractForm::ON_SUBMIT, function (CspConfigForm $form) use ($config) {
-            if ($form->isCspEnabled() && $form->hasConfigChanged()) {
+        $wasCspEnabled = Csp::isEnabled();
+        $cspForm->on(ContractForm::ON_SUBMIT, function (CspConfigForm $form) use ($config, $wasCspEnabled) {
+            if ($form->hasConfigChanged() && ($form->isCspEnabled() || $wasCspEnabled)) {
                 $this->getResponse()->setReloadWindow(true);
             }
         });
