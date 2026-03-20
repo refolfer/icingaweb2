@@ -2,7 +2,7 @@
 
 /* Icinga Web 2 | (c) 2026 Icinga GmbH | GPLv2+ */
 
-namespace Icinga\Forms\Config\General;
+namespace Icinga\Forms\Config\Security;
 
 use Icinga\Application\Config;
 use Icinga\Util\Csp;

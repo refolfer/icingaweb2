@@ -8,9 +8,7 @@ namespace Icinga\Controllers;
 use Exception;
 use GuzzleHttp\Psr7\ServerRequest;
 use Icinga\Application\Version;
-use Icinga\Forms\Config\General\CspConfigForm;
 use Icinga\Util\Csp;
-use Icinga\Web\Widget\CspConfigurationTable;
 use InvalidArgumentException;
 use Icinga\Application\Config;
 use Icinga\Application\Icinga;
@@ -21,6 +19,7 @@ use Icinga\Exception\NotFoundError;
 use Icinga\Forms\ActionForm;
 use Icinga\Forms\Config\GeneralConfigForm;
 use Icinga\Forms\Config\ResourceConfigForm;
+use Icinga\Forms\Config\Security\CspConfigForm;
 use Icinga\Forms\Config\UserBackendConfigForm;
 use Icinga\Forms\Config\UserBackendReorderForm;
 use Icinga\Forms\ConfirmRemovalForm;
@@ -30,7 +29,6 @@ use Icinga\Web\Notification;
 use Icinga\Web\Url;
 use Icinga\Web\Widget;
 use ipl\Html\Contract\Form as ContractForm;
-use ipl\Html\Form;
 
 /**
  * Application and module configuration
@@ -48,6 +46,14 @@ class ConfigController extends Controller
                 'title' => $this->translate('Adjust the general configuration of Icinga Web 2'),
                 'label' => $this->translate('General'),
                 'url'   => 'config/general',
+                'baseTarget' => '_main'
+            ));
+        }
+        if ($this->hasPermission('config/security')) {
+            $tabs->add('security', array(
+                'title' => $this->translate('Adjust the security configuration of Icinga Web 2'),
+                'label' => $this->translate('Security'),
+                'url'   => 'config/security',
                 'baseTarget' => '_main'
             ));
         }
@@ -111,6 +117,20 @@ class ConfigController extends Controller
 
         $this->view->form = $form;
 
+        $this->createApplicationTabs()->activate('general');
+    }
+
+    /**
+     * Security configuration
+     *
+     * @throws SecurityException If the user lacks the permission for configuring the security configuration
+     */
+    public function securityAction()
+    {
+        $this->assertPermission('config/security');
+
+        $this->view->title = $this->translate('General');
+
         $config = Config::app();
         $cspForm = new CspConfigForm($config);
         $cspForm->populate([
@@ -129,7 +149,7 @@ class ConfigController extends Controller
         $cspForm->handleRequest(ServerRequest::fromGlobals());
         $this->view->cspForm = $cspForm;
 
-        $this->createApplicationTabs()->activate('general');
+        $this->createApplicationTabs()->activate('security');
     }
 
     /**
