@@ -5,21 +5,17 @@
 
 namespace Icinga\Util;
 
-use Generator;
-use Icinga\Application\ClassLoader;
 use Icinga\Application\Config;
-use Icinga\Application\Hook\CspDirectiveHook;
 use Icinga\Application\Icinga;
-use Icinga\Application\Logger;
-use Icinga\Authentication\Auth;
-use Icinga\Web\Navigation\Navigation;
-use Icinga\Web\Navigation\NavigationItem;
+use Icinga\Security\Csp\LoadedCsp;
+use Icinga\Security\Csp\Loader\DashboardCspLoader;
+use Icinga\Security\Csp\Loader\ModuleCspLoader;
+use Icinga\Security\Csp\Loader\NavigationCspLoader;
+use Icinga\Security\Csp\Loader\StaticCspLoader;
 use Icinga\Web\Response;
-use Icinga\Web\Url;
-use Icinga\Web\Widget\Dashboard;
 use Icinga\Web\Window;
+use ipl\Web\Common\Csp as CspInstance;
 use RuntimeException;
-use Throwable;
 use function ipl\Stdlib\get_php_type;
 
 /**
@@ -67,23 +63,39 @@ class Csp
     }
 
     /**
-     * Collects all CSP directives in an array where the system defaults are first.
-     *
-     * @param bool|null $includeUserContent
-     *
-     * @return Generator the list of CSP directives
+     * @return LoadedCsp[]
      */
-    public static function collectDirectives(?bool $includeUserContent = null): Generator
+    public static function load(?bool $includeUserContent = null): array
     {
+        $csp = static::getInstance();
+        if (empty($csp->styleNonce)) {
+            throw new RuntimeException('No nonce set for CSS');
+        }
+
+        $result = [];
+        $result = array_merge($result, (new StaticCspLoader(
+            'system',
+            [
+//                'default-src' => ["'self'"],
+                'style-src'   => ["'self'", "'nonce-{$csp->styleNonce}'"],
+                'font-src'    => ["'self'", "data:"],
+                'img-src'     => ["'self'", "data:"],
+                'frame-src'   => ["'self'"],
+            ]
+        ))->load());
+
+        $result = array_merge($result, (new ModuleCspLoader())->load());
+
         if ($includeUserContent === null) {
             $includeUserContent = Config::app()->get('security', 'include_user_content', '0') === '1';
         }
-        yield from self::yieldSystemOrigins();
-        yield from self::yieldModuleOrigins();
+
         if ($includeUserContent) {
-            yield from self::yieldNavigationOrigins();
-            yield from self::yieldDashletOrigins();
+            $result = array_merge($result, (new DashboardCspLoader())->load());
+            $result = array_merge($result, (new NavigationCspLoader())->load());
         }
+
+        return $result;
     }
 
     /**
@@ -96,19 +108,19 @@ class Csp
     {
         $config = Config::app();
         if ($config->get('security', 'use_custom_csp', '0') === '1') {
-            return self::getCustomHeaderValue();
+            return self::getCustomHeader();
         }
 
-        return self::getAutomaticHeaderValue();
+        return self::getAutomaticHeader();
     }
 
     /**
      * Get the custom Content-Security-Policy set in the config.
      * This method automatically replaces new-lines and the {style_nonce} placeholder with the generated nonce.
      *
-     * @return string Returns the custom CSP header value.
+     * @return CspInstance Returns the custom CSP header.
      */
-    protected static function getCustomHeaderValue(): string
+    protected static function getCustomHeader(): CspInstance
     {
         $csp = static::getInstance();
 
@@ -122,37 +134,19 @@ class Csp
         $customCsp = str_replace("\n", ' ', $customCsp);
         $customCsp = str_replace('{style_nonce}', "'nonce-{$csp->styleNonce}'", $customCsp);
 
-        return $customCsp;
+        return CspInstance::fromString($customCsp);
     }
 
     /**
      * Get the automatically generated Content-Security-Policy.
      *
-     * @return string Returns the generated header value.
+     * @return CspInstance Returns the generated header value.
      * @throws RuntimeException If no nonce set for CSS
      */
-    public static function getAutomaticHeaderValue(?bool $includeUserContent = null): string
+    public static function getAutomaticHeader(?bool $includeUserContent = null): CspInstance
     {
-        $cspDirectives = [];
-        foreach (self::collectDirectives($includeUserContent) as $directive) {
-            foreach ($directive['directives'] as $directive => $policies) {
-                if (! isset($cspDirectives[$directive])) {
-                    $cspDirectives[$directive] = [];
-                }
-                $cspDirectives[$directive] = array_merge($cspDirectives[$directive], $policies);
-            }
-        }
-
-        $headerSegments = [];
-        foreach ($cspDirectives as $directive => $directivePolicies) {
-            if (empty($directivePolicies)) {
-                continue;
-            }
-
-            $headerSegments[] = implode(' ', array_merge([$directive], array_unique($directivePolicies)));
-        }
-
-        return implode('; ', $headerSegments);
+        $csps = self::load($includeUserContent);
+        return CspInstance::merge(...$csps);
     }
 
     /**
@@ -208,204 +202,5 @@ class Csp
         }
 
         return static::$instance;
-    }
-
-    /**
-     * Yields the system origins.
-     * These directives should always be added first.
-     *
-     * @return Generator
-     */
-    protected static function yieldSystemOrigins(): Generator
-    {
-        $csp = static::getInstance();
-
-        if (empty($csp->styleNonce)) {
-            throw new RuntimeException('No nonce set for CSS');
-        }
-
-        $items = [
-            'default-src' => ["'self'"],
-            'style-src' => ["'self'", "'nonce-{$csp->styleNonce}'"],
-            'font-src'  => ["'self'", "data:"],
-            'img-src'   => ["'self'", "data:"],
-            'frame-src' => ["'self'"],
-        ];
-
-        foreach ($items as $directive => $policies) {
-            yield [
-                'directives' => [
-                    $directive => $policies,
-                ],
-                'reason' => [
-                    'type'   => 'system',
-                ]
-            ];
-        }
-    }
-
-    /**
-     * Yield all CSP directives from modules. See {@see CspDirectiveHook} for details.
-     * @return Generator
-     */
-    protected static function yieldModuleOrigins(): Generator
-    {
-        // Allow modules to add their own csp directives in a limited fashion.
-        foreach (CspDirectiveHook::all() as $hook) {
-            $directives = [];
-            try {
-                foreach ($hook->getCspDirectives() as $directive => $policies) {
-                    // policy names contain only lowercase letters and '-'. Reject anything else.
-                    if (! preg_match('|^[a-z\-]+$|', $directive)) {
-                        $errorSource = get_class($hook);
-                        Logger::debug("$errorSource: Invalid CSP directive found: $directive");
-                        continue;
-                    }
-
-                    // The default-src can only ever be 'self'. Disallow any updates to it.
-                    if ($directive === "default-src") {
-                        $errorSource = get_class($hook);
-                        Logger::debug("$errorSource: Changing default-src is forbidden.");
-                        continue;
-                    }
-
-                    if (count($policies) === 0) {
-                        continue;
-                    }
-
-                    $directives[$directive] = $policies;
-                }
-
-                if (count($directives) === 0) {
-                    continue;
-                }
-
-                yield [
-                    'directives' => $directives,
-                    'reason' => [
-                        'type' => 'module',
-                        'module' => ClassLoader::extractModuleName(get_class($hook)),
-                    ],
-                ];
-            } catch (Throwable $e) {
-                Logger::error('Failed to CSP hook on request: %s', $e);
-            }
-        }
-    }
-
-    /**
-     * Fetches navigation items for the current user.
-     *
-     * Iterates through all registered navigation types, loads both user-specific
-     * and shared configurations, and returns a list of menu items.
-     *
-     * @return Generator A list of CSP directives, one for each navigation-item that has an external URL.
-     */
-    protected static function yieldNavigationOrigins(): Generator
-    {
-        $auth = Auth::getInstance();
-        if (! $auth->isAuthenticated()) {
-            return;
-        }
-
-        $navigationType = Navigation::getItemTypeConfiguration();
-        foreach ($navigationType as $type => $_) {
-            $navigation = new Navigation();
-            foreach ($navigation->load($type) as $navItem) {
-                foreach (self::yieldNavigation($navItem) as $name => $url) {
-                    $cspUrl = $url->getScheme() . '://' . $url->getHost();
-                    if (($port = $url->getPort()) !== null) {
-                        $cspUrl .= ':' . $port;
-                    }
-                    yield [
-                        'directives' => [
-                            'frame-src' => [$cspUrl],
-                        ],
-                        'reason' => [
-                            'type'   => 'navigation',
-                            'name'   => $name,
-                            'parent' => $name !== $navItem->getName() ? $navItem->getName() : null,
-                            'navType' => $type,
-                        ]
-                    ];
-                }
-            }
-        }
-    }
-
-    /**
-     * Recursively yield all navigation items that have an external URL.
-     *
-     * @param NavigationItem $item The top-level navigation item to start from.
-     * @return Generator
-     */
-    protected static function yieldNavigation(NavigationItem $item): Generator
-    {
-        if ($item->hasChildren()) {
-            foreach ($item as $child) {
-                yield from self::yieldNavigation($child);
-            }
-        }
-
-        $url = $item->getUrl();
-        if ($url === null) {
-            return;
-        }
-        if ($item->getTarget() !== '_blank' && $url->isExternal()) {
-            yield $item->getName() => $item->getUrl();
-        }
-    }
-
-    /**
-     * Fetches all dashlets for the current user that have an external URL.
-     *
-     * @return Generator A list of CSP directives, one for each dashlet that has an external URL.
-     */
-    protected static function yieldDashletOrigins(): Generator
-    {
-        $user = Auth::getInstance()->getUser();
-        if ($user === null) {
-            return;
-        }
-
-        $dashboard = new Dashboard();
-        $dashboard->setUser($user);
-        $dashboard->load();
-
-        /** @var Dashboard\Pane $pane */
-        foreach ($dashboard->getPanes() as $pane) {
-            /** @var Dashboard\Dashlet $dashlet */
-            foreach ($pane->getDashlets() as $dashlet) {
-                $url = $dashlet->getUrl();
-                if ($url === null) {
-                    continue;
-                }
-
-                $absoluteUrl = $url->isExternal()
-                    ? $url->getAbsoluteUrl()
-                    : $url->getParam('url');
-                if ($absoluteUrl === null || filter_var($absoluteUrl, FILTER_VALIDATE_URL) === false) {
-                    continue;
-                }
-
-                $absoluteUrl = Url::fromPath($absoluteUrl);
-
-                $cspUrl = $absoluteUrl->getScheme() . '://' . $absoluteUrl->getHost();
-                if (($port = $absoluteUrl->getPort()) !== null) {
-                    $cspUrl .= ':' . $port;
-                }
-
-                yield [
-                    'directives' => [
-                        'frame-src' => [$cspUrl],
-                    ],
-                    'reason' => [
-                        'type'    => 'dashlet',
-                        'pane'    => $pane->getName(),
-                        'dashlet' => $dashlet->getName(),
-                    ]
-                ];
-            }
-        }
     }
 }

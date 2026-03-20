@@ -4,6 +4,12 @@
 
 namespace Icinga\Web\Widget;
 
+use Icinga\Security\Csp\LoadedCsp;
+use Icinga\Security\Csp\Reason\CspReason;
+use Icinga\Security\Csp\Reason\DashboardCspReason;
+use Icinga\Security\Csp\Reason\ModuleCspReason;
+use Icinga\Security\Csp\Reason\NavigationCspReason;
+use Icinga\Security\Csp\Reason\StaticCspReason;
 use Icinga\Util\Csp;
 use ipl\Html\BaseHtmlElement;
 use ipl\Html\HtmlElement;
@@ -71,26 +77,31 @@ class CspConfigurationTable extends BaseHtmlElement
     ) {
     }
 
+    /**
+     * @param string $title
+     * @param callable $filter
+     * @param LoadedCsp[] $csps
+     * @param array $header
+     * @param callable $rowBuilder
+     *
+     * @return void
+     */
     protected function addPolicyTable(
         string $title,
-        string $filterType,
-        array $csp,
+        callable $filter,
+        array $csps,
         array $header,
-        callable $rowBuilder
+        callable $rowBuilder,
     ): void {
         $rows = [];
-        foreach ($csp as $row) {
-            $reason = $row['reason'];
-            $type = $reason['type'];
-            if ($type !== $filterType) {
+        foreach ($csps as $csp) {
+            if (! $filter($csp->loadReason)) {
                 continue;
             }
-            foreach ($row['directives'] as $directive => $policies) {
-                if (count($policies) === 0) {
-                    continue;
-                }
-                foreach ($policies as $k => $policy) {
-                    $rows[] = $rowBuilder($reason, $directive, $policy);
+            foreach ($csp->getDirectives() as $directive => $policies)
+            {
+                foreach ($policies as $policy) {
+                    $rows[] = $rowBuilder($csp->loadReason, $directive, $policy);
                 }
             }
         }
@@ -117,14 +128,17 @@ class CspConfigurationTable extends BaseHtmlElement
 
     protected function assemble(): void
     {
-        $csp = iterator_to_array(Csp::collectDirectives($this->includeUserContent), false);
+        $csps = Csp::load($this->includeUserContent);
 
         $this->addPolicyTable(
             t('System'),
-            'system',
-            $csp,
+            function (CspReason $reason) {
+                return $reason instanceof StaticCspReason
+                    && $reason->name === 'system';
+            },
+            $csps,
             [t('Directive'), t('Value')],
-            function (array $reason, string $directive, string $policy) {
+            function (StaticCspReason $reason, string $directive, string $policy) {
                 return Table::tr([
                     Table::td($directive),
                     $this->buildPolicy($directive, $policy),
@@ -134,48 +148,60 @@ class CspConfigurationTable extends BaseHtmlElement
 
         $this->addPolicyTable(
             t('Dashboard'),
-            'dashlet',
-            $csp,
+            function (CspReason $reason) {
+                return $reason instanceof DashboardCspReason;
+            },
+            $csps,
             [t('Dashboard'), t('Dashlet'), t('Directive'), t('Value')],
-            function (array $reason, string $directive, string $policy) {
+            function (DashboardCspReason $reason, string $directive, string $policy) {
                 return Table::tr([
-                    Table::td($reason['pane']),
-                    Table::td($reason['dashlet']),
+                    Table::td($reason->pane->getName()),
+                    Table::td($reason->dashlet->getName()),
                     Table::td($directive),
                     $this->buildPolicy($directive, $policy),
                 ]);
-            }
+            },
         );
 
         // TODO: Handle other types of navigation in extra tables
         $this->addPolicyTable(
             t('Navigation'),
-            'navigation',
-            $csp,
-            [t('Type'), t('Name'), t('Parent'), t('Directive'), t('Value')],
-            function (array $reason, string $directive, string $policy) {
+            function (CspReason $reason) {
+                return $reason instanceof NavigationCspReason;
+            },
+            $csps,
+            [t('Type'), t('Parent'), t('Name'), t('Directive'), t('Value')],
+            function (NavigationCspReason $reason, string $directive, string $policy) {
+                $parent = $reason->item->getParent();
+                if ($parent === null) {
+                    $parentCell = Table::td(t('None'))->setAttribute('class', 'empty-state');
+                } else {
+                    $parentCell = Table::td($parent->getName());
+                }
                 return Table::tr([
-                    Table::td($reason['navType']),
-                    Table::td($reason['name']),
-                    Table::td($reason['parent'] ?? t('NA')),
+                    Table::td($reason->type),
+                    $parentCell,
+                    Table::td($reason->item->getName()),
                     Table::td($directive),
                     $this->buildPolicy($directive, $policy),
                 ]);
-            }
+            },
         );
 
         $this->addPolicyTable(
             t('Modules'),
-            'module',
-            $csp,
+            function (CspReason $reason) {
+                return $reason instanceof ModuleCspReason;
+            },
+            $csps,
             [t('Module'), t('Directive'), t('Value')],
-            function (array $reason, string $directive, string $policy) {
+            function (ModuleCspReason $reason, string $directive, string $policy) {
                 return Table::tr([
-                    Table::td($reason['module']),
+                    Table::td($reason->module),
                     Table::td($directive),
                     $this->buildPolicy($directive, $policy),
                 ]);
-            }
+            },
         );
     }
 
