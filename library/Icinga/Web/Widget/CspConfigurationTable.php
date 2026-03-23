@@ -257,15 +257,15 @@ class CspConfigurationTable extends BaseHtmlElement
     protected function buildPolicy(string $directive, string $policy): BaseHtmlElement
     {
         if ($policy === '*') {
-            $result = HtmlElement::create('span', ['class' => 'wildcard'], $policy);
+            $result = HtmlElement::create('span', ['class' => 'csp-wildcard'], $policy);
         } elseif ($policy === "'self'") {
-            $result = HtmlElement::create('span', ['class' => 'self'], $policy);
+            $result = HtmlElement::create('span', ['class' => 'csp-self'], $policy);
         } elseif (($keyword = $this->getKeywordType($policy)) !== null) {
-            $result = HtmlElement::create('span', ['class' => ['keyword', $keyword]], $policy);
+            $result = HtmlElement::create('span', ['class' => ['csp-keyword', 'csp-' . $keyword]], $policy);
         } elseif (($scheme = $this->getSchemeType($directive, $policy)) !== null) {
-            $result = HtmlElement::create('span', ['class' => ['scheme', $scheme]], $policy);
+            $result = HtmlElement::create('span', ['class' => ['csp-scheme', 'csp-' . $scheme]], $policy);
         } elseif ($this->isNonce($policy)) {
-            $result = HtmlElement::create('span', ['class' => 'nonce'], $policy);
+            $result = HtmlElement::create('span', ['class' => 'csp-nonce'], $policy);
         } elseif (filter_var($policy, FILTER_VALIDATE_URL) !== false) {
             $result = new Link($policy, $policy, ['target' => '_blank']);
         } else {
