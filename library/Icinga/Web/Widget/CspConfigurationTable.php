@@ -98,8 +98,7 @@ class CspConfigurationTable extends BaseHtmlElement
             if (! $filter($csp->loadReason)) {
                 continue;
             }
-            foreach ($csp->getDirectives() as $directive => $policies)
-            {
+            foreach ($csp->getDirectives() as $directive => $policies) {
                 foreach ($policies as $policy) {
                     $rows[] = $rowBuilder($csp->loadReason, $directive, $policy);
                 }

@@ -16,5 +16,5 @@ abstract class CspLoader
      *
      * @return LoadedCsp[]
      */
-    public abstract function load(): array;
+    abstract public function load(): array;
 }

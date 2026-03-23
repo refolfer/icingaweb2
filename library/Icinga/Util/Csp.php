@@ -76,11 +76,11 @@ class Csp
         $result = array_merge($result, (new StaticCspLoader(
             'system',
             [
-//                'default-src' => ["'self'"],
-                'style-src'   => ["'self'", "'nonce-{$csp->styleNonce}'"],
-                'font-src'    => ["'self'", "data:"],
-                'img-src'     => ["'self'", "data:"],
-                'frame-src'   => ["'self'"],
+                /* There is no need to define `default-src` here, as it is already defined in the base CSP */
+                'style-src' => ["'self'", "'nonce-{$csp->styleNonce}'"],
+                'font-src'  => ["'self'", "data:"],
+                'img-src'   => ["'self'", "data:"],
+                'frame-src' => ["'self'"],
             ]
         ))->load());
 
