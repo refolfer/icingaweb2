@@ -16,7 +16,6 @@ use Icinga\Web\Response;
 use Icinga\Web\Window;
 use ipl\Web\Common\Csp as CspInstance;
 use RuntimeException;
-use function ipl\Stdlib\get_php_type;
 
 /**
  * Helper to enable strict content security policy (CSP)
@@ -31,11 +30,8 @@ use function ipl\Stdlib\get_php_type;
  */
 class Csp
 {
-    /** @var self|null */
-    protected static ?self $instance = null;
-
-    /** @var ?string */
-    protected ?string $styleNonce = null;
+    /** @var CspInstance|null */
+    protected static ?CspInstance $csp = null;
 
     /** Singleton */
     private function __construct()
@@ -59,7 +55,7 @@ class Csp
 
     public static function isEnabled(): bool
     {
-        return Config::app()->get('security', 'use_strict_csp', '0') === '1';
+        return Config::app()->get('security', 'use_strict_csp');
     }
 
     /**
@@ -67,8 +63,8 @@ class Csp
      */
     public static function load(?bool $includeUserContent = null): array
     {
-        $csp = static::getInstance();
-        if (empty($csp->styleNonce)) {
+        $nonce = static::getStyleNonce();
+        if (empty($nonce)) {
             throw new RuntimeException('No nonce set for CSS');
         }
 
@@ -77,7 +73,7 @@ class Csp
             'system',
             [
                 /* There is no need to define `default-src` here, as it is already defined in the base CSP */
-                'style-src' => ["'self'", "'nonce-{$csp->styleNonce}'"],
+                'style-src' => ["'self'", "'nonce-{$nonce}'"],
                 'font-src'  => ["'self'", "data:"],
                 'img-src'   => ["'self'", "data:"],
                 'frame-src' => ["'self'"],
@@ -106,12 +102,16 @@ class Csp
      */
     public static function getHeader(): string
     {
-        $config = Config::app();
-        if ($config->get('security', 'use_custom_csp', '0') === '1') {
-            return self::getCustomHeader();
+        if (static::$csp === null) {
+            $config = Config::app();
+            if ($config->get('security', 'use_custom_csp')) {
+                static::$csp = self::getCustomHeader();
+            } else {
+                static::$csp = self::getAutomaticHeader();
+            }
         }
 
-        return self::getAutomaticHeader();
+        return static::$csp->getHeader();
     }
 
     /**
@@ -122,17 +122,14 @@ class Csp
      */
     protected static function getCustomHeader(): CspInstance
     {
-        $csp = static::getInstance();
-
-        if (empty($csp->styleNonce)) {
+        $nonce = static::getStyleNonce();
+        if (empty($nonce)) {
             throw new RuntimeException('No nonce set for CSS');
         }
 
         $config = Config::app();
         $customCsp = $config->get('security', 'custom_csp', '');
-        $customCsp = str_replace("\r\n", ' ', $customCsp);
-        $customCsp = str_replace("\n", ' ', $customCsp);
-        $customCsp = str_replace('{style_nonce}', "'nonce-{$csp->styleNonce}'", $customCsp);
+        $customCsp = str_replace('{style_nonce}', "'nonce-{$nonce}'", $customCsp);
 
         return CspInstance::fromString($customCsp);
     }
@@ -157,10 +154,9 @@ class Csp
      */
     public static function createNonce(): void
     {
-        $csp = static::getInstance();
-        if ($csp->styleNonce === null) {
-            $csp->styleNonce = base64_encode(random_bytes(16));
-            Window::getInstance()->getSessionNamespace('csp')->set('style_nonce', $csp->styleNonce);
+        if (Window::getInstance()->getSessionNamespace('csp')->get('style_nonce') === null) {
+            $nonce = base64_encode(random_bytes(16));
+            Window::getInstance()->getSessionNamespace('csp')->set('style_nonce', $nonce);
         }
     }
 
@@ -171,36 +167,10 @@ class Csp
      */
     public static function getStyleNonce(): ?string
     {
-        if (Icinga::app()->isWeb()) {
-            return static::getInstance()->styleNonce;
-        }
-        return null;
-    }
-
-    /**
-     * Get the CSP instance
-     *
-     * @return self
-     */
-    protected static function getInstance(): self
-    {
-        if (static::$instance === null) {
-            $csp = new static();
-            $nonce = Window::getInstance()->getSessionNamespace('csp')->get('style_nonce');
-            if ($nonce !== null && ! is_string($nonce)) {
-                throw new RuntimeException(
-                    sprintf(
-                        'Nonce value is expected to be string, got %s instead',
-                        get_php_type($nonce),
-                    ),
-                );
-            }
-
-            $csp->styleNonce = $nonce;
-
-            static::$instance = $csp;
+        if (Icinga::app()->isWeb() && static::$csp !== null) {
+            return static::$csp->getNonce();
         }
 
-        return static::$instance;
+        return Window::getInstance()->getSessionNamespace('csp')->get('style_nonce');
     }
 }
