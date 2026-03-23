@@ -4,12 +4,15 @@
 
 namespace Icinga\Forms\Config\Security;
 
+use Exception;
 use Icinga\Application\Config;
 use Icinga\Util\Csp;
 use Icinga\Web\Session;
 use Icinga\Web\Widget\CspConfigurationTable;
 use ipl\Html\HtmlElement;
+use ipl\Validator\CallbackValidator;
 use ipl\Web\Common\CalloutType;
+use ipl\Web\Common\Csp as CspInstance;
 use ipl\Web\Common\CsrfCounterMeasure;
 use ipl\Web\Common\FormUid;
 use ipl\Web\Compat\CompatForm;
@@ -88,6 +91,23 @@ class CspConfigForm extends CompatForm
                         'Set a custom CSP-Header. This completely overrides the automatically generated one.'
                         . ' Use the placeholder {style_nonce} to insert the automatically generated style nonce.',
                     ),
+                    'validators' => [
+                        new CallbackValidator(function ($value, CallbackValidator $validator) {
+                            if (empty($value)) {
+                                return true;
+                            }
+
+                            try {
+                                $value = str_replace('{style_nonce}', "'nonce-validation'", $value);
+                                CspInstance::fromString($value);
+                            } catch (Exception $e) {
+                                $validator->addMessage($e->getMessage());
+                                return false;
+                            }
+
+                            return true;
+                        }),
+                    ]
                 ]);
             } else {
                 $this->addElement('hidden', 'custom_csp');
