@@ -7,6 +7,7 @@ namespace Icinga\Util;
 
 use Icinga\Application\Config;
 use Icinga\Application\Icinga;
+use Icinga\Data\ConfigObject;
 use Icinga\Security\Csp\LoadedCsp;
 use Icinga\Security\Csp\Loader\DashboardCspLoader;
 use Icinga\Security\Csp\Loader\ModuleCspLoader;
@@ -61,8 +62,12 @@ class Csp
     /**
      * @return LoadedCsp[]
      */
-    public static function load(?bool $includeUserContent = null): array
+    public static function load(?ConfigObject $config = null): array
     {
+        if ($config === null) {
+            $config = Config::app()->getSection('security');
+        }
+
         $nonce = static::getStyleNonce();
         if (empty($nonce)) {
             throw new RuntimeException('No nonce set for CSS');
@@ -80,14 +85,15 @@ class Csp
             ]
         ))->load());
 
-        $result = array_merge($result, (new ModuleCspLoader())->load());
-
-        if ($includeUserContent === null) {
-            $includeUserContent = Config::app()->get('security', 'include_user_content', '0') === '1';
+        if ($config->get('csp_enable_modules', '1')) {
+            $result = array_merge($result, (new ModuleCspLoader())->load());
         }
 
-        if ($includeUserContent) {
+        if ($config->get('csp_enable_dashboards', '1')) {
             $result = array_merge($result, (new DashboardCspLoader())->load());
+        }
+
+        if ($config->get('csp_enable_navigation', '1')) {
             $result = array_merge($result, (new NavigationCspLoader())->load());
         }
 
@@ -140,9 +146,9 @@ class Csp
      * @return CspInstance Returns the generated header value.
      * @throws RuntimeException If no nonce set for CSS
      */
-    public static function getAutomaticHeader(?bool $includeUserContent = null): CspInstance
+    public static function getAutomaticHeader(): CspInstance
     {
-        $csps = self::load($includeUserContent);
+        $csps = self::load();
         return CspInstance::merge(...$csps);
     }
 

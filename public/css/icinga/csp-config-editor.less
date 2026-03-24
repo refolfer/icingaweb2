@@ -2,6 +2,9 @@
 
 // Layout
 .csp-config-table {
+  overflow-x: auto;
+  display: block;
+
   h3 {
     margin-top: 0;
 
@@ -10,10 +13,8 @@
     }
   }
 
-  table {
-    width: 100%;
-    overflow-x: auto;
-    display: block;
+  th {
+    min-width: 6em;
   }
 
   th:first-child,
@@ -31,6 +32,11 @@
     flex-direction: row;
     justify-content: end;
     gap: 0.25em;
+  }
+
+  .csp-policy-info {
+    margin-left: .5em;
+    opacity: .7;
   }
 }
 
@@ -70,14 +76,6 @@
     color: @color-critical;
   }
 
-  .csp-secure {
-    color: @color-ok;
-  }
-
-  .csp-nonce {
-    color: @color-unknown;
-  }
-
   a {
     font-weight: bold;
 
@@ -93,9 +91,53 @@
   .csp-config-table {
     padding-bottom: 2em;
     margin-left: 14em;
+    overflow-y: hidden;
   }
 
-  .btn-primary {
-    margin-top: 1em;
+  .csp-disabled,
+  .control-group:has(.csp-disabled) {
+    opacity: 0.5;
+  }
+
+  p.csp-form-hint {
+    margin-left: 14em;
+    opacity: 0.5;
+  }
+
+  h3.csp-form-hint {
+    margin-left: 12em;
+  }
+
+  h4.csp-form-hint {
+    margin-left: 14em;
+  }
+
+  .control-group:has(.csp-form-content-aligned) .control-label-group {
+    margin-left: 14em;
+    width: auto;
+
+    label {
+      text-align: left;
+    }
+  }
+}
+
+// Form style
+.csp-config-form {
+  .control-group:has(.csp-label-header-h3, .csp-label-header-h4) {
+    margin: 0.556em 0 0
+  }
+
+  .control-group:has(.csp-label-header-h3) .control-label-group label {
+    font-size: 1.167em;
+    font-weight: bold;
+  }
+
+  .control-group:has(.csp-label-header-h4) .control-label-group label {
+    font-weight: bold;
+  }
+
+  .control-group:has(.csp-form-header) {
+    margin-top: 2em;
   }
 }
