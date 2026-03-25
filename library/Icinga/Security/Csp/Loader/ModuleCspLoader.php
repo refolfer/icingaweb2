@@ -28,18 +28,15 @@ class ModuleCspLoader extends CspLoader
         $result = [];
 
         foreach (CspDirectiveHook::all() as $hook) {
-            $reason = new ModuleCspReason(ClassLoader::extractModuleName(get_class($hook)));
-            $csp = new LoadedCsp($reason);
             try {
-                foreach ($hook->getCspDirectives() as $directive => $policies) {
-                    if (count($policies) === 0) {
-                        continue;
-                    }
-
-                    $csp->add($directive, $policies);
-
-                    $result[] = $csp;
+                $csp = $hook->getCspDirectives();
+                if ($csp->isEmpty()) {
+                    continue;
                 }
+                $result[] = LoadedCsp::fromCsp(
+                    $csp,
+                    new ModuleCspReason(ClassLoader::extractModuleName(get_class($hook))),
+                );
             } catch (Throwable $e) {
                 Logger::error('Failed to CSP hook on request: %s', $e);
             }

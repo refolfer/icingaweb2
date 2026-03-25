@@ -19,4 +19,11 @@ class LoadedCsp extends Csp
         public readonly CspReason $loadReason,
     ) {
     }
+
+    public static function fromCsp(Csp $csp, CspReason $reason): static
+    {
+        $instance = new static($reason);
+        $instance->directives = $csp->directives;
+        return $instance;
+    }
 }
