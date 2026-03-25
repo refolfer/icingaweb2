@@ -252,15 +252,6 @@ class CspConfigForm extends CompatForm
                 },
             );
 
-//            $this->add(HtmlElement::create(
-//                'div',
-//                [
-//                    'class'               => 'collapsible',
-//                    'data-visible-height' => 250,
-//                ],
-//                $table,
-//            ));
-
             $this->addElement(
                 'checkbox',
                 'use_custom_csp',
@@ -435,7 +426,14 @@ class CspConfigForm extends CompatForm
             $table->add($row);
         }
 
-        $this->add($table);
+        $this->add(HtmlElement::create(
+            'div',
+            [
+                'class'               => 'collapsible',
+                'data-visible-height' => 100,
+            ],
+            $table,
+        ));
     }
 
     protected function getKeywordType(string $policy): ?string
