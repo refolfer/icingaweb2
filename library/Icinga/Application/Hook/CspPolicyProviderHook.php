@@ -8,18 +8,18 @@ use Icinga\Application\Hook;
 use ipl\Web\Common\Csp;
 
 /**
- * Allow modules to provide custom CSP directives.
+ * Allow modules to provide custom Content-Security-Policy policies.
  * This hook is only used if the CSP header is enabled.
  */
-abstract class CspDirectiveHook
+abstract class CspPolicyProviderHook
 {
     /**
-     * Allow the module to provide custom directives for the CSP header. The return value should be an instance of Csp
-     * with the requested directives.
+     * Allow the module to provide custom directives and policies for the CSP header.
+     * The return value should be an instance of Csp with the requested policies.
      *
      * @return Csp a CSP instance, this instance will be merged with all other requested directives.
      */
-    abstract public function getCspDirectives(): Csp;
+    abstract public function getCsp(): Csp;
 
     /**
      * Get all registered implementations
@@ -28,16 +28,16 @@ abstract class CspDirectiveHook
      */
     public static function all(): array
     {
-        return Hook::all('CspDirective');
+        return Hook::all('CspPolicyProvider');
     }
 
     /**
-     * Register the class as a CspDirectiveHook implementation
+     * Register the class as a CspPolicyProviderHook implementation
      *
      * Call this method on your implementation during module initialization to make Icinga Web aware of your hook.
      */
     public static function register(): void
     {
-        Hook::register('CspDirective', static::class, static::class, true);
+        Hook::register('CspPolicyProvider', static::class, static::class, true);
     }
 }

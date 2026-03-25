@@ -4,7 +4,7 @@
 namespace Icinga\Security\Csp\Loader;
 
 use Icinga\Application\ClassLoader;
-use Icinga\Application\Hook\CspDirectiveHook;
+use Icinga\Application\Hook\CspPolicyProviderHook;
 use Icinga\Application\Logger;
 use Icinga\Security\Csp\LoadedCsp;
 use Icinga\Security\Csp\Reason\ModuleCspReason;
@@ -12,14 +12,14 @@ use Throwable;
 
 /**
  * Loads CSP directives from modules.
- * Modules can implement the {@see CspDirectiveHook} interface to provide custom CSP directives.
+ * Modules can implement the {@see CspPolicyProviderHook} interface to provide custom CSP directives.
  * The hook is called for each request, allowing modules to dynamically add or modify CSP policies.
  */
 class ModuleCspLoader extends CspLoader
 {
     /**
      * List all CSP directives from modules.
-     * See {@see CspDirectiveHook} for details.
+     * See {@see CspPolicyProviderHook} for details.
      *
      * @return LoadedCsp[]
      */
@@ -27,9 +27,9 @@ class ModuleCspLoader extends CspLoader
     {
         $result = [];
 
-        foreach (CspDirectiveHook::all() as $hook) {
+        foreach (CspPolicyProviderHook::all() as $hook) {
             try {
-                $csp = $hook->getCspDirectives();
+                $csp = $hook->getCsp();
                 if ($csp->isEmpty()) {
                     continue;
                 }
