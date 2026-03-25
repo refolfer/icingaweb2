@@ -342,6 +342,8 @@ class CspConfigForm extends CompatForm
             return;
         }
 
+        $config->setSection('security', $section);
+
         $config->saveIni();
     }
 
@@ -392,6 +394,7 @@ class CspConfigForm extends CompatForm
                 'checkedValue' => '1',
                 'uncheckedValue' => '0',
                 'disabled' => ! $enabled,
+                'value' => $this->getPopulatedValue($field),
             ]);
 
             if ($disabledClass === '') {
