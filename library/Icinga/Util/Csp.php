@@ -5,8 +5,10 @@
 
 namespace Icinga\Util;
 
+use Exception;
 use Icinga\Application\Config;
 use Icinga\Application\Icinga;
+use Icinga\Application\Logger;
 use Icinga\Data\ConfigObject;
 use Icinga\Security\Csp\LoadedCsp;
 use Icinga\Security\Csp\Loader\DashboardCspLoader;
@@ -56,7 +58,7 @@ class Csp
 
     public static function isEnabled(): bool
     {
-        return Config::app()->get('security', 'use_strict_csp');
+        return (bool) Config::app()->get('security', 'use_strict_csp', '0');
     }
 
     /**
@@ -85,16 +87,28 @@ class Csp
             ]
         ))->load());
 
-        if ($config->get('csp_enable_modules', '1')) {
-            $result = array_merge($result, (new ModuleCspLoader())->load());
+        try {
+            if ($config->get('csp_enable_modules', '1')) {
+                $result = array_merge($result, (new ModuleCspLoader())->load());
+            }
+        } catch (Exception $e) {
+            Logger::warning('Module CSP loader failed: %s', $e->getMessage());
         }
 
-        if ($config->get('csp_enable_dashboards', '1')) {
-            $result = array_merge($result, (new DashboardCspLoader())->load());
+        try {
+            if ($config->get('csp_enable_dashboards', '1')) {
+                $result = array_merge($result, (new DashboardCspLoader())->load());
+            }
+        } catch (Exception $e) {
+            Logger::warning('Dashboard CSP loader failed: %s', $e->getMessage());
         }
 
-        if ($config->get('csp_enable_navigation', '1')) {
-            $result = array_merge($result, (new NavigationCspLoader())->load());
+        try {
+            if ($config->get('csp_enable_navigation', '1')) {
+                $result = array_merge($result, (new NavigationCspLoader())->load());
+            }
+        } catch (Exception $e) {
+            Logger::warning('Navigation CSP loader failed: %s', $e->getMessage());
         }
 
         return $result;
