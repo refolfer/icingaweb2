@@ -16,6 +16,8 @@ use Icinga\Module\Monitoring\Object\MonitoredObject;
  */
 abstract class GrapherHook extends WebBaseHook
 {
+    use Essentials;
+
     /**
      * Whether this grapher provides previews
      *
@@ -29,6 +31,11 @@ abstract class GrapherHook extends WebBaseHook
      * @var bool
      */
     protected $hasTinyPreviews = false;
+
+    protected static function getHookName(): string
+    {
+        return 'grapher';
+    }
 
     /**
      * Constructor must live without arguments right now

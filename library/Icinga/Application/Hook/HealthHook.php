@@ -15,6 +15,8 @@ use LogicException;
 
 abstract class HealthHook
 {
+    use Essentials;
+
     /** @var int */
     const STATE_OK = 0;
 
@@ -38,6 +40,11 @@ abstract class HealthHook
 
     /** @var Url Url to a graphical representation of the available metrics */
     protected $url;
+
+    protected static function getHookName(): string
+    {
+        return 'health';
+    }
 
     /**
      * Get overall state
