@@ -94,6 +94,15 @@
     overflow-y: hidden;
   }
 
+  &:has(.csp-policies .icon) {
+    .csp-policies:not(:has(.icon)) {
+      padding-right: 2em;
+    }
+    th:last-child {
+      padding-right: 2em;
+    }
+  }
+
   .csp-disabled,
   .control-group:has(.csp-disabled) {
     opacity: 0.5;
