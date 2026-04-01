@@ -158,38 +158,40 @@ class CspConfigForm extends CompatForm
                 ),
             ));
 
-            $this->addPolicyTable(
-                t('System'),
-                null,
-                null,
-                ! $disabledState,
+            $this->addPolicyTitleElement($this->translate('System'), 'unused', null, ! $disabledState);
+            $this->addPolicyContentElement(
+                $csps,
+                [t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof StaticCspReason
                         && $reason->name === 'system';
                 },
-                $csps,
-                [t('Directive'), t('Value')],
                 function (StaticCspReason $reason, string $directive, string $policy) {
                     return Table::tr([
                         Table::td($directive),
                         $this->buildPolicy($directive, $policy),
                     ]);
                 },
+                ! $disabledState,
+                $this->translate('No system policies defined.')
             );
 
-            $this->addPolicyTable(
-                t('Modules'),
+            $this->addPolicyTitleElement(
+                $this->translate('Modules'),
                 $this->translate(
                     'Should module defined csp directives be enabled?'
                     . ' Note: Modules can define or change csp directives at any point.'
                 ),
                 'csp_enable_modules',
                 ! $disabledState,
+            );
+
+            $this->addPolicyContentElement(
+                $csps,
+                [t('Module'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof ModuleCspReason;
                 },
-                $csps,
-                [t('Module'), t('Directive'), t('Value')],
                 function (ModuleCspReason $reason, string $directive, string $policy) {
                     return Table::tr([
                         Table::td($reason->module),
@@ -197,21 +199,26 @@ class CspConfigForm extends CompatForm
                         $this->buildPolicy($directive, $policy),
                     ]);
                 },
+                $disabledState === false && $this->getValue('csp_enable_modules') === '1',
+                $this->translate('No module policies defined.')
             );
 
-            $this->addPolicyTable(
-                t('Dashboard'),
+            $this->addPolicyTitleElement(
+                $this->translate('Dashboard'),
                 $this->translate(
                     'Enable user defined dashboards. Note: You will only be able to see your own dashboards,'
                     . ' and there is currently no way to see what others have configured for themselves.'
                 ),
                 'csp_enable_dashboards',
                 ! $disabledState,
+            );
+
+            $this->addPolicyContentElement(
+                $csps,
+                [t('Dashboard'), t('Dashlet'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof DashboardCspReason;
                 },
-                $csps,
-                [t('Dashboard'), t('Dashlet'), t('Directive'), t('Value')],
                 function (DashboardCspReason $reason, string $directive, string $policy) {
                     return Table::tr([
                         Table::td($reason->pane->getName()),
@@ -220,21 +227,26 @@ class CspConfigForm extends CompatForm
                         $this->buildPolicy($directive, $policy),
                     ]);
                 },
+                $disabledState === false && $this->getValue('csp_enable_dashboards') === '1',
+                $this->translate('No dashboard policies found.'),
             );
 
-            $this->addPolicyTable(
-                t('Navigation'),
+            $this->addPolicyTitleElement(
+                $this->translate('Navigation'),
                 $this->translate(
                     'Enable navigation items. Note: You will only be able to see your own navigation items,'
                     . ' and there is currently no way to see what others have configured for themselves.'
                 ),
                 'csp_enable_navigation',
                 ! $disabledState,
+            );
+
+            $this->addPolicyContentElement(
+                $csps,
+                [t('Navigation'), t('Parent'), t('Name'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof NavigationCspReason;
                 },
-                $csps,
-                [t('Type'), t('Parent'), t('Name'), t('Directive'), t('Value')],
                 function (NavigationCspReason $reason, string $directive, string $policy) {
                     $parent = $reason->item->getParent();
                     if ($parent === null) {
@@ -250,6 +262,8 @@ class CspConfigForm extends CompatForm
                         $this->buildPolicy($directive, $policy),
                     ]);
                 },
+                $disabledState === false && $this->getValue('csp_enable_navigation') === '1',
+                $this->translate('No navigation policies found.'),
             );
 
             $this->addElement(
@@ -354,47 +368,55 @@ class CspConfigForm extends CompatForm
     }
 
     /**
-     * @param string $title the title of the policy table
-     * @param string|null $description a short description of the section
-     * @param string|null $field the name of the checkbox to enable/disable the policy table
-     * @param bool $enabled is the section enabled?
-     * @param callable $filter a filter function to determine whether to include a policy in the table
-     * @param LoadedCsp[] $csps the loaded CSPs
-     * @param array $header the header of the table
-     * @param callable $rowBuilder a function to build a row of the table
+     * @param string $title the title of the section
+     * @param string|null $description the description of the section
+     * @param string|null $field the name of the checkbox that controls the section
+     * @param bool $enabled whether the section should be enabled
      *
      * @return void
      */
-    protected function addPolicyTable(
+    protected function addPolicyTitleElement(
         string $title,
         ?string $description,
         ?string $field,
         bool $enabled,
-        callable $filter,
-        array $csps,
-        array $header,
-        callable $rowBuilder,
     ): void {
         $disabledClass = $enabled ? '' : 'csp-disabled';
 
-        if ($field !== null) {
-            $this->addElement('checkbox', $field, [
-                'label' => sprintf($this->translate('Enable %s'), $title),
-                'description' => $description,
-                'class' => "autosubmit csp-form-content-aligned csp-label-header-h4 $disabledClass",
-                'checkedValue' => '1',
-                'uncheckedValue' => '0',
-                'disabled' => ! $enabled,
-                'value' => $this->getPopulatedValue($field),
-            ]);
-
-            if ($disabledClass === '') {
-                $disabledClass = $this->getValue($field) ? '' : 'csp-disabled';
-            }
-        } else {
+        if ($field == null) {
             $this->add(HtmlElement::create('h4', ['class' => "csp-form-hint $disabledClass"], $title));
+            return;
         }
 
+        $this->addElement('checkbox', $field, [
+            'label' => sprintf($this->translate('Enable %s'), $title),
+            'description' => $description,
+            'class' => "autosubmit csp-form-content-aligned csp-label-header-h4 $disabledClass",
+            'checkedValue' => '1',
+            'uncheckedValue' => '0',
+            'disabled' => ! $enabled,
+            'value' => $this->getPopulatedValue($field),
+        ]);
+    }
+
+    /**
+     * @param LoadedCsp[] $csps the list of cps along with their reasons
+     * @param string[] $header the header of the table
+     * @param callable $filter a filter function that returns true if the csp should be included in the table
+     * @param callable $rowBuilder a function that builds a row for the table
+     * @param bool $enabled whether the content should be enabled
+     * @param string $emptyText the text to display if there are no policies
+     *
+     * @return void
+     */
+    protected function addPolicyContentElement(
+        array $csps,
+        array $header,
+        callable $filter,
+        callable $rowBuilder,
+        bool $enabled,
+        string $emptyText,
+    ): void {
         $rows = [];
         foreach ($csps as $csp) {
             if (! $filter($csp->loadReason)) {
@@ -409,13 +431,13 @@ class CspConfigForm extends CompatForm
 
         if (count($rows) === 0) {
             $this->add(
-                HtmlElement::create('p', ['class' => 'csp-form-hint'], sprintf('No %s policies found.', $title))
+                HtmlElement::create('p', ['class' => 'csp-form-hint'], $emptyText)
             );
             return;
         }
 
         $table = new Table();
-        $table->addAttributes(Attributes::create(['class' => ['csp-config-table', $disabledClass]]));
+        $table->addAttributes(Attributes::create(['class' => ['csp-config-table', $enabled ? '' : 'csp-disabled']]));
         $headerRow = Table::tr();
         foreach ($header as $h) {
             $headerRow->add(Table::th($h));
