@@ -336,7 +336,7 @@ class CspConfigForm extends CompatForm
         $section['csp_enable_dashboards'] = $this->getValue('csp_enable_dashboards');
         $section['csp_enable_navigation'] = $this->getValue('csp_enable_navigation');
         $section['use_custom_csp'] = $this->getValue('use_custom_csp');
-        $section['custom_csp'] = $this->getValue('custom_csp');
+        $section['custom_csp'] = $this->getValue('custom_csp', '');
 
         $this->changed = ! empty(array_diff_assoc(
             iterator_to_array($section),

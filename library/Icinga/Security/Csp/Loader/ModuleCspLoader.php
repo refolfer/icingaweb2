@@ -15,7 +15,7 @@ use Throwable;
  * Modules can implement the {@see CspPolicyProviderHook} interface to provide custom CSP directives.
  * The hook is called for each request, allowing modules to dynamically add or modify CSP policies.
  */
-class ModuleCspLoader extends CspLoader
+class ModuleCspLoader implements CspLoader
 {
     /**
      * List all CSP directives from modules.

@@ -10,7 +10,7 @@ use Icinga\Security\Csp\Reason\StaticCspReason;
  * Loads CSP directives from a static array.
  * Useful for testing or providing a static CSP configuration.
  */
-class StaticCspLoader extends CspLoader
+class StaticCspLoader implements CspLoader
 {
     /**
      * @param string $name the name to display for CSP reason

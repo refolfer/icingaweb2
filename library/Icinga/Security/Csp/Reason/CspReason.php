@@ -4,9 +4,9 @@
 namespace Icinga\Security\Csp\Reason;
 
 /**
- * Base class for CSP reasons.
+ * Base interface for CSP reasons.
  * Only used for type hinting.
  */
-class CspReason
+interface CspReason
 {
 }

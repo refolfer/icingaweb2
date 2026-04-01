@@ -15,7 +15,7 @@ use RuntimeException;
  * Loads CSP directives for navigation items that have an external URL.
  * The CSP directive allows the iframe to be embedded on the page.
  */
-class NavigationCspLoader extends CspLoader
+class NavigationCspLoader implements CspLoader
 {
     /**
      * Fetches navigation items for the current user.

@@ -129,14 +129,14 @@ class ConfigController extends Controller
     {
         $this->assertPermission('config/security');
 
-        $this->view->title = $this->translate('General');
+        $this->view->title = $this->translate('Security');
 
         $config = Config::app();
         $cspForm = new CspConfigForm($config);
         $cspForm->populate([
             'use_strict_csp' => Csp::isEnabled(),
             'use_custom_csp' => $config->get('security', 'use_custom_csp', '0'),
-            'custom_csp' => $config->get('security', 'custom_csp'),
+            'custom_csp' => $config->get('security', 'custom_csp', ''),
             'csp_enable_modules' => $config->get('security', 'csp_enable_modules', '1'),
             'csp_enable_dashboards' => $config->get('security', 'csp_enable_dashboards', '1'),
             'csp_enable_navigation' => $config->get('security', 'csp_enable_navigation', '1'),

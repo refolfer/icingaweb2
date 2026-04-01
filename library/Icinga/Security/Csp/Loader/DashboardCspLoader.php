@@ -16,7 +16,7 @@ use RuntimeException;
  * If an external URL is found, it adds a CSP directive for the URL's host and port.
  * The CSP directive allows the iframe to be embedded on the page.'
  */
-class DashboardCspLoader extends CspLoader
+class DashboardCspLoader implements CspLoader
 {
     /**
      * Fetches all dashlets for the current user that have an external URL.

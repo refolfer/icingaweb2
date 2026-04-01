@@ -9,11 +9,11 @@ use Icinga\Web\Navigation\NavigationItem;
  * Reason for loading a CSP directive for a navigation item.
  * The CSP directive allows the iframe to be embedded on the page.
  */
-class NavigationCspReason extends CspReason
+readonly class NavigationCspReason implements CspReason
 {
     public function __construct(
-        public readonly string $type,
-        public readonly NavigationItem $item,
+        public string $type,
+        public NavigationItem $item,
     ) {
     }
 }

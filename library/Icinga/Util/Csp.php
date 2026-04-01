@@ -52,8 +52,7 @@ class Csp
      */
     public static function addHeader(Response $response): void
     {
-        $header = static::getHeader();
-        $response->setHeader('Content-Security-Policy', $header, true);
+        $response->setHeader('Content-Security-Policy', static::getHeader(), true);
     }
 
     public static function isEnabled(): bool

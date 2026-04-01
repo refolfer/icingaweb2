@@ -6,15 +6,15 @@ namespace Icinga\Security\Csp\Loader;
 use Icinga\Security\Csp\LoadedCsp;
 
 /**
- * Base class for CSP loaders.
+ * Interface for CSP loaders.
  * A loader is responsible for loading CSP directives from a specific source.
  */
-abstract class CspLoader
+interface CspLoader
 {
     /**
      * Load the CSP directives from the source.
      *
      * @return LoadedCsp[]
      */
-    abstract public function load(): array;
+    public function load(): array;
 }

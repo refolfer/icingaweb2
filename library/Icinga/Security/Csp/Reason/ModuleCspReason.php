@@ -7,13 +7,13 @@ namespace Icinga\Security\Csp\Reason;
  * Reason for loading a CSP directive for a module.
  * The CSP directive allows the module to be loaded.
  */
-class ModuleCspReason extends CspReason
+readonly class ModuleCspReason implements CspReason
 {
     /**
      * @param string $module the module to load the CSP directive for
      */
     public function __construct(
-        public readonly string $module,
+        public string $module,
     ) {
     }
 }
