@@ -8,7 +8,6 @@ use Icinga\Security\Csp\LoadedCsp;
 use Icinga\Security\Csp\Reason\DashboardCspReason;
 use Icinga\Web\Url;
 use Icinga\Web\Widget\Dashboard;
-use RuntimeException;
 
 /**
  * This loader is responsible for loading CSP directives for external URLs in dashboard panes.
@@ -27,7 +26,7 @@ class DashboardCspLoader implements CspLoader
     {
         $user = Auth::getInstance()->getUser();
         if ($user === null) {
-            throw new RuntimeException('No user logged in');
+            return [];
         }
 
         $dashboard = new Dashboard();

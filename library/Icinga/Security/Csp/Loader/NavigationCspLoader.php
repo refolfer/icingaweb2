@@ -9,7 +9,6 @@ use Icinga\Security\Csp\LoadedCsp;
 use Icinga\Security\Csp\Reason\NavigationCspReason;
 use Icinga\Web\Navigation\Navigation;
 use Icinga\Web\Navigation\NavigationItem;
-use RuntimeException;
 
 /**
  * Loads CSP directives for navigation items that have an external URL.
@@ -31,7 +30,7 @@ class NavigationCspLoader implements CspLoader
 
         $auth = Auth::getInstance();
         if (! $auth->isAuthenticated()) {
-            throw new RuntimeException('No user logged in');
+            return [];
         }
 
         $navigationType = Navigation::getItemTypeConfiguration();
