@@ -35,8 +35,8 @@ class NavigationCspLoader implements CspLoader
             return [];
         }
 
-        $navigationType = Navigation::getItemTypeConfiguration();
-        foreach ($navigationType as $type => $_) {
+        $navigationTypes = Navigation::getItemTypeConfiguration();
+        foreach ($navigationTypes as $type => $typeConfig) {
             $navigation = new Navigation();
             foreach ($navigation->load($type) as $rootItem) {
                 foreach (self::yieldNavigation($rootItem) as $item) {
@@ -46,7 +46,7 @@ class NavigationCspLoader implements CspLoader
                         $cspUrl .= ':' . $port;
                     }
 
-                    $csp = new LoadedCsp(new NavigationCspReason($type, $item));
+                    $csp = new LoadedCsp(new NavigationCspReason($type, $typeConfig, $item));
                     $csp->add('frame-src', $cspUrl);
                     $result[] = $csp;
                 }

@@ -256,7 +256,7 @@ class CspConfigForm extends CompatForm
                         $parentCell = Table::td($parent->getName());
                     }
                     return Table::tr([
-                        Table::td($reason->type),
+                        Table::td($reason->typeConfiguration['label'] ?? $reason->type),
                         $parentCell,
                         Table::td($reason->item->getName()),
                         Table::td($directive),

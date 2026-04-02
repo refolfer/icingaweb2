@@ -13,8 +13,14 @@ use Icinga\Web\Navigation\NavigationItem;
  */
 readonly class NavigationCspReason implements CspReason
 {
+    /**
+     * @param string $type the type of the navigation item
+     * @param array $typeConfiguration the configuration of the navigation item type
+     * @param NavigationItem $item the navigation item to load the CSP directive for
+     */
     public function __construct(
         public string $type,
+        public array $typeConfiguration,
         public NavigationItem $item,
     ) {
     }
