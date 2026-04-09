@@ -28,14 +28,14 @@
     width: 100%;
   }
 
-  .csp-policies {
+  .csp-expressions {
     display: flex;
     flex-direction: row;
     justify-content: end;
     gap: 0.25em;
   }
 
-  .csp-policy-info {
+  .csp-expression-info {
     margin-left: .5em;
     opacity: .7;
   }
@@ -94,8 +94,8 @@
     overflow-y: hidden;
   }
 
-  &:has(.csp-policies .icon) {
-    .csp-policies:not(:has(.icon)) {
+  &:has(.csp-expressions .icon) {
+    .csp-expressions:not(:has(.icon)) {
       padding-right: 2em;
     }
     th:last-child {

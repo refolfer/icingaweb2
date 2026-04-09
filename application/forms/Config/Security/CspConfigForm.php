@@ -159,25 +159,25 @@ class CspConfigForm extends CompatForm
                 ),
             ));
 
-            $this->addPolicyTitleElement($this->translate('System'), 'unused', null, ! $disabledState);
-            $this->addPolicyContentElement(
+            $this->addDirectiveTitleElement($this->translate('System'), 'unused', null, ! $disabledState);
+            $this->addDirectiveContentElement(
                 $csps,
                 [t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof StaticCspReason
                         && $reason->name === 'system';
                 },
-                function (StaticCspReason $reason, string $directive, string $policy) {
+                function (StaticCspReason $reason, string $directive, string $expression) {
                     return Table::tr([
                         Table::td($directive),
-                        $this->buildPolicy($directive, $policy),
+                        $this->buildExpression($directive, $expression),
                     ]);
                 },
                 ! $disabledState,
                 $this->translate('No system policies defined.')
             );
 
-            $this->addPolicyTitleElement(
+            $this->addDirectiveTitleElement(
                 $this->translate('Modules'),
                 $this->translate(
                     'Should module defined csp directives be enabled?'
@@ -187,24 +187,24 @@ class CspConfigForm extends CompatForm
                 ! $disabledState,
             );
 
-            $this->addPolicyContentElement(
+            $this->addDirectiveContentElement(
                 $csps,
                 [t('Module'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof ModuleCspReason;
                 },
-                function (ModuleCspReason $reason, string $directive, string $policy) {
+                function (ModuleCspReason $reason, string $directive, string $expression) {
                     return Table::tr([
                         Table::td($reason->module),
                         Table::td($directive),
-                        $this->buildPolicy($directive, $policy),
+                        $this->buildExpression($directive, $expression),
                     ]);
                 },
                 $disabledState === false && $this->getValue('csp_enable_modules') === '1',
                 $this->translate('No module policies defined.')
             );
 
-            $this->addPolicyTitleElement(
+            $this->addDirectiveTitleElement(
                 $this->translate('Dashboard'),
                 $this->translate(
                     'Enable user defined dashboards. Note: You will only be able to see your own dashboards,'
@@ -214,25 +214,25 @@ class CspConfigForm extends CompatForm
                 ! $disabledState,
             );
 
-            $this->addPolicyContentElement(
+            $this->addDirectiveContentElement(
                 $csps,
                 [t('Dashboard'), t('Dashlet'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof DashboardCspReason;
                 },
-                function (DashboardCspReason $reason, string $directive, string $policy) {
+                function (DashboardCspReason $reason, string $directive, string $expression) {
                     return Table::tr([
                         Table::td($reason->pane->getName()),
                         Table::td($reason->dashlet->getName()),
                         Table::td($directive),
-                        $this->buildPolicy($directive, $policy),
+                        $this->buildExpression($directive, $expression),
                     ]);
                 },
                 $disabledState === false && $this->getValue('csp_enable_dashboards') === '1',
                 $this->translate('No dashboard policies found.'),
             );
 
-            $this->addPolicyTitleElement(
+            $this->addDirectiveTitleElement(
                 $this->translate('Navigation'),
                 $this->translate(
                     'Enable navigation items. Note: You will only be able to see your own navigation items,'
@@ -242,13 +242,13 @@ class CspConfigForm extends CompatForm
                 ! $disabledState,
             );
 
-            $this->addPolicyContentElement(
+            $this->addDirectiveContentElement(
                 $csps,
                 [t('Navigation'), t('Parent'), t('Name'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof NavigationCspReason;
                 },
-                function (NavigationCspReason $reason, string $directive, string $policy) {
+                function (NavigationCspReason $reason, string $directive, string $expression) {
                     $parent = $reason->item->getParent();
                     if ($parent === null) {
                         $parentCell = Table::td(t('None'))->setAttribute('class', 'empty-state');
@@ -260,7 +260,7 @@ class CspConfigForm extends CompatForm
                         $parentCell,
                         Table::td($reason->item->getName()),
                         Table::td($directive),
-                        $this->buildPolicy($directive, $policy),
+                        $this->buildExpression($directive, $expression),
                     ]);
                 },
                 $disabledState === false && $this->getValue('csp_enable_navigation') === '1',
@@ -376,7 +376,7 @@ class CspConfigForm extends CompatForm
      *
      * @return void
      */
-    protected function addPolicyTitleElement(
+    protected function addDirectiveTitleElement(
         string $title,
         ?string $description,
         ?string $field,
@@ -410,7 +410,7 @@ class CspConfigForm extends CompatForm
      *
      * @return void
      */
-    protected function addPolicyContentElement(
+    protected function addDirectiveContentElement(
         array $csps,
         array $header,
         callable $filter,
@@ -423,9 +423,9 @@ class CspConfigForm extends CompatForm
             if (! $filter($csp->loadReason)) {
                 continue;
             }
-            foreach ($csp->getDirectives() as $directive => $policies) {
-                foreach ($policies as $policy) {
-                    $rows[] = $rowBuilder($csp->loadReason, $directive, $policy);
+            foreach ($csp->getDirectives() as $directive => $expressions) {
+                foreach ($expressions as $expression) {
+                    $rows[] = $rowBuilder($csp->loadReason, $directive, $expression);
                 }
             }
         }
@@ -459,30 +459,30 @@ class CspConfigForm extends CompatForm
         ));
     }
 
-    protected function getKeywordType(string $policy): ?string
+    protected function getKeywordType(string $expression): ?string
     {
-        if (in_array($policy, static::SECURE_KEYWORDS)) {
+        if (in_array($expression, static::SECURE_KEYWORDS)) {
             return 'secure';
         }
 
-        if (in_array($policy, static::WARNING_KEYWORDS)) {
+        if (in_array($expression, static::WARNING_KEYWORDS)) {
             return 'warning';
         }
 
         return null;
     }
 
-    protected function getSchemeType(string $directive, string $policy): ?string
+    protected function getSchemeType(string $directive, string $expression): ?string
     {
-        if (! str_ends_with($policy, ':')) {
+        if (! str_ends_with($expression, ':')) {
             return null;
         }
 
-        if (str_contains($policy, ' ')) {
+        if (str_contains($expression, ' ')) {
             return null;
         }
 
-        $schema = substr($policy, 0, -1);
+        $schema = substr($expression, 0, -1);
 
         if (in_array($schema, static::SECURE_SCHEMAS)) {
             return 'secure';
@@ -503,36 +503,36 @@ class CspConfigForm extends CompatForm
         return 'unknown';
     }
 
-    protected function isNonce(string $policy): bool
+    protected function isNonce(string $expression): bool
     {
-        return (str_starts_with($policy, "'nonce-") && str_ends_with($policy, "'"));
+        return (str_starts_with($expression, "'nonce-") && str_ends_with($expression, "'"));
     }
 
-    protected function buildPolicy(string $directive, string $policy): BaseHtmlElement
+    protected function buildExpression(string $directive, string $expression): BaseHtmlElement
     {
-        if ($policy === '*') {
+        if ($expression === '*') {
             $result = HtmlElement::create(
                 'span',
                 ['class' => 'csp-wildcard'],
                 [
-                    $policy,
+                    $expression,
                     new Icon(
                         'warning',
                         [
-                            'class' => 'csp-policy-info',
+                            'class' => 'csp-expression-info',
                             'title' => t(
-                                'This is a wildcard policy. It allows everything and should therefore be avoided.'
+                                'This is a wildcard expression. It allows everything and should therefore be avoided.'
                             ),
                         ]
                     ),
                 ],
             );
-        } elseif (($keyword = $this->getKeywordType($policy)) !== null) {
+        } elseif (($keyword = $this->getKeywordType($expression)) !== null) {
             $icon = match ($keyword) {
                 'warning' => new Icon(
                     'warning',
                     [
-                        'class' => 'csp-policy-info',
+                        'class' => 'csp-expression-info',
                         'title' => t('This is a potentially unsafe keyword.'),
                     ]
                 ),
@@ -542,23 +542,23 @@ class CspConfigForm extends CompatForm
                 'span',
                 ['class' => ['csp-keyword', 'csp-' . $keyword]],
                 [
-                    $policy,
+                    $expression,
                     $icon,
                 ]
             );
-        } elseif (($scheme = $this->getSchemeType($directive, $policy)) !== null) {
+        } elseif (($scheme = $this->getSchemeType($directive, $expression)) !== null) {
             $icon = match ($scheme) {
                 'warning' => new Icon(
                     'warning',
                     [
-                        'class' => 'csp-policy-info',
+                        'class' => 'csp-expression-info',
                         'title' => t('This is a potentially unsafe scheme.'),
                     ]
                 ),
                 'critical' => new Icon(
                     'warning',
                     [
-                        'class' => 'csp-policy-info',
+                        'class' => 'csp-expression-info',
                         'title' => t('This is a critical scheme and should not be used.'),
                     ]
                 ),
@@ -568,30 +568,30 @@ class CspConfigForm extends CompatForm
                 'span',
                 ['class' => ['csp-scheme', 'csp-' . $scheme]],
                 [
-                    $policy,
+                    $expression,
                     $icon,
                 ]
             );
-        } elseif ($this->isNonce($policy)) {
+        } elseif ($this->isNonce($expression)) {
             $result = HtmlElement::create(
                 'span',
                 ['class' => 'csp-nonce'],
                 [
-                    $policy,
+                    $expression,
                     new Icon(
                         'info-circle',
                         [
-                            'class' => 'csp-policy-info',
+                            'class' => 'csp-expression-info',
                             'title' => t('This is an automatically generated nonce. Its value is unique per request.'),
                         ],
                     ),
                 ]
             );
-        } elseif (filter_var($policy, FILTER_VALIDATE_URL) !== false) {
-            $result = new Link($policy, $policy, ['target' => '_blank']);
+        } elseif (filter_var($expression, FILTER_VALIDATE_URL) !== false) {
+            $result = new Link($expression, $expression, ['target' => '_blank']);
         } else {
-            $result = new Text($policy);
+            $result = new Text($expression);
         }
-        return Table::td($result, ['class' => 'csp-policies']);
+        return Table::td($result, ['class' => 'csp-expressions']);
     }
 }
