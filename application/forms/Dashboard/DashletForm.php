@@ -5,12 +5,15 @@
 
 namespace Icinga\Forms\Dashboard;
 
+use Icinga\Util\Csp;
 use Icinga\Web\Form;
 use Icinga\Web\Form\Validator\InternalUrlValidator;
 use Icinga\Web\Form\Validator\UrlValidator;
 use Icinga\Web\Url;
 use Icinga\Web\Widget\Dashboard;
 use Icinga\Web\Widget\Dashboard\Dashlet;
+use ipl\Web\Common\CalloutType;
+use ipl\Web\Widget\Callout;
 
 /**
  * Form to add an url a dashboard pane
@@ -74,6 +77,24 @@ class DashletForm extends Form
                 'required' => false
             )
         );
+
+        if (Csp::isEnabled() && ! Csp::isDashboardEnabled()) {
+            $this->addElement(
+                'note',
+                'csp_warning',
+                [
+                    'decorators' => ['ViewHelper'],
+                    'value' => (new Callout(
+                        CalloutType::Info,
+                        $this->translate(
+                            'Any external url is not guaranteed to work as expected. '
+                            . 'Please make sure to check the Content-Security-Policy configuration.'
+                        ),
+                        $this->translate('Dashboards are not enabled in the CSP configuration'),
+                    ))->setFormElement()->render(),
+                ]
+            );
+        }
 
         $this->addElement(
             'textarea',

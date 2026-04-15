@@ -55,12 +55,78 @@ class Csp
         $response->setHeader('Content-Security-Policy', static::getHeader(), true);
     }
 
+    /**
+     * Check whether sending the CSP header is enabled
+     * @return bool
+     */
     public static function isEnabled(): bool
     {
         return (bool) Config::app()->get('security', 'use_strict_csp', '0');
     }
 
     /**
+     * Returns whether a custom, user defined CSP header should be used
+     * @return bool
+     */
+    public static function isCustomEnabled(): bool
+    {
+        return (bool) Config::app()->get('security', 'use_custom_csp', '0');
+    }
+
+    /**
+     * Returns if the CSP header should be automatically generated
+     * Note: This is currently always the opposite of {@see static::isCustomEnabled()} as the CSP header is only
+     *       generated if the custom CSP is not used. But this might change in the future.
+     * @return bool
+     */
+    public static function isAutogenerationEnabled(): bool
+    {
+        return ! static::isCustomEnabled();
+    }
+
+    /**
+     * Returns whether the CSP header should be generated for dashboards
+     * @return bool
+     */
+    public static function isDashboardEnabled(): bool
+    {
+        if (! static::isAutogenerationEnabled()) {
+            return false;
+        }
+
+        return (bool) Config::app()->get('security', 'csp_enable_dashboards', '1');
+    }
+
+    /**
+     * Returns whether the CSP header should be generated for modules. See {@see CspPolicyProviderHook}
+     *
+     * @return bool
+     */
+    public static function isModuleEnabled(): bool
+    {
+        if (! static::isAutogenerationEnabled()) {
+            return false;
+        }
+
+        return (bool) Config::app()->get('security', 'csp_enable_modules', '1');
+    }
+
+    /**
+     * Returns whether the CSP header should be generated for the navigation
+     *
+     * @return bool
+     */
+    public static function isNavigationEnabled(): bool
+    {
+        if (! static::isAutogenerationEnabled()) {
+            return false;
+        }
+
+        return (bool) Config::app()->get('security', 'csp_enable_navigation', '1');
+    }
+
+    /**
+     * Load configured CSP policies
      * @return LoadedCsp[]
      */
     public static function load(?ConfigObject $config = null): array
