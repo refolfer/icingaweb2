@@ -75,7 +75,7 @@ class ConfigSectionForm extends ConfigForm
             if ($this->shouldDelete()) {
                 $this->handleDelete();
                 $this->emit(static::ON_DELETE, [$this]);
-            } else if ($this->shouldRename()) {
+            } elseif ($this->shouldRename()) {
                 $oldName = $this->section;
                 $this->handleRename();
                 $this->emit(static::ON_RENAME, [
