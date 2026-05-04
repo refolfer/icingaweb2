@@ -96,8 +96,12 @@ class LoginPage extends HtmlDocument
 
         $inner->addHtml($this->form);
 
-        foreach ($this->loginButtons as $button) {
-            $inner->addHtml($button);
+        if (! empty($this->loginButtons)) {
+            $loginButtons = HtmlElement::create('div', Attributes::create(['class' => 'login-buttons']));
+            foreach ($this->loginButtons as $button) {
+                $loginButtons->addHtml($button);
+            }
+            $inner->addHtml($loginButtons);
         }
 
         $inner->addHtml($this->assembleFooter());
