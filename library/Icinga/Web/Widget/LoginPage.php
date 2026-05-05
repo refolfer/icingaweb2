@@ -119,7 +119,7 @@ class LoginPage extends HtmlDocument
         $setupNote = $this->translate(
             'It appears that you did not configure Icinga Web 2 yet so it\'s not possible to log in'
             . ' without any defined authentication method. Please define an authentication method by'
-            . ' following the instructions in the %s or by using our %s.',
+            . ' following the instructions in the %1$s or by using our %2$s.',
             '<documentation_link> or by using our <setup-wizard_link>'
         );
 
