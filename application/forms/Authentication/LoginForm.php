@@ -49,24 +49,22 @@ class LoginForm extends CompatForm
         $this->addElement($this->createUidElement());
 
         $this->addElement('text', 'username', [
-            'required'       => true,
-            'autofocus'      => '',
-            'autocomplete'   => 'username',
             'autocapitalize' => 'off',
-            'placeholder'    => $this->translate('Username'),
+            'autocomplete'   => 'username',
+            'autofocus'      => '',
             'decorators'     => [
                 'RenderElement' => new RenderElementDecorator(),
                 'ControlGroup'  => [
                     'name'    => 'HtmlTag',
                     'options' => ['tag' => 'div', 'class' => 'control-group']
                 ]
-            ]
+            ],
+            'placeholder'    => $this->translate('Username'),
+            'required'       => true
         ]);
 
         $this->addElement('password', 'password', [
-            'required'     => true,
             'autocomplete' => 'current-password',
-            'placeholder'  => $this->translate('Password'),
             'decorators'   => [
                 'RenderElement' => new RenderElementDecorator(),
                 'Errors'        => ['name' => 'Errors', 'options' => ['class' => 'errors']],
@@ -74,19 +72,13 @@ class LoginForm extends CompatForm
                     'name'    => 'HtmlTag',
                     'options' => ['tag' => 'div', 'class' => 'control-group']
                 ]
-            ]
+            ],
+            'placeholder'  => $this->translate('Password'),
+            'required'     => true
         ]);
 
         $rememberMeSupported = RememberMe::isSupported();
         $this->addElement('checkbox', 'rememberme', [
-            'label'       => $this->translate('Stay logged in'),
-            'disabled'    => ! $rememberMeSupported,
-            'description' => ! $rememberMeSupported
-                ? $this->translate(
-                    'Staying logged in requires a database configuration backend'
-                    . ' and an appropriate OpenSSL encryption method'
-                )
-                : null,
             'decorators'  => [
                 'Checkbox'      => new CheckboxDecorator(),
                 'RenderElement' => new RenderElementDecorator(),
@@ -96,12 +88,20 @@ class LoginForm extends CompatForm
                     'name'    => 'HtmlTag',
                     'options' => ['tag' => 'div', 'class' => 'control-group remember-me-box']
                 ]
-            ]
+            ],
+            'description' => ! $rememberMeSupported
+                ? $this->translate(
+                    'Staying logged in requires a database configuration backend'
+                    . ' and an appropriate OpenSSL encryption method'
+                )
+                : null,
+            'disabled'    => ! $rememberMeSupported,
+            'label'       => $this->translate('Stay logged in'),
         ]);
 
         $this->addElement('submit', 'submit_login', [
-            'label'               => $this->translate('Login'),
             'data-progress-label' => $this->translate('Logging in'),
+            'label'               => $this->translate('Login')
         ]);
 
         $this->addElement('hidden', 'redirect', ['value' => Url::fromRequest()->getParam('redirect')]);
