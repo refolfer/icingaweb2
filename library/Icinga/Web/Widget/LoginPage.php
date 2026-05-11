@@ -37,6 +37,8 @@ class LoginPage extends HtmlDocument
     protected bool $requiresSetup;
 
     /**
+     * Create a new LoginPage
+     *
      * @param CompatForm $form Primary form to render in the centre of the login box
      * @param LoginButtonForm[] $loginButtons Additional login button forms to render below the primary form
      * @param bool $requiresSetup When true, show the setup-wizard config note above the form
