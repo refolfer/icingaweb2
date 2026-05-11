@@ -36,7 +36,7 @@ class LoginForm extends CompatForm
     use FormUid;
 
     /** @var string Redirect URL */
-    const REDIRECT_URL = 'dashboard';
+    public const REDIRECT_URL = 'dashboard';
 
     public function __construct()
     {
