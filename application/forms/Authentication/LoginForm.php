@@ -132,6 +132,17 @@ class LoginForm extends CompatForm
         return $redirectUrl;
     }
 
+    /**
+     * Authenticate the user and redirect on success, or display an error message on failure
+     *
+     * Skips external backends and applies the configured default domain when the
+     * username contains no domain. On success, persists the RememberMe cookie when
+     * requested, triggers registered {@see AuthenticationHook}s, and redirects to
+     * the URL returned by {@see createRedirectUrl()}. On failure, adds an
+     * appropriate error message to the form and calls {@see onError()}.
+     *
+     * @return void
+     */
     protected function onSuccess(): void
     {
         $auth = Auth::getInstance();
@@ -194,6 +205,11 @@ class LoginForm extends CompatForm
         $this->onError();
     }
 
+    /**
+     * Show an error when all configured backends are external
+     *
+     * @return void
+     */
     public function onRequest(): void
     {
         $auth = Auth::getInstance();
