@@ -19,7 +19,6 @@ use Icinga\Web\Helper\CookieHelper;
 use Icinga\Web\RememberMe;
 use Icinga\Web\Url;
 use Icinga\Web\Widget\LoginPage;
-use ipl\Html\HtmlDocument;
 use ipl\Html\Contract\Form;
 use ipl\Web\Compat\CompatController;
 use RuntimeException;
@@ -139,10 +138,9 @@ class AuthenticationController extends CompatController
             }
         }
 
+        // Suppress the rendering of controls bar
+        $this->view->compact = true;
         $this->setTitle($this->translate('Icinga Web 2 Login'));
-
-        // Suppress the rendering of an empty tab bar
-        $this->controls = new HtmlDocument();
         $this->addContent(new LoginPage($form, $loginButtons, $requiresSetup));
     }
 
