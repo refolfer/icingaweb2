@@ -54,6 +54,7 @@ class LoginForm extends CompatForm
             'autofocus'      => '',
             'decorators'     => [
                 'RenderElement' => new RenderElementDecorator(),
+                'Errors'        => ['name' => 'Errors', 'options' => ['class' => 'errors']],
                 'ControlGroup'  => [
                     'name'    => 'HtmlTag',
                     'options' => ['tag' => 'div', 'class' => 'control-group']
