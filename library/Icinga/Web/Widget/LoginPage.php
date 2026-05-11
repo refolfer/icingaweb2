@@ -28,27 +28,18 @@ class LoginPage extends HtmlDocument
 {
     use Translation;
 
-    protected CompatForm $form;
-
-    /** @var LoginButtonForm[] */
-    protected array $loginButtons;
-
-    /** @var bool Whether to show the setup-wizard configuration note */
-    protected bool $requiresSetup;
-
     /**
      * Create a new LoginPage
      *
      * @param CompatForm $form Primary form to render in the centre of the login box
      * @param LoginButtonForm[] $loginButtons Additional login button forms to render below the primary form
-     * @param bool $requiresSetup When true, show the setup-wizard config note above the form
+     * @param bool $requiresSetup Whether to show the setup-wizard configuration note
      */
-    public function __construct(CompatForm $form, array $loginButtons = [], bool $requiresSetup = false)
-    {
-        $this->form = $form;
-        $this->loginButtons = $loginButtons;
-        $this->requiresSetup = $requiresSetup;
-
+    public function __construct(
+        protected CompatForm $form,
+        protected array $loginButtons = [],
+        protected bool $requiresSetup = false
+    ) {
         $login = HtmlElement::create(
             'div',
             Attributes::create(['id' => 'login']),
