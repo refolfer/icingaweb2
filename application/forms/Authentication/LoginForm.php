@@ -116,7 +116,7 @@ class LoginForm extends CompatForm
      *
      * @return Url
      *
-     * @throws HttpBadRequestException
+     * @throws HttpBadRequestException If the redirect url is external
      */
     public function createRedirectUrl(): Url
     {
