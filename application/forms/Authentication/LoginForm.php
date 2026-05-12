@@ -203,7 +203,6 @@ class LoginForm extends CompatForm
                 $this->getElement('password')->addMessage($this->translate('Incorrect username or password'));
         }
 
-        // Display the messages that were added to form or form elements
         $this->onError();
     }
 
