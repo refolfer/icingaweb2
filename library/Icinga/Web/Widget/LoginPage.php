@@ -16,7 +16,7 @@ use ipl\Web\Compat\CompatForm;
 use ipl\Web\Url;
 
 /**
- * Login page — logo, footer, social links, and decorative orbs
+ * Login page with logo, footer, social links, and decorative orbs
  *
  * Wraps a login form in the standard login page structure.
  *
