@@ -31,7 +31,7 @@ class LoginPage extends HtmlDocument
     /**
      * Create a new LoginPage
      *
-     * @param CompatForm $form Primary form to render in the centre of the login box
+     * @param CompatForm $form Primary form to render in the center of the login box
      * @param LoginButtonForm[] $loginButtons Additional login button forms to render below the primary form
      * @param bool $requiresSetup Whether to show the setup-wizard configuration note
      */
@@ -54,7 +54,7 @@ class LoginPage extends HtmlDocument
     }
 
     /**
-     * Assemble the centred login box containing the logo, form content, and footer
+     * Assemble the centered login box containing the logo, form content, and footer
      *
      * @return HtmlElement
      */
