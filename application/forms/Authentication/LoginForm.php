@@ -121,7 +121,7 @@ class LoginForm extends CompatForm
 
         $redirectUrl = Url::fromPath($redirect);
         if ($redirectUrl->isExternal()) {
-            throw new HttpBadRequestException('nope');
+            throw new HttpBadRequestException('Redirect to an external host is not allowed');
         }
 
         return $redirectUrl;
