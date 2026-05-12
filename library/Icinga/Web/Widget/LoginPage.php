@@ -89,7 +89,7 @@ class LoginPage extends HtmlDocument
 
         $inner->addHtml($this->form);
 
-        if (! empty($this->loginButtons)) {
+        if ($this->loginButtons !== []) {
             $loginButtons = HtmlElement::create('div', Attributes::create(['class' => 'login-buttons']));
             foreach ($this->loginButtons as $button) {
                 $loginButtons->addHtml($button);
