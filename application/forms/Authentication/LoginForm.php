@@ -18,6 +18,7 @@ use Icinga\User;
 use Icinga\Web\RememberMe;
 use Icinga\Web\Session;
 use Icinga\Web\Url;
+use ipl\Html\FormDecoration\HtmlTagDecorator;
 use ipl\Html\FormDecoration\LabelDecorator;
 use ipl\Html\FormDecoration\RenderElementDecorator;
 use ipl\Web\Common\CsrfCounterMeasure;
@@ -58,10 +59,7 @@ class LoginForm extends CompatForm
             'decorators'     => [
                 'RenderElement' => new RenderElementDecorator(),
                 'Errors'        => ['name' => 'Errors', 'options' => ['class' => 'errors']],
-                'ControlGroup'  => [
-                    'name'    => 'HtmlTag',
-                    'options' => ['tag' => 'div', 'class' => 'control-group']
-                ]
+                'ControlGroup'  => (new HtmlTagDecorator())->setTag('div')->setClass('control-group')
             ],
             'placeholder'    => $this->translate('Username'),
             'required'       => true
@@ -72,10 +70,7 @@ class LoginForm extends CompatForm
             'decorators'   => [
                 'RenderElement' => new RenderElementDecorator(),
                 'Errors'        => ['name' => 'Errors', 'options' => ['class' => 'errors']],
-                'ControlGroup'  => [
-                    'name'    => 'HtmlTag',
-                    'options' => ['tag' => 'div', 'class' => 'control-group']
-                ]
+                'ControlGroup'  => (new HtmlTagDecorator())->setTag('div')->setClass('control-group')
             ],
             'placeholder'  => $this->translate('Password'),
             'required'     => true
@@ -88,10 +83,7 @@ class LoginForm extends CompatForm
                 'RenderElement' => new RenderElementDecorator(),
                 'Label'         => new LabelDecorator(),
                 'Description'   => new DescriptionDecorator(),
-                'ControlGroup'  => [
-                    'name'    => 'HtmlTag',
-                    'options' => ['tag' => 'div', 'class' => 'control-group remember-me-box']
-                ]
+                'ControlGroup'  => (new HtmlTagDecorator())->setTag('div')->setClass('control-group remember-me-box')
             ],
             'description' => ! $rememberMeSupported
                 ? $this->translate(
