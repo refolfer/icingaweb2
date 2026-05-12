@@ -12,7 +12,6 @@ use Icinga\Application\Icinga;
 use Icinga\Application\Logger;
 use Icinga\Authentication\Auth;
 use Icinga\Authentication\User\ExternalBackend;
-use Icinga\Common\Database;
 use Icinga\Exception\Http\HttpBadRequestException;
 use Icinga\User;
 use Icinga\Web\RememberMe;
@@ -33,7 +32,6 @@ use ipl\Web\Compat\FormDecorator\DescriptionDecorator;
 class LoginForm extends CompatForm
 {
     use CsrfCounterMeasure;
-    use Database;
     use FormUid;
 
     /** @var string Redirect URL */
