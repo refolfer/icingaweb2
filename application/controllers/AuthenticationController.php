@@ -21,6 +21,7 @@ use Icinga\Web\Url;
 use Icinga\Web\Widget\LoginPage;
 use ipl\Html\Contract\Form;
 use ipl\Web\Compat\CompatController;
+use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use Throwable;
 
@@ -58,7 +59,7 @@ class AuthenticationController extends CompatController
                     $this->redirectNow($redirectUrl);
                 }
             })
-            ->on(Form::ON_REQUEST, function ($_, LoginForm $form) {
+            ->on(Form::ON_REQUEST, function (ServerRequestInterface $_, LoginForm $form) {
                 $form->onRequest();
             });
 
