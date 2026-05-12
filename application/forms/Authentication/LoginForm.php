@@ -38,6 +38,9 @@ class LoginForm extends CompatForm
     /** @var string Redirect URL */
     public const REDIRECT_URL = 'dashboard';
 
+    /**
+     * Create a new LoginForm
+     */
     public function __construct()
     {
         $this->setAttribute('name', 'form_login');
