@@ -109,6 +109,8 @@ class LoginForm extends CompatForm
     }
 
     /**
+     * Compute the post-login redirect URL
+     *
      * @return Url
      *
      * @throws HttpBadRequestException
