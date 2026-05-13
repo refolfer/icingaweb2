@@ -93,7 +93,7 @@ class AuthenticationController extends CompatController
             if ($redirect) {
                 $redirectUrl = Url::fromPath($redirect, [], $this->getRequest());
                 if ($redirectUrl->isExternal()) {
-                    $this->httpBadRequest('nope');
+                    $this->httpBadRequest('Redirect to an external host is not allowed');
                 }
             } else {
                 $redirectUrl = $form->createRedirectUrl();
