@@ -17,6 +17,7 @@ use Icinga\User;
 use Icinga\Web\RememberMe;
 use Icinga\Web\Session;
 use Icinga\Web\Url;
+use ipl\Html\FormDecoration\ErrorsDecorator;
 use ipl\Html\FormDecoration\HtmlTagDecorator;
 use ipl\Html\FormDecoration\LabelDecorator;
 use ipl\Html\FormDecoration\RenderElementDecorator;
@@ -56,7 +57,7 @@ class LoginForm extends CompatForm
             'autofocus'      => '',
             'decorators'     => [
                 'RenderElement' => new RenderElementDecorator(),
-                'Errors'        => ['name' => 'Errors', 'options' => ['class' => 'errors']],
+                'Errors'        => (new ErrorsDecorator())->setClass('errors'),
                 'ControlGroup'  => (new HtmlTagDecorator())->setTag('div')->setClass('control-group')
             ],
             'placeholder'    => $this->translate('Username'),
@@ -67,7 +68,7 @@ class LoginForm extends CompatForm
             'autocomplete' => 'current-password',
             'decorators'   => [
                 'RenderElement' => new RenderElementDecorator(),
-                'Errors'        => ['name' => 'Errors', 'options' => ['class' => 'errors']],
+                'Errors'        => (new ErrorsDecorator())->setClass('errors'),
                 'ControlGroup'  => (new HtmlTagDecorator())->setTag('div')->setClass('control-group')
             ],
             'placeholder'  => $this->translate('Password'),
