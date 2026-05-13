@@ -22,6 +22,7 @@ readonly class NavigationCspReason implements CspReason
         public string $type,
         public array $typeConfiguration,
         public NavigationItem $item,
+        public ?string $username = null,
     ) {
     }
 }

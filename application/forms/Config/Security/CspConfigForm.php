@@ -248,8 +248,8 @@ class CspConfigForm extends CompatForm
             );
 
             $this->addDirectiveContentElement(
-                (new NavigationCspLoader())->load(),
-                [t('Navigation'), t('Parent'), t('Name'), t('Directive'), t('Value')],
+                (new NavigationCspLoader(true))->load(),
+                [t('Navigation'), t('Parent'), t('Name'), t('User'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof NavigationCspReason;
                 },
@@ -264,6 +264,16 @@ class CspConfigForm extends CompatForm
                         Table::td($reason->typeConfiguration['label'] ?? $reason->type),
                         $parentCell,
                         Table::td($reason->item->getName()),
+                        Table::td(
+                            $reason->username
+                            ?? [
+                                new Icon('share', [
+                                    'class' => 'shared-item',
+                                    'title' => t('Shared item. Displayed user is owner.'),
+                                ]),
+                                $reason->item->getAttribute('owner'),
+                            ]
+                        ),
                         Table::td($directive),
                         $this->buildExpression($directive, $expression),
                     ]);
