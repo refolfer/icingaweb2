@@ -7,8 +7,12 @@ namespace Icinga\Forms\Config\Security;
 
 use Exception;
 use Icinga\Application\Config;
+use Icinga\Authentication\Auth;
 use Icinga\Data\ConfigObject;
 use Icinga\Security\Csp\LoadedCsp;
+use Icinga\Security\Csp\Loader\DashboardCspLoader;
+use Icinga\Security\Csp\Loader\ModuleCspLoader;
+use Icinga\Security\Csp\Loader\NavigationCspLoader;
 use Icinga\Security\Csp\Reason\CspReason;
 use Icinga\Security\Csp\Reason\DashboardCspReason;
 use Icinga\Security\Csp\Reason\ModuleCspReason;
@@ -103,9 +107,9 @@ class CspConfigForm extends CompatForm
     {
         Csp::createNonce();
         $csps = Csp::load(new ConfigObject([
-            'csp_enable_modules' => '1',
-            'csp_enable_dashboards' => '1',
-            'csp_enable_navigation' => '1',
+            'csp_enable_modules' => '0',
+            'csp_enable_dashboards' => '0',
+            'csp_enable_navigation' => '0',
         ]));
 
         $this->addElement($this->createUidElement());
@@ -188,7 +192,7 @@ class CspConfigForm extends CompatForm
             );
 
             $this->addDirectiveContentElement(
-                $csps,
+                (new ModuleCspLoader())->load(),
                 [t('Module'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof ModuleCspReason;
@@ -215,8 +219,8 @@ class CspConfigForm extends CompatForm
             );
 
             $this->addDirectiveContentElement(
-                $csps,
-                [t('Dashboard'), t('Dashlet'), t('Directive'), t('Value')],
+                (new DashboardCspLoader(true))->load(),
+                [t('Dashboard'), t('Dashlet'), t('User'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof DashboardCspReason;
                 },
@@ -224,6 +228,7 @@ class CspConfigForm extends CompatForm
                     return Table::tr([
                         Table::td($reason->pane->getName()),
                         Table::td($reason->dashlet->getName()),
+                        Table::td($reason->dashboard->getUser()->getUsername()),
                         Table::td($directive),
                         $this->buildExpression($directive, $expression),
                     ]);
@@ -243,7 +248,7 @@ class CspConfigForm extends CompatForm
             );
 
             $this->addDirectiveContentElement(
-                $csps,
+                (new NavigationCspLoader())->load(),
                 [t('Navigation'), t('Parent'), t('Name'), t('Directive'), t('Value')],
                 function (CspReason $reason) {
                     return $reason instanceof NavigationCspReason;

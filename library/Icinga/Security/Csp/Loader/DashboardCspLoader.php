@@ -5,9 +5,11 @@
 
 namespace Icinga\Security\Csp\Loader;
 
+use DirectoryIterator;
 use Icinga\Authentication\Auth;
 use Icinga\Security\Csp\LoadedCsp;
 use Icinga\Security\Csp\Reason\DashboardCspReason;
+use Icinga\User;
 use Icinga\Web\Url;
 use Icinga\Web\Widget\Dashboard;
 
@@ -20,17 +22,20 @@ use Icinga\Web\Widget\Dashboard;
 class DashboardCspLoader implements CspLoader
 {
     /**
-     * Fetches all dashlets for the current user that have an external URL.
-     *
-     * @return LoadedCsp[] A list of CSP directives, one for each dashlet that has an external URL.
+     * @param bool $allUsers whether to load CSP directives for all users, or only the current user
      */
-    public function load(): array
-    {
-        $user = Auth::getInstance()->getUser();
-        if ($user === null) {
-            return [];
-        }
+    public function __construct(
+        protected bool $allUsers = false,
+    ) {
+    }
 
+    /**
+     * @param User $user
+     *
+     * @return LoadedCsp[]
+     */
+    protected function loadForUser(User $user): array
+    {
         $dashboard = new Dashboard();
         $dashboard->setUser($user);
         $dashboard->load();
@@ -60,12 +65,41 @@ class DashboardCspLoader implements CspLoader
                     $cspUrl .= ':' . $port;
                 }
 
-                $csp = new LoadedCsp(new DashboardCspReason($pane, $dashlet));
+                $csp = new LoadedCsp(new DashboardCspReason($dashboard, $pane, $dashlet));
                 $csp->add('frame-src', $cspUrl);
                 $result[] = $csp;
             }
         }
 
         return $result;
+    }
+
+    /**
+     * Fetches all dashlets for the current user that have an external URL.
+     *
+     * @return LoadedCsp[] A list of CSP directives, one for each dashlet that has an external URL.
+     */
+    public function load(): array
+    {
+        $auth = Auth::getInstance();
+        if (! $auth->isAuthenticated()) {
+            return [];
+        }
+
+        if ($this->allUsers) {
+            $csps = [];
+            foreach (new DirectoryIterator('/etc/icingaweb2/dashboards') as $dir) {
+                if ($dir->isDot() || ! $dir->isDir()) {
+                    continue;
+                }
+
+                $user = new User($dir->getFilename());
+                $csps = array_merge($csps, $this->loadForUser($user));
+            }
+
+            return $csps;
+        } else {
+            return $this->loadForUser($auth->getUser());
+        }
     }
 }
