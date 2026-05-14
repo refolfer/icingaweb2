@@ -67,3 +67,6 @@ default = "NeoNOC"
 disabled = "0"
 ```
 
+## Pilot Execution
+
+Use `doc/99-Modern-UI-Pilot-Checklist.md` as rollout checklist and feedback baseline.

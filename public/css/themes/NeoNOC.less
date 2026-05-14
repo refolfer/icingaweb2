@@ -84,6 +84,11 @@
 @font-size: 0.8125em;
 @line-height: 1.45;
 
+:focus {
+  outline: 2px solid fade(@icinga-blue, 65%);
+  outline-offset: 1px;
+}
+
 #layout {
   background-color: @body-bg-color;
   background-image:
@@ -114,10 +119,28 @@
   margin: 0.083em 0.417em;
 }
 
+#menu .nav-level-2 > .nav-item.active {
+  box-shadow: 0 0 0 1px fade(@icinga-blue, 28%) inset;
+}
+
 #main > .container > .controls {
   background: linear-gradient(180deg, fade(#0B172A, 96%) 0%, fade(#0D1B31, 96%) 100%);
   border-bottom: 1px solid fade(@icinga-blue, 14%);
   backdrop-filter: blur(4px);
+}
+
+#main > .container > .controls > .tabs {
+  background: transparent;
+}
+
+.tabs > li > a {
+  border-radius: 0.5em 0.5em 0 0;
+  letter-spacing: 0.01em;
+}
+
+.tabs > li.active > a,
+.tabs > li > a:focus {
+  box-shadow: 0 -1px 0 fade(@icinga-blue, 30%) inset;
 }
 
 #main > .container > .content {
@@ -157,6 +180,39 @@
   border-left-color: @icinga-blue;
 }
 
+.controls .button-link,
+.icinga-controls button:not([type]),
+.icinga-controls button[type="submit"],
+.icinga-controls input[type="submit"],
+.icinga-controls input[type="submit"].btn-confirm {
+  background: linear-gradient(180deg, #1A324F 0%, #162B45 100%);
+  border: 1px solid fade(@icinga-blue, 34%);
+  color: @text-color;
+}
+
+.icinga-controls input[type="submit"].btn-remove {
+  background: linear-gradient(180deg, fade(@color-critical, 30%) 0%, fade(@color-critical, 24%) 100%);
+  border: 1px solid fade(@color-critical, 58%);
+}
+
+.icinga-controls input[type="submit"].btn-cancel {
+  border: 1px solid fade(@gray-semilight, 35%);
+}
+
+.controls .button-link:hover,
+.icinga-controls button:hover,
+.icinga-controls input[type="submit"]:hover {
+  background: linear-gradient(180deg, #214166 0%, #1B3553 100%);
+}
+
+.pagination-control li.active {
+  border-bottom: 2px solid @icinga-blue;
+}
+
+.pagination-control li > a:hover {
+  background-color: fade(@icinga-blue, 14%);
+}
+
 .icinga-controls input:not([type="checkbox"]):not([type="radio"]),
 .icinga-controls select,
 .icinga-controls textarea,
@@ -190,6 +246,29 @@
   border-left-width: 0.4em;
 }
 
+.dashboard-link {
+  border: 1px solid fade(@icinga-blue, 10%);
+  border-radius: 0.75em;
+  background: linear-gradient(180deg, fade(#12233C, 92%) 0%, fade(#0F1D33, 92%) 100%);
+  transition: border-color 150ms ease-in, transform 150ms ease-in, box-shadow 150ms ease-in;
+}
+
+.dashboard-link:hover {
+  border-color: fade(@icinga-blue, 35%);
+  box-shadow: 0 0.625em 1.25em fade(#000, 28%);
+  transform: translateY(-1px);
+}
+
+.dashboard-link .link-description {
+  color: fade(@text-color, 78%);
+}
+
+#announcements > ul,
+#application-state-summary > div {
+  border: 1px solid fade(@icinga-blue, 14%);
+  border-radius: 0.5em;
+}
+
 @media (max-width: 768px) {
   #main > .container > .content {
     background: @body-bg-color;
@@ -201,5 +280,15 @@
     border-radius: 0.5em;
     box-shadow: 0 0.5em 1em fade(#000, 18%);
   }
-}
 
+  .controls input.search,
+  input.search {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sort-controls-container {
+    float: none;
+    display: block;
+  }
+}
