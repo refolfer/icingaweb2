@@ -1,0 +1,61 @@
+; Example starter dashboard for NeoNOC / NeoNOC-Compact
+; Copy to:
+;   /etc/icingaweb2/dashboards/<username>/dashboard.ini
+; and adapt URLs to your installed modules and routes.
+
+[noc-live]
+title = "NOC Live"
+
+[noc-live.active-services]
+title = "Active Service Problems"
+url = "icingadb/services/grid"
+problems = "1"
+limit = "30"
+
+[noc-live.active-hosts]
+title = "Active Host Problems"
+url = "icingadb/hosts/grid"
+problems = "1"
+limit = "30"
+
+[noc-live.unhandled-critical]
+title = "Unhandled Critical"
+url = "icingadb/services/grid"
+service.state = "critical"
+service.handled = "0"
+limit = "30"
+
+[noc-live.recent-notifications]
+title = "Recent Notifications"
+url = "icingadb/history"
+type = "notification"
+limit = "20"
+
+[sla-trends]
+title = "SLA And Trends"
+
+[sla-trends.service-grid]
+title = "Service Inventory"
+url = "icingadb/services"
+limit = "25"
+
+[sla-trends.host-grid]
+title = "Host Inventory"
+url = "icingadb/hosts"
+limit = "25"
+
+[capacity]
+title = "Capacity"
+
+[capacity.overdue-checks]
+title = "Overdue Checks"
+url = "icingadb/services/grid"
+service.check_state = "overdue"
+limit = "30"
+
+[capacity.long-downtimes]
+title = "Long Downtimes"
+url = "icingadb/history"
+type = "downtime"
+limit = "20"
+

@@ -1,0 +1,95 @@
+// SPDX-FileCopyrightText: 2026
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+@import (less) "NeoNOC.less";
+
+// Compact operator profile for dense NOC screens
+@font-size: 0.75em;
+@line-height: 1.35;
+@font-family-wide: "IBM Plex Sans", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+
+#header-logo-container {
+  height: 5.25em;
+  padding: 1em;
+}
+
+#main > .container > .controls > .tabs {
+  height: 2.2em;
+}
+
+.tabs a {
+  line-height: 2.2em;
+  padding: 0 0.75em;
+}
+
+.tabs > li:not(:last-child) {
+  margin-right: 0.25em;
+}
+
+.common-table td,
+.common-table th {
+  padding-top: 0.625em;
+}
+
+.common-table td {
+  padding-bottom: 0.625em;
+}
+
+.controls input.search,
+input.search {
+  width: 16em;
+}
+
+.filter > a {
+  padding: 0.333em;
+}
+
+.controls .button-link,
+.icinga-controls button:not([type]),
+.icinga-controls button[type="submit"],
+.icinga-controls input[type="submit"],
+.icinga-controls input[type="submit"].btn-confirm {
+  min-height: 1.95em;
+  padding: 0.417em 0.667em;
+}
+
+form.icinga-form select:not([multiple]),
+form.icinga-form input[type="text"],
+form.icinga-form input[type="password"],
+form.icinga-form input[type="number"],
+form.icinga-form input[type="datetime-local"],
+form.icinga-form input[type="date"],
+form.icinga-form input[type="time"] {
+  height: 2em;
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]),
+.icinga-controls select,
+.icinga-controls textarea,
+.search-bar,
+.button-link,
+.view-mode-switcher > label {
+  border-radius: 0.417em;
+}
+
+.badge,
+.state-badge {
+  font-size: 0.875em;
+  padding: 0.2em 0.6em;
+}
+
+.dashboard-link {
+  padding: 0.75em;
+}
+
+@media (max-width: 768px) {
+  .tabs a {
+    padding: 0 0.667em;
+  }
+
+  .controls input.search,
+  input.search {
+    width: 100%;
+  }
+}
+

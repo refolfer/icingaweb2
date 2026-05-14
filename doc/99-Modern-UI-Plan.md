@@ -31,6 +31,7 @@ Icinga Web 2 workflows (acknowledgements, comments, downtime, filtering, quick n
   - trend arrows
   - service/host criticality badges
 - Add uniform component rules for module pages to reduce visual inconsistency
+- Provide baseline `dashboard.ini` blueprint for fast pilot onboarding
 
 ## Phase 3 - UX Hardening
 
@@ -58,8 +59,9 @@ Icinga Web 2 workflows (acknowledgements, comments, downtime, filtering, quick n
 ## How To Enable This Sketch
 
 1. Ensure file `public/css/themes/NeoNOC.less` exists in deployment
-2. Open Icinga Web 2 and select theme `NeoNOC` in user preferences
-3. Optionally enforce globally in `/etc/icingaweb2/config.ini`:
+2. Optionally use `public/css/themes/NeoNOC-Compact.less` for denser NOC layout
+3. Open Icinga Web 2 and select theme `NeoNOC` or `NeoNOC-Compact` in user preferences
+4. Optionally enforce globally in `/etc/icingaweb2/config.ini`:
 
 ```ini
 [themes]
@@ -70,3 +72,5 @@ disabled = "0"
 ## Pilot Execution
 
 Use `doc/99-Modern-UI-Pilot-Checklist.md` as rollout checklist and feedback baseline.
+Use `doc/99-Modern-UI-Dashboard-Blueprint.md` and `doc/res/modern-ui-dashboard.ini.example`
+to seed operator dashboards quickly.
