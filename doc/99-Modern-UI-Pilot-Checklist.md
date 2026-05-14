@@ -10,6 +10,7 @@ without breaking daily monitoring operations.
 - 3-8 operators from different shifts
 - 1-2 weeks of daily use
 - At least one high-alert period included
+- Include at least one daytime shift using `NeoNOC-Light`
 
 ## Functional Checks
 
@@ -54,4 +55,3 @@ without breaking daily monitoring operations.
 - No functional regressions reported
 - At least 70% pilot users prefer `NeoNOC` over default
 - No major readability issues in high-alert windows
-

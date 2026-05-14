@@ -1,0 +1,266 @@
+// SPDX-FileCopyrightText: 2026
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+@icinga-blue: #119f8a;
+@icinga-blue-dark: #0c7e6d;
+@icinga-blue-light: fade(@icinga-blue, 35%);
+@icinga-secondary: #e97a4f;
+@icinga-secondary-dark: #d8673e;
+
+@color-ok: #1f9f58;
+@color-warning: #c8871d;
+@color-warning-handled: #d9a957;
+@color-critical: #d94b63;
+@color-critical-handled: #e07a8d;
+@color-unknown: #7565d9;
+@color-unknown-handled: #958adf;
+@color-pending: #2f7dd5;
+
+@body-bg-color: #eaf1f7;
+@text-color: #1f2c38;
+@text-color-light: fade(@text-color, 72%);
+@link-color: @text-color;
+@light-text-bg-color: fade(#163247, 4%);
+
+@menu-bg-color: #d7e4ee;
+@menu-hover-bg-color: #c7d9e7;
+@menu-search-hover-bg-color: #c7d9e7;
+@menu-active-bg-color: #edf5fb;
+@menu-active-hover-bg-color: #d8e9f5;
+@menu-color: #2f4a5c;
+@menu-active-color: #1a3446;
+@menu-highlight-color: @icinga-blue;
+@menu-highlight-hover-bg-color: #d6e8f3;
+@menu-2ndlvl-color: #3f5d71;
+@menu-2ndlvl-active-bg-color: #20b69f;
+@menu-2ndlvl-active-color: #0f2533;
+@menu-flyout-bg-color: #f4f9fd;
+@menu-flyout-color: #203240;
+
+@low-sat-blue: #f3f8fc;
+@low-sat-blue-dark: #dce8f2;
+@gray: #6f8496;
+@gray-semilight: #93a6b5;
+@gray-light: #ccd9e4;
+@gray-lighter: #e3ebf2;
+@gray-lightest: #f5f9fc;
+
+@form-info-bg-color: fade(@color-ok, 14%);
+@form-error-bg-color: fade(@color-critical, 16%);
+@form-warning-bg-color: fade(@color-warning, 15%);
+
+@font-family: "IBM Plex Sans", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+@font-family-wide: "IBM Plex Sans Condensed", "Segoe UI", "Trebuchet MS", sans-serif;
+@font-size: 0.8125em;
+@line-height: 1.45;
+
+:focus {
+  outline: 2px solid fade(@icinga-blue, 55%);
+  outline-offset: 1px;
+}
+
+#layout {
+  background-color: @body-bg-color;
+  background-image:
+    radial-gradient(circle at 90% -10%, fade(@icinga-blue, 10%), transparent 34%),
+    radial-gradient(circle at 10% 115%, fade(@icinga-secondary, 8%), transparent 40%),
+    linear-gradient(180deg, #ecf3f9 0%, #e8eff6 100%);
+  background-attachment: fixed;
+}
+
+#header-logo-container {
+  background: linear-gradient(180deg, #e9f2f8 0%, #dce9f3 100%);
+  border-bottom: 1px solid fade(@icinga-blue, 25%);
+  box-shadow: 0 0.5em 1em fade(#203042, 14%);
+}
+
+#menu {
+  border-right: 1px solid fade(@icinga-blue, 18%);
+  box-shadow: 0.35em 0 1em fade(#223449, 12%);
+}
+
+#menu ul.nav-level-1 > .nav-item > a {
+  letter-spacing: 0.015em;
+  font-weight: 500;
+}
+
+#menu .nav-level-2 > .nav-item {
+  border-radius: 0.5em;
+  margin: 0.083em 0.417em;
+}
+
+#menu .nav-level-2 > .nav-item.active {
+  box-shadow: 0 0 0 1px fade(@icinga-blue, 25%) inset;
+}
+
+#main > .container > .controls {
+  background: linear-gradient(180deg, fade(#f4f9fd, 98%) 0%, fade(#edf5fb, 98%) 100%);
+  border-bottom: 1px solid fade(@icinga-blue, 18%);
+  backdrop-filter: blur(3px);
+}
+
+#main > .container > .controls > .tabs {
+  background: transparent;
+}
+
+.tabs > li > a {
+  border-radius: 0.5em 0.5em 0 0;
+  letter-spacing: 0.01em;
+}
+
+.tabs > li.active > a,
+.tabs > li > a:focus {
+  box-shadow: 0 -1px 0 fade(@icinga-blue, 35%) inset;
+}
+
+#main > .container > .content {
+  background: fade(#eef5fb, 86%);
+}
+
+.content > form,
+.content > .controls,
+.content > .container,
+.dashboard > .container > .content {
+  background: linear-gradient(180deg, fade(#ffffff, 96%) 0%, fade(#f6fbff, 96%) 100%);
+  border: 1px solid fade(@icinga-blue, 14%);
+  border-radius: 0.75em;
+  box-shadow: 0 0.6em 1.3em fade(#2a3c50, 12%);
+}
+
+.dashboard .donut-legend li,
+.common-table tbody tr,
+.name-value-table tbody tr {
+  transition: background-color 120ms ease-in, border-color 120ms ease-in;
+}
+
+.common-table thead {
+  border-bottom: 1px solid fade(@icinga-blue, 24%);
+}
+
+.common-table tbody tr {
+  border-bottom: 1px solid fade(@gray-light, 78%);
+}
+
+.common-table tr[href]:hover {
+  background-color: fade(@icinga-blue, 11%);
+}
+
+.common-table tr[href].active {
+  background-color: fade(@icinga-blue, 18%);
+  border-left-color: @icinga-blue;
+}
+
+.controls .button-link,
+.icinga-controls button:not([type]),
+.icinga-controls button[type="submit"],
+.icinga-controls input[type="submit"],
+.icinga-controls input[type="submit"].btn-confirm {
+  background: linear-gradient(180deg, #f3fafc 0%, #e4f2f8 100%);
+  border: 1px solid fade(@icinga-blue, 38%);
+  color: #173347;
+}
+
+.icinga-controls input[type="submit"].btn-remove {
+  background: linear-gradient(180deg, fade(@color-critical, 20%) 0%, fade(@color-critical, 14%) 100%);
+  border: 1px solid fade(@color-critical, 52%);
+}
+
+.icinga-controls input[type="submit"].btn-cancel {
+  border: 1px solid fade(@gray-semilight, 45%);
+}
+
+.controls .button-link:hover,
+.icinga-controls button:hover,
+.icinga-controls input[type="submit"]:hover {
+  background: linear-gradient(180deg, #e9f4fb 0%, #dcedf7 100%);
+}
+
+.pagination-control li.active {
+  border-bottom: 2px solid @icinga-blue;
+}
+
+.pagination-control li > a:hover {
+  background-color: fade(@icinga-blue, 13%);
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]),
+.icinga-controls select,
+.icinga-controls textarea,
+.search-bar,
+.button-link,
+.view-mode-switcher > label {
+  border: 1px solid fade(@icinga-blue, 32%);
+  border-radius: 0.5em;
+  background-color: fade(#ffffff, 94%);
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]):focus,
+.icinga-controls select:focus,
+.icinga-controls textarea:focus,
+.search-bar:focus-within {
+  border-color: @icinga-blue;
+  box-shadow: 0 0 0 0.2em fade(@icinga-blue, 14%);
+}
+
+.badge,
+.state-badge {
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-left: 0.7em;
+  padding-right: 0.7em;
+}
+
+#notifications > li {
+  border-radius: 0.5em;
+  border-left-width: 0.4em;
+  box-shadow: 0 0.3em 0.9em fade(#26384a, 12%);
+}
+
+.dashboard-link {
+  border: 1px solid fade(@icinga-blue, 16%);
+  border-radius: 0.75em;
+  background: linear-gradient(180deg, fade(#ffffff, 95%) 0%, fade(#f2f8fc, 95%) 100%);
+  transition: border-color 150ms ease-in, transform 150ms ease-in, box-shadow 150ms ease-in;
+}
+
+.dashboard-link:hover {
+  border-color: fade(@icinga-blue, 42%);
+  box-shadow: 0 0.55em 1.1em fade(#243749, 15%);
+  transform: translateY(-1px);
+}
+
+.dashboard-link .link-description {
+  color: fade(@text-color, 78%);
+}
+
+#announcements > ul,
+#application-state-summary > div {
+  border: 1px solid fade(@icinga-blue, 16%);
+  border-radius: 0.5em;
+}
+
+@media (max-width: 768px) {
+  #main > .container > .content {
+    background: @body-bg-color;
+  }
+
+  .content > form,
+  .content > .controls,
+  .content > .container {
+    border-radius: 0.5em;
+    box-shadow: 0 0.45em 0.9em fade(#26384a, 13%);
+  }
+
+  .controls input.search,
+  input.search {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sort-controls-container {
+    float: none;
+    display: block;
+  }
+}
+

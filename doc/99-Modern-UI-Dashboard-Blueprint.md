@@ -3,6 +3,7 @@
 ## Goal
 
 Provide a practical starter blueprint for NOC dashboards that pair well with `NeoNOC` and `NeoNOC-Compact`.
+The same dashboard layout can be reused with `NeoNOC-Light` for daytime operations.
 
 ## Recommended Pane Structure
 
@@ -16,6 +17,7 @@ Provide a practical starter blueprint for NOC dashboards that pair well with `Ne
 - Put critical/problem-focused dashlets first (top-left)
 - Use compact/grid views for high-cardinality lists
 - Avoid mixing "problem lists" and "inventory lists" in the same pane
+- Keep dashlet titles short so they remain readable in compact and light variants
 
 ## Suggested Dashlets (Conceptual)
 
@@ -63,4 +65,3 @@ url = "icingadb/services/grid"
 problems = "1"
 limit = "30"
 ```
-

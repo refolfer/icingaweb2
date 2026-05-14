@@ -11,6 +11,10 @@ Icinga Web 2 workflows (acknowledgements, comments, downtime, filtering, quick n
 - Priority: fast signal recognition over decorative visuals
 - Style: dark graph-like workspace with strong state contrast and cleaner spacing
 - Constraints: keep compatibility with stock Icinga Web 2 and modules
+- Theme family:
+  - `NeoNOC`: default dark operator profile
+  - `NeoNOC-Compact`: dense dark profile for crowded screens and wallboards
+  - `NeoNOC-Light`: light profile for bright offices and daytime shifts
 
 ## Phase 1 - Foundation (Done In This Sketch)
 
@@ -60,8 +64,9 @@ Icinga Web 2 workflows (acknowledgements, comments, downtime, filtering, quick n
 
 1. Ensure file `public/css/themes/NeoNOC.less` exists in deployment
 2. Optionally use `public/css/themes/NeoNOC-Compact.less` for denser NOC layout
-3. Open Icinga Web 2 and select theme `NeoNOC` or `NeoNOC-Compact` in user preferences
-4. Optionally enforce globally in `/etc/icingaweb2/config.ini`:
+3. Optionally use `public/css/themes/NeoNOC-Light.less` for light operator layout
+4. Open Icinga Web 2 and select theme `NeoNOC`, `NeoNOC-Compact` or `NeoNOC-Light` in user preferences
+5. Optionally enforce globally in `/etc/icingaweb2/config.ini`:
 
 ```ini
 [themes]
@@ -74,3 +79,4 @@ disabled = "0"
 Use `doc/99-Modern-UI-Pilot-Checklist.md` as rollout checklist and feedback baseline.
 Use `doc/99-Modern-UI-Dashboard-Blueprint.md` and `doc/res/modern-ui-dashboard.ini.example`
 to seed operator dashboards quickly.
+Use `doc/99-Modern-UI-Theme-Profiles.md` to assign theme variants per team/shift.
