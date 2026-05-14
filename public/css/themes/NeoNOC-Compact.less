@@ -1,7 +1,297 @@
 // SPDX-FileCopyrightText: 2026
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-@import (less) "NeoNOC.less";
+@light-mode: {
+  @iplWebLightRules();
+
+  :root {
+    --body-bg-color: #EDF3F9;
+    --body-bg-color-transparent: fade(#EDF3F9, 0);
+    --text-color: #1E2A36;
+    --text-color-light: fade(#1E2A36, 72%);
+    --link-color: #1E2A36;
+
+    --menu-bg-color: #DCEAF3;
+    --menu-hover-bg-color: #C9DEEC;
+    --menu-search-hover-bg-color: #C9DEEC;
+    --menu-active-bg-color: #ECF5FB;
+    --menu-active-hover-bg-color: #D6E8F4;
+    --menu-color: #274355;
+    --menu-active-color: #183141;
+    --menu-highlight-color: #0FAF9A;
+    --menu-2ndlvl-color: #345669;
+
+    --low-sat-blue: #F7FAFD;
+    --low-sat-blue-dark: #DDE8F2;
+    --gray: #72879A;
+    --gray-semilight: #95A8B8;
+    --gray-light: #D1DCE6;
+    --gray-lighter: #E6EDF4;
+    --gray-lightest: #F6F9FC;
+  }
+};
+
+@icinga-blue: #16C4AA;
+@icinga-blue-dark: #0B9582;
+@icinga-blue-light: fade(@icinga-blue, 50%);
+@icinga-secondary: #FF8A5B;
+@icinga-secondary-dark: #E96A3A;
+
+@color-ok: #45D483;
+@color-warning: #FFB454;
+@color-warning-handled: #FFD081;
+@color-critical: #FF5F73;
+@color-critical-handled: #FF97A5;
+@color-unknown: #8F81FF;
+@color-unknown-handled: #B1A7FF;
+@color-pending: #4CA6FF;
+
+@body-bg-color: #0A1220;
+@text-color: #E5EDF5;
+@text-color-light: fade(@text-color, 72%);
+@link-color: @text-color;
+@light-text-bg-color: fade(#EEF4FB, 4%);
+
+@menu-bg-color: #060C17;
+@menu-hover-bg-color: #0A1322;
+@menu-search-hover-bg-color: #0A1322;
+@menu-active-bg-color: #111E33;
+@menu-active-hover-bg-color: #172743;
+@menu-color: #AFC2D4;
+@menu-active-color: #F0F7FF;
+@menu-highlight-color: @icinga-blue;
+@menu-highlight-hover-bg-color: #0F675A;
+@menu-2ndlvl-color: #8EA6BB;
+@menu-2ndlvl-active-bg-color: #1CCCB1;
+@menu-2ndlvl-active-color: #071420;
+@menu-flyout-bg-color: #0C1729;
+@menu-flyout-color: #DDE9F5;
+
+@low-sat-blue: #121E32;
+@low-sat-blue-dark: #1A2942;
+@gray: #5D7186;
+@gray-semilight: #798EA1;
+@gray-light: #233046;
+@gray-lighter: #1A263B;
+@gray-lightest: #131E30;
+
+@form-info-bg-color: fade(@color-ok, 15%);
+@form-error-bg-color: fade(@color-critical, 22%);
+@form-warning-bg-color: fade(@color-warning, 20%);
+
+@font-family: "IBM Plex Sans", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+@font-family-wide: "IBM Plex Sans Condensed", "Segoe UI", "Trebuchet MS", sans-serif;
+@font-size: 0.8125em;
+@line-height: 1.45;
+
+:focus {
+  outline: 2px solid fade(@icinga-blue, 65%);
+  outline-offset: 1px;
+}
+
+#layout {
+  background-color: @body-bg-color;
+  background-image:
+    radial-gradient(circle at 90% -10%, fade(@icinga-blue, 14%), transparent 32%),
+    radial-gradient(circle at 15% 120%, fade(@icinga-secondary, 10%), transparent 38%),
+    linear-gradient(180deg, #0A1220 0%, #0D1627 100%);
+  background-attachment: fixed;
+}
+
+#header-logo-container {
+  background: linear-gradient(180deg, #0A1324 0%, #0B1A31 100%);
+  border-bottom: 1px solid fade(@icinga-blue, 26%);
+  box-shadow: 0 0.75em 1.5em fade(#000, 32%);
+}
+
+#menu {
+  border-right: 1px solid fade(@icinga-blue, 16%);
+  box-shadow: 0.5em 0 1.25em fade(#000, 20%);
+}
+
+#menu ul.nav-level-1 > .nav-item > a {
+  letter-spacing: 0.015em;
+  font-weight: 500;
+}
+
+#menu .nav-level-2 > .nav-item {
+  border-radius: 0.5em;
+  margin: 0.083em 0.417em;
+}
+
+#menu .nav-level-2 > .nav-item.active {
+  box-shadow: 0 0 0 1px fade(@icinga-blue, 28%) inset;
+}
+
+#main > .container > .controls {
+  background: linear-gradient(180deg, fade(#0B172A, 96%) 0%, fade(#0D1B31, 96%) 100%);
+  border-bottom: 1px solid fade(@icinga-blue, 14%);
+  backdrop-filter: blur(4px);
+}
+
+#main > .container > .controls > .tabs {
+  background: transparent;
+}
+
+.tabs > li > a {
+  border-radius: 0.5em 0.5em 0 0;
+  letter-spacing: 0.01em;
+}
+
+.tabs > li.active > a,
+.tabs > li > a:focus {
+  box-shadow: 0 -1px 0 fade(@icinga-blue, 30%) inset;
+}
+
+#main > .container > .content {
+  background: fade(#0D182B, 92%);
+}
+
+.content > form,
+.content > .controls,
+.content > .container,
+.dashboard > .container > .content {
+  background: linear-gradient(180deg, fade(#122038, 94%) 0%, fade(#101C31, 94%) 100%);
+  border: 1px solid fade(@icinga-blue, 12%);
+  border-radius: 0.75em;
+  box-shadow: 0 0.75em 1.5em fade(#000, 24%);
+}
+
+.dashboard .donut-legend li,
+.common-table tbody tr,
+.name-value-table tbody tr {
+  transition: background-color 120ms ease-in, border-color 120ms ease-in;
+}
+
+.common-table thead {
+  border-bottom: 1px solid fade(@icinga-blue, 24%);
+}
+
+.common-table tbody tr {
+  border-bottom: 1px solid fade(@gray-light, 70%);
+}
+
+.common-table tr[href]:hover {
+  background-color: fade(@icinga-blue, 13%);
+}
+
+.common-table tr[href].active {
+  background-color: fade(@icinga-blue, 22%);
+  border-left-color: @icinga-blue;
+}
+
+.controls .button-link,
+.icinga-controls button:not([type]),
+.icinga-controls button[type="submit"],
+.icinga-controls input[type="submit"],
+.icinga-controls input[type="submit"].btn-confirm {
+  background: linear-gradient(180deg, #1A324F 0%, #162B45 100%);
+  border: 1px solid fade(@icinga-blue, 34%);
+  color: @text-color;
+}
+
+.icinga-controls input[type="submit"].btn-remove {
+  background: linear-gradient(180deg, fade(@color-critical, 30%) 0%, fade(@color-critical, 24%) 100%);
+  border: 1px solid fade(@color-critical, 58%);
+}
+
+.icinga-controls input[type="submit"].btn-cancel {
+  border: 1px solid fade(@gray-semilight, 35%);
+}
+
+.controls .button-link:hover,
+.icinga-controls button:hover,
+.icinga-controls input[type="submit"]:hover {
+  background: linear-gradient(180deg, #214166 0%, #1B3553 100%);
+}
+
+.pagination-control li.active {
+  border-bottom: 2px solid @icinga-blue;
+}
+
+.pagination-control li > a:hover {
+  background-color: fade(@icinga-blue, 14%);
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]),
+.icinga-controls select,
+.icinga-controls textarea,
+.search-bar,
+.button-link,
+.view-mode-switcher > label {
+  border: 1px solid fade(@icinga-blue, 36%);
+  border-radius: 0.5em;
+  background-color: fade(#0B1628, 85%);
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]):focus,
+.icinga-controls select:focus,
+.icinga-controls textarea:focus,
+.search-bar:focus-within {
+  border-color: @icinga-blue;
+  box-shadow: 0 0 0 0.2em fade(@icinga-blue, 18%);
+}
+
+.badge,
+.state-badge {
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-left: 0.7em;
+  padding-right: 0.7em;
+}
+
+#notifications > li {
+  border-radius: 0.5em;
+  border-left-width: 0.4em;
+}
+
+.dashboard-link {
+  border: 1px solid fade(@icinga-blue, 10%);
+  border-radius: 0.75em;
+  background: linear-gradient(180deg, fade(#12233C, 92%) 0%, fade(#0F1D33, 92%) 100%);
+  transition: border-color 150ms ease-in, transform 150ms ease-in, box-shadow 150ms ease-in;
+}
+
+.dashboard-link:hover {
+  border-color: fade(@icinga-blue, 35%);
+  box-shadow: 0 0.625em 1.25em fade(#000, 28%);
+  transform: translateY(-1px);
+}
+
+.dashboard-link .link-description {
+  color: fade(@text-color, 78%);
+}
+
+#announcements > ul,
+#application-state-summary > div {
+  border: 1px solid fade(@icinga-blue, 14%);
+  border-radius: 0.5em;
+}
+
+@media (max-width: 768px) {
+  #main > .container > .content {
+    background: @body-bg-color;
+  }
+
+  .content > form,
+  .content > .controls,
+  .content > .container {
+    border-radius: 0.5em;
+    box-shadow: 0 0.5em 1em fade(#000, 18%);
+  }
+
+  .controls input.search,
+  input.search {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sort-controls-container {
+    float: none;
+    display: block;
+  }
+}
 
 // Compact operator profile for dense NOC screens
 @font-size: 0.75em;
@@ -92,4 +382,3 @@ form.icinga-form input[type="time"] {
     width: 100%;
   }
 }
-
