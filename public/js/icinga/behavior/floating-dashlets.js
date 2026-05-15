@@ -17,6 +17,7 @@
         this.storage = this.createStorage();
         this.storageKey = 'layout-v1';
         this.viewModeKey = 'view-mode-v1';
+        this.hiddenTabsKey = 'hidden-tabs-v1';
 
         this.dragState = null;
         this.resizeState = null;
@@ -31,8 +32,11 @@
         this.on('click', '.dashboard.floating-dashlets.floating-dashlets-active > .container > h1 a', this.onTitleClick, this);
         this.on('click', '.js-reset-dashlet-layout', this.onResetLayoutClick, this);
         this.on('click', '.js-toggle-dashlet-view', this.onToggleViewClick, this);
+        this.on('click', '.js-dashboard-visibility-toggle', this.onDashboardVisibilityToggle, this);
+        this.on('change', '.js-dashboard-visibility-list input[type="checkbox"]', this.onDashboardVisibilityChange, this);
 
         this.scheduleSetupPasses();
+        this.bindVisibilityPanelDismissHandlers();
     };
 
     $.extend(FloatingDashlets.prototype, new Icinga.EventListener(), {
@@ -351,6 +355,8 @@
                 return;
             }
 
+            this.initDashboardVisibilityManager($dashboard);
+
             if (this.shouldDisableFloating($dashboard)) {
                 this.teardownDashboard($dashboard);
                 this.updateViewToggleControl($dashboard);
@@ -444,6 +450,311 @@
             this.ensurePinnedDashletContent($dashlets);
             this.refreshDashboardHeight($dashboard);
             this.saveLayout($dashboard);
+        },
+
+        bindVisibilityPanelDismissHandlers: function() {
+            var _this = this;
+
+            $(document)
+                .off('click.floatingDashletVisibility')
+                .on('click.floatingDashletVisibility', function(event) {
+                    if (! $(event.target).closest('.dashboard-visibility-manager').length) {
+                        _this.closeDashboardVisibilityPanels();
+                    }
+                });
+
+            $(document)
+                .off('keyup.floatingDashletVisibility')
+                .on('keyup.floatingDashletVisibility', function(event) {
+                    if (event.key === 'Escape') {
+                        _this.closeDashboardVisibilityPanels();
+                    }
+                });
+        },
+
+        onDashboardVisibilityToggle: function(event) {
+            var _this = event.data.self;
+            var $button = $(event.currentTarget);
+            var $manager = $button.closest('.dashboard-visibility-manager');
+            var $panel = $manager.find('.js-dashboard-visibility-panel').first();
+            var isOpen = ! $panel.prop('hidden');
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            _this.closeDashboardVisibilityPanels();
+
+            if (! isOpen) {
+                $panel.prop('hidden', false);
+                $button.attr('aria-expanded', 'true');
+            }
+        },
+
+        closeDashboardVisibilityPanels: function() {
+            $('.js-dashboard-visibility-panel').prop('hidden', true);
+            $('.js-dashboard-visibility-toggle').attr('aria-expanded', 'false');
+        },
+
+        onDashboardVisibilityChange: function(event) {
+            var _this = event.data.self;
+            var $checkbox = $(event.currentTarget);
+            var $manager = $checkbox.closest('.dashboard-visibility-manager');
+            var $controls = $manager.closest('.controls');
+            var $dashboard = _this.getAssociatedDashboard($controls);
+
+            if (! $dashboard.length) {
+                return;
+            }
+
+            _this.applyDashboardTabVisibility($dashboard, {
+                changedId: $checkbox.val(),
+                checked: $checkbox.is(':checked')
+            });
+        },
+
+        initDashboardVisibilityManager: function($dashboard) {
+            var $controls = this.getAssociatedControls($dashboard);
+            if (! $controls.length) {
+                return;
+            }
+
+            var $manager = $controls.find('.dashboard-visibility-manager').first();
+            var $list = $controls.find('.js-dashboard-visibility-list').first();
+            var $tabs = $controls.find('.tabs.primary-nav').first();
+
+            if (! $manager.length || ! $list.length || ! $tabs.length) {
+                return;
+            }
+
+            var tabs = this.collectDashboardTabs($tabs);
+            if (tabs.length <= 1) {
+                $manager.hide();
+                return;
+            }
+
+            $manager.show();
+            this.renderDashboardVisibilityList($dashboard, $list, tabs);
+            this.applyDashboardTabVisibility($dashboard);
+        },
+
+        collectDashboardTabs: function($tabs) {
+            var _this = this;
+            var tabs = [];
+
+            $tabs.children('li').each(function(index) {
+                var $tab = $(this);
+                var $link = $tab.children('a').first();
+
+                if (
+                    ! $link.length ||
+                    $tab.hasClass('dropdown-nav-item') ||
+                    $tab.hasClass('close-container-btn') ||
+                    $link.hasClass('close-container-control') ||
+                    $link.hasClass('refresh-container-control')
+                ) {
+                    return;
+                }
+
+                var href = $link.attr('href') || '';
+                if (! href || href === '#') {
+                    return;
+                }
+
+                var id = $tab.attr('data-dashboard-tab-id');
+                if (! id) {
+                    id = _this.buildDashboardTabId(href, index);
+                    $tab.attr('data-dashboard-tab-id', id);
+                }
+
+                tabs.push({
+                    id: id,
+                    label: $.trim($link.text()),
+                    active: $tab.hasClass('active'),
+                    $tab: $tab
+                });
+            });
+
+            return tabs;
+        },
+
+        buildDashboardTabId: function(href, index) {
+            var parts = this.icinga.utils.parseUrl(href);
+            var pane = '';
+            for (var i = 0; i < parts.params.length; i++) {
+                if (parts.params[i].key === 'pane') {
+                    pane = parts.params[i].value || '';
+                    break;
+                }
+            }
+
+            var source = (parts.path + '::' + pane + '::' + index).toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+
+            return 'dashboard-tab-' + source;
+        },
+
+        renderDashboardVisibilityList: function($dashboard, $list, tabs) {
+            var hiddenMap = this.getDashboardHiddenTabs($dashboard);
+            var items = [];
+
+            for (var i = 0; i < tabs.length; i++) {
+                var tab = tabs[i];
+                var checked = tab.active ? true : ! hiddenMap[tab.id];
+                var disabled = tab.active ? ' disabled' : '';
+                var checkedAttr = checked ? ' checked' : '';
+
+                items.push(
+                    '<li>' +
+                        '<label>' +
+                            '<input type="checkbox" value="' + this.escapeHtml(tab.id) + '"' + checkedAttr + disabled + '>' +
+                            '<span>' + this.escapeHtml(tab.label || tab.id) + '</span>' +
+                        '</label>' +
+                    '</li>'
+                );
+            }
+
+            $list.html(items.join(''));
+        },
+
+        applyDashboardTabVisibility: function($dashboard, change) {
+            var $controls = this.getAssociatedControls($dashboard);
+            var $tabs = $controls.find('.tabs.primary-nav').first();
+            if (! $tabs.length) {
+                return;
+            }
+
+            var tabs = this.collectDashboardTabs($tabs);
+            if (! tabs.length) {
+                return;
+            }
+
+            var hiddenMap = this.getDashboardHiddenTabs($dashboard);
+
+            if (change && change.changedId) {
+                if (change.checked) {
+                    delete hiddenMap[change.changedId];
+                } else {
+                    hiddenMap[change.changedId] = true;
+                }
+            }
+
+            var visibleCount = 0;
+            for (var i = 0; i < tabs.length; i++) {
+                var tab = tabs[i];
+                var visible = tab.active || ! hiddenMap[tab.id];
+                if (visible) {
+                    visibleCount += 1;
+                }
+            }
+
+            if (visibleCount === 0 && tabs.length) {
+                delete hiddenMap[tabs[0].id];
+                visibleCount = 1;
+            }
+
+            hiddenMap = this.filterHiddenTabsMap(hiddenMap, tabs);
+
+            for (var j = 0; j < tabs.length; j++) {
+                var current = tabs[j];
+                var shouldShow = current.active || ! hiddenMap[current.id];
+                current.$tab.toggle(shouldShow);
+            }
+
+            this.setDashboardHiddenTabs($dashboard, hiddenMap);
+            this.syncDashboardVisibilityCheckboxes($dashboard, tabs, hiddenMap);
+        },
+
+        syncDashboardVisibilityCheckboxes: function($dashboard, tabs, hiddenMap) {
+            var $controls = this.getAssociatedControls($dashboard);
+            var $list = $controls.find('.js-dashboard-visibility-list').first();
+            if (! $list.length) {
+                return;
+            }
+
+            for (var i = 0; i < tabs.length; i++) {
+                var tab = tabs[i];
+                var $checkbox = $list.find('input[type="checkbox"]').filter(function() {
+                    return $(this).val() === tab.id;
+                }).first();
+                if (! $checkbox.length) {
+                    continue;
+                }
+
+                var checked = tab.active ? true : ! hiddenMap[tab.id];
+                $checkbox.prop('checked', checked);
+                $checkbox.prop('disabled', tab.active);
+            }
+        },
+
+        getHiddenTabsStore: function() {
+            var store = {};
+
+            try {
+                store = this.storage.get(this.hiddenTabsKey);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to read hidden dashboard tabs.', error);
+                }
+            }
+
+            return (store && typeof store === 'object') ? store : {};
+        },
+
+        getDashboardHiddenTabs: function($dashboard) {
+            var store = this.getHiddenTabsStore();
+            var key = this.getDashboardTabsKey($dashboard);
+            var map = store[key];
+            return (map && typeof map === 'object') ? map : {};
+        },
+
+        setDashboardHiddenTabs: function($dashboard, hiddenMap) {
+            var store = this.getHiddenTabsStore();
+            var key = this.getDashboardTabsKey($dashboard);
+            store[key] = hiddenMap;
+            this.setHiddenTabsStore(store);
+        },
+
+        setHiddenTabsStore: function(store) {
+            try {
+                this.storage.set(this.hiddenTabsKey, store);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to persist hidden dashboard tabs.', error);
+                }
+            }
+        },
+
+        filterHiddenTabsMap: function(hiddenMap, tabs) {
+            var filtered = {};
+
+            if (! hiddenMap || typeof hiddenMap !== 'object') {
+                return filtered;
+            }
+
+            for (var i = 0; i < tabs.length; i++) {
+                var id = tabs[i].id;
+                if (hiddenMap[id]) {
+                    filtered[id] = true;
+                }
+            }
+
+            return filtered;
+        },
+
+        escapeHtml: function(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        },
+
+        getDashboardTabsKey: function($dashboard) {
+            var parts = this.icinga.utils.parseUrl(window.location.href);
+            var index = $('.dashboard.floating-dashlets').index($dashboard);
+            return parts.path + '::tabs::' + index;
         },
 
         getViewModes: function() {

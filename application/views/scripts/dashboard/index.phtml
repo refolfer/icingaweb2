@@ -3,6 +3,22 @@
 <?= $this->tabs ?>
 <?php endif ?>
     <div class="sort-controls-container">
+        <div class="dashboard-visibility-manager">
+            <button
+                type="button"
+                class="button-link js-dashboard-visibility-toggle"
+                title="<?= $this->escape($this->translate('Show or hide dashboards in this view')) ?>"
+                aria-expanded="false"
+            >
+                <?= $this->escape($this->translate('Manage Dashboards')) ?>
+            </button>
+            <div class="dashboard-visibility-panel js-dashboard-visibility-panel" hidden>
+                <div class="dashboard-visibility-title">
+                    <?= $this->escape($this->translate('Visible Dashboards')) ?>
+                </div>
+                <ul class="dashboard-visibility-list js-dashboard-visibility-list"></ul>
+            </div>
+        </div>
         <button
             type="button"
             class="button-link js-toggle-dashlet-view"
