@@ -176,16 +176,47 @@
   background: linear-gradient(180deg, #e9f4fb 0%, #dcedf7 100%);
 }
 
+.icinga-controls button.btn-primary,
+.icinga-controls button[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary {
+  background: linear-gradient(180deg, #0f6ea3 0%, #0c5f8d 100%);
+  border-color: #0b5a85;
+  color: #ffffff;
+}
+
+.icinga-controls button.btn-primary:hover,
+.icinga-controls button.btn-primary:focus,
+.icinga-controls button[type="submit"].btn-primary:hover,
+.icinga-controls button[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-primary:hover,
+.icinga-controls input[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:hover,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:focus {
+  background: linear-gradient(180deg, #0d5f8d 0%, #0a527a 100%);
+  border-color: #094a6e;
+  color: #ffffff;
+}
+
 .icinga-controls button[disabled],
 .icinga-controls button[type="submit"][disabled],
 .icinga-controls input[type="submit"][disabled],
 .icinga-controls input[type="submit"].btn-confirm[disabled],
 .controls .button-link.disabled {
-  background: linear-gradient(180deg, #e5eef5 0%, #d8e4ef 100%);
-  border: 1px solid #90a7b9;
-  color: #42586b;
+  background: linear-gradient(180deg, #d4e0ea 0%, #c4d3e0 100%);
+  border: 1px solid #748fa5;
+  color: #274055;
   opacity: 1;
   cursor: not-allowed;
+}
+
+.icinga-controls button.btn-primary[disabled],
+.icinga-controls button[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"].btn-confirm.btn-primary[disabled] {
+  background: linear-gradient(180deg, #c6d6e3 0%, #b8cad9 100%);
+  border-color: #6f8ca5;
+  color: #1f3648;
 }
 
 .pagination-control li.active {
