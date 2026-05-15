@@ -113,6 +113,18 @@
 #menu ul.nav-level-1 > .nav-item > a {
   letter-spacing: 0.015em;
   font-weight: 500;
+  transition: background-color 140ms ease-in, color 140ms ease-in, box-shadow 140ms ease-in, transform 140ms ease-in;
+}
+
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item:not(.selected):not(.active):hover > a,
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item:not(.selected):not(.active):focus-within > a {
+  transform: translateX(2px);
+  box-shadow: inset 0 0 0 1px fade(@icinga-blue, 24%);
+}
+
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item.active > a,
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item.selected > a {
+  transition: background-color 140ms ease-in, color 140ms ease-in, box-shadow 140ms ease-in;
 }
 
 #menu .nav-level-2 > .nav-item {
