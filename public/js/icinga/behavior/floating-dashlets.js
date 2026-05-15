@@ -696,8 +696,10 @@
                 var $scrollBody = $dashlet.children('.dashlet-scroll-body').first();
 
                 if (! $scrollBody.length) {
-                    $scrollBody = $('<div class="dashlet-scroll-body"></div>');
+                    $scrollBody = $('<div class="content dashlet-scroll-body"></div>');
                     $scrollBody.insertAfter($title);
+                } else if (! $scrollBody.hasClass('content')) {
+                    $scrollBody.addClass('content');
                 }
 
                 $dashlet.children().each(function() {
