@@ -44,6 +44,7 @@
 @gray-light: #ccd9e4;
 @gray-lighter: #e3ebf2;
 @gray-lightest: #f5f9fc;
+@disabled-gray: #5a6f82;
 
 @form-info-bg-color: fade(@color-ok, 14%);
 @form-error-bg-color: fade(@color-critical, 16%);
@@ -175,6 +176,18 @@
   background: linear-gradient(180deg, #e9f4fb 0%, #dcedf7 100%);
 }
 
+.icinga-controls button[disabled],
+.icinga-controls button[type="submit"][disabled],
+.icinga-controls input[type="submit"][disabled],
+.icinga-controls input[type="submit"].btn-confirm[disabled],
+.controls .button-link.disabled {
+  background: linear-gradient(180deg, #e5eef5 0%, #d8e4ef 100%);
+  border: 1px solid #90a7b9;
+  color: #42586b;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
 .pagination-control li.active {
   border-bottom: 2px solid @icinga-blue;
 }
@@ -263,4 +276,3 @@
     display: block;
   }
 }
-

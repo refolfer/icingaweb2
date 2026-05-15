@@ -74,6 +74,7 @@
 @gray-light: #233046;
 @gray-lighter: #1A263B;
 @gray-lightest: #131E30;
+@disabled-gray: #95a8bb;
 
 @form-info-bg-color: fade(@color-ok, 15%);
 @form-error-bg-color: fade(@color-critical, 22%);
@@ -203,6 +204,18 @@
 .icinga-controls button:hover,
 .icinga-controls input[type="submit"]:hover {
   background: linear-gradient(180deg, #214166 0%, #1B3553 100%);
+}
+
+.icinga-controls button[disabled],
+.icinga-controls button[type="submit"][disabled],
+.icinga-controls input[type="submit"][disabled],
+.icinga-controls input[type="submit"].btn-confirm[disabled],
+.controls .button-link.disabled {
+  background: linear-gradient(180deg, #1f2e45 0%, #1a273a 100%);
+  border: 1px solid #5c738b;
+  color: #b2c3d4;
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 .pagination-control li.active {
