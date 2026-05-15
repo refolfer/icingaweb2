@@ -28,6 +28,7 @@
         this.on('mousedown', '.dashboard.floating-dashlets.floating-dashlets-active > .container > h1', this.onDragStart, this);
         this.on('mousedown', '.dashboard.floating-dashlets.floating-dashlets-active > .container .dashlet-resize-handle', this.onResizeStart, this);
         this.on('click', '.dashboard.floating-dashlets.floating-dashlets-active > .container > h1 a', this.onTitleClick, this);
+        this.on('click', '.js-reset-dashlet-layout', this.onResetLayoutClick, this);
 
         this.scheduleSetupPasses();
     };
@@ -121,6 +122,22 @@
                 event.stopPropagation();
                 $dashlet.data('floatingSuppressClick', false);
             }
+        },
+
+        onResetLayoutClick: function(event) {
+            var _this = event.data.self;
+            var $button = $(event.currentTarget);
+            var $dashboard = _this.getAssociatedDashboard($button);
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (! $dashboard.length) {
+                return;
+            }
+
+            _this.resetDashboardLayout($dashboard);
+            $button.blur();
         },
 
         onDragStart: function(event) {
@@ -342,6 +359,51 @@
             this.ensureResizeHandles($dashlets);
             this.ensurePinnedDashletContent($dashlets);
             this.refreshDashboardHeight($dashboard);
+        },
+
+        getAssociatedDashboard: function($trigger) {
+            var $controls = $trigger.closest('.controls');
+            if ($controls.length) {
+                var $nearDashboard = $controls.siblings('.dashboard.floating-dashlets').first();
+                if ($nearDashboard.length) {
+                    return $nearDashboard;
+                }
+            }
+
+            var $container = $trigger.closest('.container');
+            if ($container.length) {
+                var $inContainer = $container.find('.dashboard.floating-dashlets').first();
+                if ($inContainer.length) {
+                    return $inContainer;
+                }
+            }
+
+            return $('.dashboard.floating-dashlets').first();
+        },
+
+        resetDashboardLayout: function($dashboard) {
+            if (! $dashboard.length || this.shouldDisableFloating($dashboard)) {
+                return;
+            }
+
+            var key = this.getDashboardKey($dashboard);
+            var layouts = this.getLayouts();
+
+            if (typeof layouts[key] !== 'undefined') {
+                delete layouts[key];
+                this.setLayouts(layouts);
+            }
+
+            var $dashlets = $dashboard.children('.container');
+            if (! $dashlets.length) {
+                return;
+            }
+
+            this.autoArrangeDashboard($dashboard);
+            this.ensureResizeHandles($dashlets);
+            this.ensurePinnedDashletContent($dashlets);
+            this.refreshDashboardHeight($dashboard);
+            this.saveLayout($dashboard);
         },
 
         hasSavedLayoutForAllDashlets: function($dashlets, savedLayout) {
@@ -785,6 +847,16 @@
             return (layouts && typeof layouts === 'object') ? layouts : {};
         },
 
+        setLayouts: function(layouts) {
+            try {
+                this.storage.set(this.storageKey, layouts);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to persist updated layout store.', error);
+                }
+            }
+        },
+
         saveLayout: function($dashboard) {
             var layouts = this.getLayouts();
             var key = this.getDashboardKey($dashboard);
@@ -809,13 +881,7 @@
             });
 
             layouts[key] = layout;
-            try {
-                this.storage.set(this.storageKey, layouts);
-            } catch (error) {
-                if (window.console && typeof window.console.warn === 'function') {
-                    window.console.warn('Floating dashlets: failed to save layout.', error);
-                }
-            }
+            this.setLayouts(layouts);
         }
     });
 
