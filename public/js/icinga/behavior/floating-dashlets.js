@@ -254,8 +254,16 @@
 
             var left = Math.min(Math.max(0, state.left + dx), maxLeft);
             var top = Math.max(0, state.top + dy);
+            var placed = this.placeWithoutOverlap(
+                $dashboard,
+                $dashlet,
+                left,
+                top,
+                $dashlet.outerWidth(),
+                $dashlet.outerHeight()
+            );
 
-            $dashlet.css({ left: left + 'px', top: top + 'px' });
+            $dashlet.css({ left: placed.left + 'px', top: placed.top + 'px' });
             this.refreshDashboardHeight($dashboard);
         },
 
@@ -274,8 +282,22 @@
 
             var width = Math.min(maxWidth, Math.max(MIN_WIDTH, state.width + dx));
             var height = Math.max(MIN_HEIGHT, state.height + dy);
+            var currentPos = $dashlet.position();
+            var placed = this.placeWithoutOverlap(
+                $dashboard,
+                $dashlet,
+                currentPos.left,
+                currentPos.top,
+                width,
+                height
+            );
 
-            $dashlet.css({ width: width + 'px', height: height + 'px' });
+            $dashlet.css({
+                left: placed.left + 'px',
+                top: placed.top + 'px',
+                width: placed.width + 'px',
+                height: placed.height + 'px'
+            });
             this.refreshDashboardHeight($dashboard);
         },
 
@@ -311,8 +333,165 @@
                 this.applySavedLayout($dashboard, $dashlets, savedLayout);
             }
 
+            var hasSavedLayout = this.hasSavedLayoutForAllDashlets($dashlets, savedLayout);
+            if (! hasSavedLayout || this.dashboardHasOverlap($dashboard)) {
+                this.autoArrangeDashboard($dashboard);
+                this.saveLayout($dashboard);
+            }
+
             this.ensureResizeHandles($dashlets);
             this.refreshDashboardHeight($dashboard);
+        },
+
+        hasSavedLayoutForAllDashlets: function($dashlets, savedLayout) {
+            var allSaved = true;
+
+            $dashlets.each(function() {
+                var id = $(this).attr('data-floating-id');
+                if (! id || typeof savedLayout[id] === 'undefined') {
+                    allSaved = false;
+                    return false;
+                }
+            });
+
+            return allSaved;
+        },
+
+        autoArrangeDashboard: function($dashboard) {
+            var dashboardWidth = $dashboard.innerWidth() || 0;
+            if (dashboardWidth <= 0) {
+                return;
+            }
+
+            var cursorX = DASHBOARD_PADDING;
+            var cursorY = DASHBOARD_PADDING;
+            var rowHeight = 0;
+            var maxDashletWidth = Math.max(MIN_WIDTH, dashboardWidth - DASHBOARD_PADDING * 2);
+
+            $dashboard.children('.container').each(function() {
+                var $dashlet = $(this);
+                var width = Math.max(MIN_WIDTH, Math.round($dashlet.outerWidth()));
+                var height = Math.max(MIN_HEIGHT, Math.round($dashlet.outerHeight()));
+
+                width = Math.min(width, maxDashletWidth);
+
+                if (cursorX + width > dashboardWidth - DASHBOARD_PADDING && cursorX > DASHBOARD_PADDING) {
+                    cursorX = DASHBOARD_PADDING;
+                    cursorY += rowHeight + DASHBOARD_PADDING;
+                    rowHeight = 0;
+                }
+
+                $dashlet.css({
+                    left: cursorX + 'px',
+                    top: cursorY + 'px',
+                    width: width + 'px',
+                    height: height + 'px'
+                });
+
+                cursorX += width + DASHBOARD_PADDING;
+                rowHeight = Math.max(rowHeight, height);
+            });
+        },
+
+        dashboardHasOverlap: function($dashboard) {
+            var dashlets = $dashboard.children('.container').toArray();
+
+            for (var i = 0; i < dashlets.length; i++) {
+                var rectA = this.getDashletRect($(dashlets[i]));
+                for (var j = i + 1; j < dashlets.length; j++) {
+                    var rectB = this.getDashletRect($(dashlets[j]));
+                    if (this.rectanglesOverlap(rectA, rectB)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        },
+
+        getDashletRect: function($dashlet, left, top, width, height) {
+            var position = $dashlet.position();
+            var rectLeft = (typeof left === 'number') ? left : position.left;
+            var rectTop = (typeof top === 'number') ? top : position.top;
+            var rectWidth = (typeof width === 'number') ? width : $dashlet.outerWidth();
+            var rectHeight = (typeof height === 'number') ? height : $dashlet.outerHeight();
+
+            return {
+                left: rectLeft,
+                top: rectTop,
+                right: rectLeft + rectWidth,
+                bottom: rectTop + rectHeight
+            };
+        },
+
+        rectanglesOverlap: function(a, b) {
+            return ! (
+                a.right <= b.left ||
+                a.left >= b.right ||
+                a.bottom <= b.top ||
+                a.top >= b.bottom
+            );
+        },
+
+        placeWithoutOverlap: function($dashboard, $activeDashlet, left, top, width, height) {
+            var dashboardWidth = $dashboard.innerWidth() || 0;
+            var maxWidth = Math.max(MIN_WIDTH, dashboardWidth - DASHBOARD_PADDING * 2);
+            var clampedWidth = Math.min(Math.max(MIN_WIDTH, Math.round(width)), maxWidth);
+            var clampedHeight = Math.max(MIN_HEIGHT, Math.round(height));
+            var maxLeft = Math.max(0, dashboardWidth - clampedWidth - DASHBOARD_PADDING);
+            var nextLeft = Math.min(Math.max(0, Math.round(left)), maxLeft);
+            var nextTop = Math.max(0, Math.round(top));
+            var moved;
+            var iteration = 0;
+            var maxIterations = 120;
+
+            do {
+                moved = false;
+
+                var activeRect = this.getDashletRect(
+                    $activeDashlet,
+                    nextLeft,
+                    nextTop,
+                    clampedWidth,
+                    clampedHeight
+                );
+
+                $dashboard.children('.container').each(function() {
+                    var $dashlet = $(this);
+                    if ($dashlet[0] === $activeDashlet[0]) {
+                        return;
+                    }
+
+                    var otherRect = {
+                        left: $dashlet.position().left,
+                        top: $dashlet.position().top,
+                        right: $dashlet.position().left + $dashlet.outerWidth(),
+                        bottom: $dashlet.position().top + $dashlet.outerHeight()
+                    };
+
+                    if (
+                        ! (
+                            activeRect.right <= otherRect.left ||
+                            activeRect.left >= otherRect.right ||
+                            activeRect.bottom <= otherRect.top ||
+                            activeRect.top >= otherRect.bottom
+                        )
+                    ) {
+                        nextTop = otherRect.bottom + DASHBOARD_PADDING;
+                        moved = true;
+                        return false;
+                    }
+                });
+
+                iteration += 1;
+            } while (moved && iteration < maxIterations);
+
+            return {
+                left: nextLeft,
+                top: nextTop,
+                width: clampedWidth,
+                height: clampedHeight
+            };
         },
 
         shouldDisableFloating: function($dashboard) {
