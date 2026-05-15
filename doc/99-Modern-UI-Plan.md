@@ -76,6 +76,7 @@ disabled = "0"
 
 ## Pilot Execution
 
+Run `doc/99-Modern-UI-Smoke-Test.md` before each pilot wave.
 Use `doc/99-Modern-UI-Pilot-Checklist.md` as rollout checklist and feedback baseline.
 Use `doc/99-Modern-UI-Dashboard-Blueprint.md` and `doc/res/modern-ui-dashboard.ini.example`
 to seed operator dashboards quickly.
