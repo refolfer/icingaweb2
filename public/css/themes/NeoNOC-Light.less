@@ -142,6 +142,18 @@
   border-bottom: 1px solid fade(@gray-light, 78%);
 }
 
+.common-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #f8fcff 0%, #eef6fc 100%);
+  box-shadow: 0 1px 0 fade(@icinga-blue, 24%);
+}
+
+.common-table tbody tr:nth-child(even) {
+  background-color: fade(#dce8f2, 42%);
+}
+
 .common-table tr[href]:hover {
   background-color: fade(@icinga-blue, 11%);
 }
@@ -219,6 +231,23 @@
   color: #1f3648;
 }
 
+.controls .button-link,
+.icinga-controls button,
+.icinga-controls input[type="submit"] {
+  transition: background-color 120ms ease-in, border-color 120ms ease-in, color 120ms ease-in, box-shadow 120ms ease-in;
+}
+
+.controls .button-link:active,
+.icinga-controls button:active,
+.icinga-controls input[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+.form-controls .spinner:before {
+  color: #29506a;
+  opacity: 0.9;
+}
+
 .pagination-control li.active {
   border-bottom: 2px solid @icinga-blue;
 }
@@ -253,6 +282,72 @@
   letter-spacing: 0.01em;
   padding-left: 0.7em;
   padding-right: 0.7em;
+  border: 1px solid transparent;
+}
+
+.badge.state-ok,
+.state-badge.state-ok,
+.badge.state-up,
+.state-badge.state-up {
+  background-color: fade(@color-ok, 22%);
+  border-color: fade(@color-ok, 56%);
+  color: #0b4a27;
+}
+
+.badge.state-warning,
+.state-badge.state-warning {
+  background-color: fade(@color-warning, 24%);
+  border-color: fade(@color-warning, 58%);
+  color: #5f3d00;
+}
+
+.badge.state-critical,
+.state-badge.state-critical,
+.badge.state-down,
+.state-badge.state-down {
+  background-color: fade(@color-critical, 22%);
+  border-color: fade(@color-critical, 56%);
+  color: #6b1426;
+}
+
+.badge.state-unknown,
+.state-badge.state-unknown,
+.badge.state-unreachable,
+.state-badge.state-unreachable {
+  background-color: fade(@color-unknown, 20%);
+  border-color: fade(@color-unknown, 52%);
+  color: #38268e;
+}
+
+.badge.state-pending,
+.state-badge.state-pending {
+  background-color: fade(@color-pending, 20%);
+  border-color: fade(@color-pending, 50%);
+  color: #093a73;
+}
+
+.badge.handled,
+.state-badge.handled {
+  opacity: 0.9;
+}
+
+.common-table tbody tr.state-critical,
+.common-table tbody tr.state-down {
+  border-left-color: @color-critical;
+}
+
+.common-table tbody tr.state-warning {
+  border-left-color: @color-warning;
+}
+
+.common-table tbody tr.state-unknown,
+.common-table tbody tr.state-unreachable {
+  border-left-color: @color-unknown;
+}
+
+.common-table tbody tr.state-ok,
+.common-table tbody tr.state-up {
+  border-left-color: @color-ok;
 }
 
 #notifications > li {
