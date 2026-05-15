@@ -9,11 +9,12 @@
     var MIN_WIDTH = 260;
     var MIN_HEIGHT = 180;
     var DASHBOARD_PADDING = 16;
+    var MIN_FLOATING_WIDTH = 760;
 
     var FloatingDashlets = function(icinga) {
         Icinga.EventListener.call(this, icinga);
 
-        this.storage = Icinga.Storage.BehaviorStorage('floating-dashlets');
+        this.storage = this.createStorage();
         this.storageKey = 'layout-v1';
 
         this.dragState = null;
@@ -21,13 +22,63 @@
         this.zCounter = 10;
 
         this.on('rendered', '.container', this.onRendered, this);
+        this.on('rendered', '.dashboard.floating-dashlets', this.onRendered, this);
+        this.on('rendered', '#layout', this.onRendered, this);
         this.on('layout-change', this.onLayoutChange, this);
         this.on('mousedown', '.dashboard.floating-dashlets.floating-dashlets-active > .container > h1', this.onDragStart, this);
         this.on('mousedown', '.dashboard.floating-dashlets.floating-dashlets-active > .container .dashlet-resize-handle', this.onResizeStart, this);
         this.on('click', '.dashboard.floating-dashlets.floating-dashlets-active > .container > h1 a', this.onTitleClick, this);
+
+        this.scheduleSetupPasses();
     };
 
     $.extend(FloatingDashlets.prototype, new Icinga.EventListener(), {
+        createStorage: function() {
+            var noopStorage = {
+                get: function() { return {}; },
+                set: function() {}
+            };
+
+            if (! Icinga.Storage || typeof Icinga.Storage.BehaviorStorage !== 'function') {
+                return noopStorage;
+            }
+
+            try {
+                var storage = Icinga.Storage.BehaviorStorage('floating-dashlets');
+                storage.get('layout-v1');
+                return storage;
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: localStorage unavailable, layout persistence disabled.', error);
+                }
+
+                return noopStorage;
+            }
+        },
+
+        scheduleSetupPasses: function() {
+            var _this = this;
+            // Dashlet content is loaded asynchronously; run a second pass after initial hydration.
+            window.setTimeout(function() {
+                _this.setupAllDashboards();
+            }, 0);
+
+            window.setTimeout(function() {
+                _this.setupAllDashboards();
+            }, 250);
+
+            window.setTimeout(function() {
+                _this.setupAllDashboards();
+            }, 900);
+        },
+
+        setupAllDashboards: function() {
+            var _this = this;
+            $('.dashboard.floating-dashlets').each(function() {
+                _this.setupDashboard($(this));
+            });
+        },
+
         onRendered: function(event) {
             var _this = event.data.self;
             var $target = $(event.target);
@@ -60,9 +111,7 @@
 
         onLayoutChange: function(event) {
             var _this = event.data.self;
-            $('.dashboard.floating-dashlets').each(function() {
-                _this.setupDashboard($(this));
-            });
+            _this.setupAllDashboards();
         },
 
         onTitleClick: function(event) {
@@ -235,7 +284,7 @@
                 return;
             }
 
-            if (this.icinga.ui.hasOnlyOneColumn()) {
+            if (this.shouldDisableFloating($dashboard)) {
                 this.teardownDashboard($dashboard);
                 return;
             }
@@ -249,9 +298,15 @@
                 return;
             }
 
+            $dashboard.css({
+                position: 'relative',
+                letterSpacing: 'normal'
+            });
+
             if (! $dashboard.hasClass('floating-dashlets-active')) {
                 this.applyInitialLayout($dashboard, $dashlets, savedLayout);
                 $dashboard.addClass('floating-dashlets-active');
+                $dashboard.attr('data-floating-dashlets-active', '1');
             } else {
                 this.applySavedLayout($dashboard, $dashlets, savedLayout);
             }
@@ -260,8 +315,27 @@
             this.refreshDashboardHeight($dashboard);
         },
 
+        shouldDisableFloating: function($dashboard) {
+            var layoutClass = $('#layout').attr('class') || '';
+            var narrowByLayout = /(^|\s)(poor-layout|minimal-layout)(\s|$)/.test(layoutClass);
+            var width = $dashboard.innerWidth() || 0;
+            var narrowByWidth = width > 0 && width < MIN_FLOATING_WIDTH;
+
+            // Prefer actual available width over layout label to avoid false negatives with custom themes.
+            if (narrowByWidth) {
+                return true;
+            }
+
+            if (narrowByLayout && width > 0 && width < MIN_FLOATING_WIDTH + 120) {
+                return true;
+            }
+
+            return false;
+        },
+
         teardownDashboard: function($dashboard) {
             $dashboard.removeClass('floating-dashlets-active');
+            $dashboard.removeAttr('data-floating-dashlets-active');
             $dashboard.css('min-height', '');
 
             $dashboard.children('.container').each(function() {
@@ -367,7 +441,15 @@
                 top: Math.max(0, y) + 'px',
                 width: Math.max(MIN_WIDTH, w) + 'px',
                 height: Math.max(MIN_HEIGHT, h) + 'px',
-                zIndex: Math.max(1, z || 1)
+                zIndex: Math.max(1, z || 1),
+                margin: 0,
+                boxSizing: 'border-box',
+                overflow: 'auto'
+            });
+
+            $dashlet.find('> h1').css({
+                cursor: 'move',
+                userSelect: 'none'
             });
 
             this.zCounter = Math.max(this.zCounter, parseInt($dashlet.css('z-index'), 10) || 1);
@@ -379,6 +461,17 @@
                 if (! $dashlet.find('> .dashlet-resize-handle').length) {
                     $dashlet.append('<div class="dashlet-resize-handle" aria-hidden="true"></div>');
                 }
+
+                $dashlet.find('> .dashlet-resize-handle').css({
+                    position: 'absolute',
+                    right: '0.25em',
+                    bottom: '0.25em',
+                    width: '1em',
+                    height: '1em',
+                    cursor: 'nwse-resize',
+                    opacity: 0.75,
+                    zIndex: 2
+                });
             });
         },
 
@@ -423,7 +516,18 @@
         },
 
         getLayouts: function() {
-            var layouts = this.storage.get(this.storageKey);
+            var layouts = {};
+
+            try {
+                layouts = this.storage.get(this.storageKey);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to read stored layout.', error);
+                }
+
+                layouts = {};
+            }
+
             return (layouts && typeof layouts === 'object') ? layouts : {};
         },
 
@@ -451,7 +555,13 @@
             });
 
             layouts[key] = layout;
-            this.storage.set(this.storageKey, layouts);
+            try {
+                this.storage.set(this.storageKey, layouts);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to save layout.', error);
+                }
+            }
         }
     });
 
