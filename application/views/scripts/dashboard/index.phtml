@@ -5,6 +5,16 @@
     <div class="sort-controls-container">
         <button
             type="button"
+            class="button-link js-toggle-dashlet-view"
+            data-label-classic="<?= $this->escape($this->translate('Classic View')) ?>"
+            data-label-containers="<?= $this->escape($this->translate('Container View')) ?>"
+            data-label-unavailable="<?= $this->escape($this->translate('Container view unavailable in compact layout')) ?>"
+            title="<?= $this->escape($this->translate('Classic View')) ?>"
+        >
+            <?= $this->escape($this->translate('Classic View')) ?>
+        </button>
+        <button
+            type="button"
             class="button-link js-reset-dashlet-layout"
             title="<?= $this->escape($this->translate('Reset dashboard layout to default arrangement')) ?>"
         >

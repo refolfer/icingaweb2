@@ -16,6 +16,7 @@
 
         this.storage = this.createStorage();
         this.storageKey = 'layout-v1';
+        this.viewModeKey = 'view-mode-v1';
 
         this.dragState = null;
         this.resizeState = null;
@@ -29,6 +30,7 @@
         this.on('mousedown', '.dashboard.floating-dashlets.floating-dashlets-active > .container .dashlet-resize-handle', this.onResizeStart, this);
         this.on('click', '.dashboard.floating-dashlets.floating-dashlets-active > .container > h1 a', this.onTitleClick, this);
         this.on('click', '.js-reset-dashlet-layout', this.onResetLayoutClick, this);
+        this.on('click', '.js-toggle-dashlet-view', this.onToggleViewClick, this);
 
         this.scheduleSetupPasses();
     };
@@ -137,6 +139,32 @@
             }
 
             _this.resetDashboardLayout($dashboard);
+            $button.blur();
+        },
+
+        onToggleViewClick: function(event) {
+            var _this = event.data.self;
+            var $button = $(event.currentTarget);
+            var $dashboard = _this.getAssociatedDashboard($button);
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (! $dashboard.length) {
+                return;
+            }
+
+            if (_this.shouldDisableFloating($dashboard)) {
+                _this.updateViewToggleControl($dashboard);
+                $button.blur();
+                return;
+            }
+
+            var currentMode = _this.getDashboardViewMode($dashboard);
+            var nextMode = currentMode === 'classic' ? 'containers' : 'classic';
+
+            _this.setDashboardViewMode($dashboard, nextMode);
+            _this.setupDashboard($dashboard);
             $button.blur();
         },
 
@@ -325,6 +353,13 @@
 
             if (this.shouldDisableFloating($dashboard)) {
                 this.teardownDashboard($dashboard);
+                this.updateViewToggleControl($dashboard);
+                return;
+            }
+
+            if (this.getDashboardViewMode($dashboard) === 'classic') {
+                this.teardownDashboard($dashboard);
+                this.updateViewToggleControl($dashboard);
                 return;
             }
 
@@ -359,6 +394,7 @@
             this.ensureResizeHandles($dashlets);
             this.ensurePinnedDashletContent($dashlets);
             this.refreshDashboardHeight($dashboard);
+            this.updateViewToggleControl($dashboard);
         },
 
         getAssociatedDashboard: function($trigger) {
@@ -382,7 +418,7 @@
         },
 
         resetDashboardLayout: function($dashboard) {
-            if (! $dashboard.length || this.shouldDisableFloating($dashboard)) {
+            if (! $dashboard.length) {
                 return;
             }
 
@@ -392,6 +428,10 @@
             if (typeof layouts[key] !== 'undefined') {
                 delete layouts[key];
                 this.setLayouts(layouts);
+            }
+
+            if (this.getDashboardViewMode($dashboard) === 'classic' || this.shouldDisableFloating($dashboard)) {
+                return;
             }
 
             var $dashlets = $dashboard.children('.container');
@@ -404,6 +444,92 @@
             this.ensurePinnedDashletContent($dashlets);
             this.refreshDashboardHeight($dashboard);
             this.saveLayout($dashboard);
+        },
+
+        getViewModes: function() {
+            var modes = {};
+
+            try {
+                modes = this.storage.get(this.viewModeKey);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to read stored view mode.', error);
+                }
+
+                modes = {};
+            }
+
+            return (modes && typeof modes === 'object') ? modes : {};
+        },
+
+        getDashboardViewMode: function($dashboard) {
+            var modes = this.getViewModes();
+            var key = this.getDashboardKey($dashboard);
+            return modes[key] === 'classic' ? 'classic' : 'containers';
+        },
+
+        setDashboardViewMode: function($dashboard, mode) {
+            var key = this.getDashboardKey($dashboard);
+            var modes = this.getViewModes();
+            modes[key] = (mode === 'classic') ? 'classic' : 'containers';
+            this.setViewModes(modes);
+        },
+
+        setViewModes: function(modes) {
+            try {
+                this.storage.set(this.viewModeKey, modes);
+            } catch (error) {
+                if (window.console && typeof window.console.warn === 'function') {
+                    window.console.warn('Floating dashlets: failed to persist view mode.', error);
+                }
+            }
+        },
+
+        updateViewToggleControl: function($dashboard) {
+            var $controls = this.getAssociatedControls($dashboard);
+            if (! $controls.length) {
+                return;
+            }
+
+            var $toggle = $controls.find('.js-toggle-dashlet-view').first();
+            if (! $toggle.length) {
+                return;
+            }
+
+            var labels = {
+                classic: $toggle.data('labelClassic') || 'Classic View',
+                containers: $toggle.data('labelContainers') || 'Container View',
+                unavailable: $toggle.data('labelUnavailable') || 'Container view unavailable in compact layout'
+            };
+            var blocked = this.shouldDisableFloating($dashboard);
+            var mode = this.getDashboardViewMode($dashboard);
+            var nextLabel = mode === 'classic' ? labels.containers : labels.classic;
+
+            if (blocked) {
+                $toggle.prop('disabled', true);
+                $toggle.text(labels.unavailable);
+                $toggle.attr('title', labels.unavailable);
+                $toggle.attr('aria-pressed', mode === 'classic' ? 'true' : 'false');
+            } else {
+                $toggle.prop('disabled', false);
+                $toggle.text(nextLabel);
+                $toggle.attr('title', nextLabel);
+                $toggle.attr('aria-pressed', mode === 'classic' ? 'true' : 'false');
+            }
+        },
+
+        getAssociatedControls: function($dashboard) {
+            var $controls = $dashboard.siblings('.controls').first();
+            if ($controls.length) {
+                return $controls;
+            }
+
+            var $container = $dashboard.closest('.container');
+            if ($container.length) {
+                return $container.find('> .controls').first();
+            }
+
+            return $();
         },
 
         hasSavedLayoutForAllDashlets: function($dashlets, savedLayout) {
