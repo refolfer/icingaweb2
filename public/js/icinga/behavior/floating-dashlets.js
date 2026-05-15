@@ -656,6 +656,18 @@
             }
 
             hiddenMap = this.filterHiddenTabsMap(hiddenMap, tabs);
+            // Keep the currently active dashboard tab visible during initialization.
+            // Otherwise the content and visible tab bar can get out of sync when
+            // an old hidden-tabs preference still contains the active pane.
+            if (! change || ! change.changedId) {
+                for (var activeIndex = 0; activeIndex < tabs.length; activeIndex++) {
+                    if (tabs[activeIndex].active && hiddenMap[tabs[activeIndex].id]) {
+                        delete hiddenMap[tabs[activeIndex].id];
+                        break;
+                    }
+                }
+            }
+
             var visibleCount = this.countVisibleTabs(tabs, hiddenMap);
 
             if (visibleCount === 0 && change && change.changedId) {
