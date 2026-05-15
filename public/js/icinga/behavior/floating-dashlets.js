@@ -340,6 +340,7 @@
             }
 
             this.ensureResizeHandles($dashlets);
+            this.ensurePinnedDashletContent($dashlets);
             this.refreshDashboardHeight($dashboard);
         },
 
@@ -519,6 +520,12 @@
 
             $dashboard.children('.container').each(function() {
                 var $dashlet = $(this);
+                var $scrollBody = $dashlet.find('> .dashlet-scroll-body');
+                if ($scrollBody.length) {
+                    $scrollBody.children().appendTo($dashlet);
+                    $scrollBody.remove();
+                }
+
                 $dashlet.removeClass('floating-dashlet');
                 $dashlet.css({
                     position: '',
@@ -526,7 +533,22 @@
                     top: '',
                     width: '',
                     height: '',
-                    zIndex: ''
+                    zIndex: '',
+                    margin: '',
+                    boxSizing: '',
+                    overflow: '',
+                    display: '',
+                    flexDirection: ''
+                });
+                $dashlet.find('> h1').css({
+                    cursor: '',
+                    userSelect: '',
+                    position: '',
+                    top: '',
+                    zIndex: '',
+                    marginBottom: '',
+                    background: '',
+                    paddingRight: ''
                 });
                 $dashlet.find('> .dashlet-resize-handle').remove();
             });
@@ -623,12 +645,20 @@
                 zIndex: Math.max(1, z || 1),
                 margin: 0,
                 boxSizing: 'border-box',
-                overflow: 'auto'
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
             });
 
             $dashlet.find('> h1').css({
                 cursor: 'move',
-                userSelect: 'none'
+                userSelect: 'none',
+                position: 'sticky',
+                top: 0,
+                zIndex: 3,
+                marginBottom: 0,
+                background: 'inherit',
+                paddingRight: '1.5em'
             });
 
             this.zCounter = Math.max(this.zCounter, parseInt($dashlet.css('z-index'), 10) || 1);
@@ -651,6 +681,49 @@
                     opacity: 0.75,
                     zIndex: 2
                 });
+            });
+        },
+
+        ensurePinnedDashletContent: function($dashlets) {
+            $dashlets.each(function() {
+                var $dashlet = $(this);
+                var $title = $dashlet.children('h1').first();
+                if (! $title.length) {
+                    return;
+                }
+
+                var $resizeHandle = $dashlet.children('.dashlet-resize-handle').first();
+                var $scrollBody = $dashlet.children('.dashlet-scroll-body').first();
+
+                if (! $scrollBody.length) {
+                    $scrollBody = $('<div class="dashlet-scroll-body"></div>');
+                    $scrollBody.insertAfter($title);
+                }
+
+                $dashlet.children().each(function() {
+                    var $child = $(this);
+                    if (
+                        $child.is('h1') ||
+                        $child.hasClass('dashlet-scroll-body') ||
+                        $child.hasClass('dashlet-resize-handle')
+                    ) {
+                        return;
+                    }
+
+                    $scrollBody.append($child);
+                });
+
+                $scrollBody.css({
+                    flex: '1 1 auto',
+                    minHeight: 0,
+                    overflow: 'auto',
+                    position: 'relative',
+                    paddingBottom: '1.25em'
+                });
+
+                if ($resizeHandle.length) {
+                    $dashlet.append($resizeHandle);
+                }
             });
         },
 

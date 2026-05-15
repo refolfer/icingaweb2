@@ -130,20 +130,35 @@
 }
 
 .dashboard.floating-dashlets.floating-dashlets-active > .container {
-  overflow: auto;
+  overflow: hidden;
   margin: 0;
   box-sizing: border-box;
   cursor: default;
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard.floating-dashlets.floating-dashlets-active > .container > h1 {
   cursor: move;
   user-select: none;
   margin-right: 1.5em;
+  margin-bottom: 0;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: inherit;
 }
 
 .dashboard.floating-dashlets.floating-dashlets-active > .container > h1 a {
   display: inline-block;
+}
+
+.dashboard.floating-dashlets.floating-dashlets-active > .container > .dashlet-scroll-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  padding-bottom: 1.25em;
 }
 
 .dashboard.floating-dashlets.floating-dashlets-active > .container .dashlet-resize-handle {
