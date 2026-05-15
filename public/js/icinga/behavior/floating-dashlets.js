@@ -557,12 +557,16 @@
 
                 var href = $link.attr('href') || '';
                 if (! href || href === '#') {
-                    return;
+                    href = $link.attr('data-icinga-url')
+                        || $link.attr('data-base-target')
+                        || $link.attr('title')
+                        || $.trim($link.text())
+                        || ('tab-' + index);
                 }
 
                 var id = $tab.attr('data-dashboard-tab-id');
                 if (! id) {
-                    id = _this.buildDashboardTabId(href, index);
+                    id = _this.buildDashboardTabId(href, $link, index);
                     $tab.attr('data-dashboard-tab-id', id);
                 }
 
@@ -577,19 +581,30 @@
             return tabs;
         },
 
-        buildDashboardTabId: function(href, index) {
-            var parts = this.icinga.utils.parseUrl(href);
+        buildDashboardTabId: function(href, $link, index) {
+            var parts = { path: href || '', params: [] };
+            try {
+                parts = this.icinga.utils.parseUrl(href);
+            } catch (error) {
+                parts = { path: href || '', params: [] };
+            }
+
             var pane = '';
             for (var i = 0; i < parts.params.length; i++) {
-                if (parts.params[i].key === 'pane') {
-                    pane = parts.params[i].value || '';
-                    break;
+                var param = parts.params[i];
+                if (param.key === 'pane') {
+                    pane = param.value || '';
                 }
             }
 
-            var source = (parts.path + '::' + pane + '::' + index).toLowerCase()
+            var label = $link && $link.length ? $.trim($link.text()) : '';
+            var source = (parts.path + '::' + pane + '::' + label).toLowerCase()
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '');
+
+            if (! source) {
+                source = 'tab-' + index;
+            }
 
             return 'dashboard-tab-' + source;
         },
@@ -597,11 +612,12 @@
         renderDashboardVisibilityList: function($dashboard, $list, tabs) {
             var hiddenMap = this.getDashboardHiddenTabs($dashboard);
             var items = [];
+            var visibleCount = this.countVisibleTabs(tabs, hiddenMap);
 
             for (var i = 0; i < tabs.length; i++) {
                 var tab = tabs[i];
-                var checked = tab.active ? true : ! hiddenMap[tab.id];
-                var disabled = tab.active ? ' disabled' : '';
+                var checked = ! hiddenMap[tab.id];
+                var disabled = (checked && visibleCount <= 1) ? ' disabled' : '';
                 var checkedAttr = checked ? ' checked' : '';
 
                 items.push(
@@ -639,26 +655,36 @@
                 }
             }
 
-            var visibleCount = 0;
-            for (var i = 0; i < tabs.length; i++) {
-                var tab = tabs[i];
-                var visible = tab.active || ! hiddenMap[tab.id];
-                if (visible) {
-                    visibleCount += 1;
+            hiddenMap = this.filterHiddenTabsMap(hiddenMap, tabs);
+            var visibleCount = this.countVisibleTabs(tabs, hiddenMap);
+
+            if (visibleCount === 0 && change && change.changedId) {
+                delete hiddenMap[change.changedId];
+                visibleCount = this.countVisibleTabs(tabs, hiddenMap);
+            }
+
+            if (change && change.changedId && hiddenMap[change.changedId]) {
+                var changedTab = null;
+                for (var i = 0; i < tabs.length; i++) {
+                    if (tabs[i].id === change.changedId) {
+                        changedTab = tabs[i];
+                        break;
+                    }
+                }
+
+                if (changedTab && changedTab.active) {
+                    for (var j = 0; j < tabs.length; j++) {
+                        if (! hiddenMap[tabs[j].id]) {
+                            tabs[j].$tab.children('a').first().trigger('click');
+                            break;
+                        }
+                    }
                 }
             }
 
-            if (visibleCount === 0 && tabs.length) {
-                delete hiddenMap[tabs[0].id];
-                visibleCount = 1;
-            }
-
-            hiddenMap = this.filterHiddenTabsMap(hiddenMap, tabs);
-
-            for (var j = 0; j < tabs.length; j++) {
-                var current = tabs[j];
-                var shouldShow = current.active || ! hiddenMap[current.id];
-                current.$tab.toggle(shouldShow);
+            for (var k = 0; k < tabs.length; k++) {
+                var current = tabs[k];
+                current.$tab.toggle(! hiddenMap[current.id]);
             }
 
             this.setDashboardHiddenTabs($dashboard, hiddenMap);
@@ -672,6 +698,8 @@
                 return;
             }
 
+            var visibleCount = this.countVisibleTabs(tabs, hiddenMap);
+
             for (var i = 0; i < tabs.length; i++) {
                 var tab = tabs[i];
                 var $checkbox = $list.find('input[type="checkbox"]').filter(function() {
@@ -681,10 +709,22 @@
                     continue;
                 }
 
-                var checked = tab.active ? true : ! hiddenMap[tab.id];
+                var checked = ! hiddenMap[tab.id];
                 $checkbox.prop('checked', checked);
-                $checkbox.prop('disabled', tab.active);
+                $checkbox.prop('disabled', checked && visibleCount <= 1);
             }
+        },
+
+        countVisibleTabs: function(tabs, hiddenMap) {
+            var visibleCount = 0;
+
+            for (var i = 0; i < tabs.length; i++) {
+                if (! hiddenMap[tabs[i].id]) {
+                    visibleCount += 1;
+                }
+            }
+
+            return visibleCount;
         },
 
         getHiddenTabsStore: function() {
