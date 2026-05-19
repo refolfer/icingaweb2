@@ -1,0 +1,158 @@
+// SPDX-FileCopyrightText: 2026
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+@icinga-blue: #0f6cbd;
+@icinga-blue-dark: #0a589a;
+@icinga-blue-light: fade(@icinga-blue, 30%);
+@icinga-secondary: #3a96dd;
+@icinga-secondary-dark: #2f7fbc;
+
+@color-ok: #10893e;
+@color-warning: #c88719;
+@color-warning-handled: #d9a64f;
+@color-critical: #d13438;
+@color-critical-handled: #de6a6d;
+@color-unknown: #744da9;
+@color-unknown-handled: #9472be;
+@color-pending: #005fb8;
+
+@body-bg-color: #f4f7fb;
+@text-color: #1d2939;
+@text-color-light: fade(@text-color, 72%);
+@link-color: @text-color;
+@light-text-bg-color: fade(#1a2b44, 5%);
+
+@menu-bg-color: #e9eef7;
+@menu-hover-bg-color: #dce7f4;
+@menu-search-hover-bg-color: #dce7f4;
+@menu-active-bg-color: #f6f9ff;
+@menu-active-hover-bg-color: #eaf1fb;
+@menu-color: #1f3653;
+@menu-active-color: #10263f;
+@menu-highlight-color: @icinga-blue;
+@menu-highlight-hover-bg-color: #0a5fa9;
+@menu-2ndlvl-color: #2d4a68;
+@menu-2ndlvl-active-bg-color: #cbe4ff;
+@menu-2ndlvl-active-color: #0f2f50;
+@menu-flyout-bg-color: #f7faff;
+@menu-flyout-color: #1c3047;
+
+@low-sat-blue: #edf2fa;
+@low-sat-blue-dark: #dbe5f2;
+@gray: #7689a0;
+@gray-semilight: #8ea1b8;
+@gray-light: #ccd8e8;
+@gray-lighter: #e2eaf5;
+@gray-lightest: #f7faff;
+@disabled-gray: #6b7f94;
+
+@form-info-bg-color: fade(@color-ok, 14%);
+@form-error-bg-color: fade(@color-critical, 15%);
+@form-warning-bg-color: fade(@color-warning, 17%);
+
+@font-family: "Segoe UI Variable Text", "Segoe UI", "IBM Plex Sans", Arial, sans-serif;
+@font-family-wide: "Segoe UI", "Segoe UI Variable Text", "IBM Plex Sans Condensed", Arial, sans-serif;
+@font-size: 0.8125em;
+@line-height: 1.45;
+
+#layout {
+  background-color: @body-bg-color;
+  background-image:
+    radial-gradient(circle at 88% -8%, fade(#7cc6ff, 20%), transparent 38%),
+    radial-gradient(circle at 12% 108%, fade(#5aa6f3, 14%), transparent 42%),
+    linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  background-attachment: fixed;
+}
+
+#header-logo-container {
+  background: linear-gradient(180deg, #f7faff 0%, #e8eff9 100%);
+  border-bottom: 1px solid fade(@icinga-blue, 22%);
+}
+
+#menu {
+  border-right: 1px solid fade(@icinga-blue, 16%);
+  box-shadow: .3em 0 1em fade(#22344d, 10%);
+}
+
+#main > .container > .controls {
+  background: linear-gradient(180deg, fade(#f8fbff, 96%) 0%, fade(#eef4fc, 96%) 100%);
+  border-bottom: 1px solid fade(@icinga-blue, 16%);
+}
+
+.content > .container,
+.content > form,
+.dashboard > .container > .content {
+  border: 1px solid fade(@icinga-blue, 14%);
+  border-radius: .75em;
+  background: linear-gradient(180deg, fade(#ffffff, 96%) 0%, fade(#f5f9ff, 96%) 100%);
+  box-shadow: 0 .5em 1.2em fade(#29415b, 12%);
+}
+
+.controls .button-link,
+.icinga-controls button:not([type]),
+.icinga-controls button[type="submit"],
+.icinga-controls input[type="submit"] {
+  border-radius: .55em;
+  border: 1px solid fade(@icinga-blue, 35%);
+  background: linear-gradient(180deg, #f8fcff 0%, #e7f1fd 100%);
+  color: #173550;
+}
+
+.controls .button-link:hover,
+.icinga-controls button:hover,
+.icinga-controls input[type="submit"]:hover {
+  background: linear-gradient(180deg, #eff7ff 0%, #dfeefe 100%);
+}
+
+.tabs > li > a {
+  border-radius: .6em .6em 0 0;
+}
+
+.common-table thead th {
+  background: linear-gradient(180deg, #f9fcff 0%, #eef5fd 100%);
+  box-shadow: 0 1px 0 fade(@icinga-blue, 20%);
+}
+
+.common-table tbody tr:nth-child(even) {
+  background-color: fade(#dbe9f8, 42%);
+}
+
+.common-table tr[href]:hover {
+  background-color: fade(@icinga-blue, 12%);
+}
+
+#menu .nav-level-1 > .nav-item > a > i,
+#menu .nav-level-1 > .nav-item > a > .icon,
+#menu .nav-level-1 > .nav-item > a > img.icon {
+  border-radius: .45em;
+  background: fade(@icinga-blue, 10%);
+  box-shadow: inset 0 0 0 1px fade(@icinga-blue, 18%);
+  color: #16508a;
+  transition: background-color 120ms ease-in, color 120ms ease-in, box-shadow 120ms ease-in, transform 120ms ease-in;
+}
+
+#menu .nav-level-1 > .nav-item.active > a > i,
+#menu .nav-level-1 > .nav-item.active > a > .icon,
+#menu .nav-level-1 > .nav-item.active > a > img.icon {
+  background: fade(#ffffff, 95%);
+  box-shadow: inset 0 0 0 1px fade(@icinga-blue, 30%);
+  color: @icinga-blue;
+}
+
+#menu .nav-level-1 > .nav-item > a:hover > i,
+#menu .nav-level-1 > .nav-item > a:hover > .icon,
+#menu .nav-level-1 > .nav-item > a:hover > img.icon {
+  transform: translateY(-1px);
+}
+
+#menu img[src*="/img/icons/"] {
+  &:not([src$="tux.png"]):not([src$="win.png"]):not([src$="_white.png"]) {
+    filter: brightness(0) saturate(100%) invert(31%) sepia(57%) saturate(1105%) hue-rotate(180deg) brightness(93%) contrast(92%);
+  }
+}
+
+[class^="icon-"],
+[class*=" icon-"],
+.fa {
+  text-shadow: 0 1px 0 fade(#ffffff, 70%);
+}
