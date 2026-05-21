@@ -142,6 +142,41 @@
       }
     }
   }
+
+  #col-splitter {
+    display: none;
+    flex: 0 0 .4em;
+    cursor: col-resize;
+    position: relative;
+    z-index: 2;
+
+    &:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: .125em;
+      bottom: 0;
+      width: 1px;
+      background-color: @gray-light;
+      opacity: .8;
+    }
+
+    &:hover:before,
+    &.dragging:before {
+      background-color: @icinga-blue;
+      opacity: 1;
+    }
+  }
+}
+
+#layout.twocols:not(.poor-layout):not(.minimal-layout) #col-splitter {
+  display: block;
+}
+
+#layout.column-resizing,
+#layout.column-resizing * {
+  cursor: col-resize !important;
+  user-select: none;
 }
 
 // Not part of the above to relax specificity and to allow modules adjust this

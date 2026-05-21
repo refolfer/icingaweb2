@@ -16,6 +16,12 @@
 
         this.currentLayout = 'default';
 
+        this.columnSplitterStorage = null;
+        this.columnSplitterStorageKey = 'column-split-ratio';
+        this.columnSplitRatioMin = 0.2;
+        this.columnSplitRatioMax = 0.8;
+        this.columnSplitterDrag = null;
+
         this.debug = false;
 
         this.debugTimer = null;
@@ -42,6 +48,8 @@
             $('html').removeClass('no-js').addClass('js');
             this.triggerWindowResize();
             this.fadeNotificationsAway();
+            this.initializeColumnSplitter();
+            this.applyStoredColumnSplitRatio();
 
             $(document).on('click', '#mobile-menu-toggle', this.toggleMobileMenu);
             $(document).on('keypress', '#search',{ self: this, type: 'key' }, this.closeMobileMenu);
@@ -314,6 +322,7 @@
             if (this.isOneColLayout()) { return; }
             this.icinga.logger.debug('Switching to single col');
             $('#layout').removeClass('twocols');
+            this.resetColumnSplitStyles();
             this.closeContainer($('#col2'));
 
             if (this.icinga.initialized) {
@@ -342,10 +351,195 @@
             if (! this.isOneColLayout()) { return; }
             this.icinga.logger.debug('Switching to double col');
             $('#layout').addClass('twocols');
+            this.applyStoredColumnSplitRatio();
 
             if (this.icinga.initialized) {
                 $('#layout').trigger('layout-change');
             }
+        },
+
+        initializeColumnSplitter: function () {
+            if (typeof Icinga.Storage !== 'undefined' && typeof Icinga.Storage.BehaviorStorage === 'function') {
+                this.columnSplitterStorage = Icinga.Storage.BehaviorStorage('ui');
+            }
+
+            $(document).on('mousedown', '#col-splitter', {self: this}, this.onColumnSplitterMouseDown);
+        },
+
+        onColumnSplitterMouseDown: function (event) {
+            var _this = event.data.self;
+            var e = event.originalEvent || event;
+            var $layout = $('#layout');
+            var $main = $('#main');
+            var $col1 = $('#col1');
+            var $col2 = $('#col2');
+            var $splitter = $('#col-splitter');
+            var splitterWidth;
+            var availableWidth;
+
+            if (_this.isOneColLayout() || _this.hasOnlyOneColumn()) {
+                return;
+            }
+
+            if (typeof e.button !== 'undefined' && e.button !== 0) {
+                return;
+            }
+
+            splitterWidth = $splitter.outerWidth() || 0;
+            availableWidth = ($main.innerWidth() || 0) - splitterWidth;
+
+            if (availableWidth <= 0 || ! $col1.length || ! $col2.length) {
+                return;
+            }
+
+            _this.columnSplitterDrag = {
+                'startX': e.clientX,
+                'leftAtStart': $col1.outerWidth() || 0,
+                'availableWidth': availableWidth
+            };
+
+            $layout.addClass('column-resizing');
+            $splitter.addClass('dragging');
+
+            $(document).on('mousemove.icingaColumnSplitter', {'self': _this}, _this.onColumnSplitterMouseMove);
+            $(document).on('mouseup.icingaColumnSplitter', {'self': _this}, _this.onColumnSplitterMouseUp);
+
+            event.preventDefault();
+        },
+
+        onColumnSplitterMouseMove: function (event) {
+            var _this = event.data.self;
+            var drag = _this.columnSplitterDrag;
+            var e = event.originalEvent || event;
+            var leftWidth;
+            var ratio;
+
+            if (drag === null) {
+                return;
+            }
+
+            leftWidth = drag.leftAtStart + (e.clientX - drag.startX);
+            ratio = leftWidth / drag.availableWidth;
+            _this.applyColumnSplitRatio(ratio, false);
+
+            event.preventDefault();
+        },
+
+        onColumnSplitterMouseUp: function (event) {
+            var _this = event.data.self;
+
+            if (_this.columnSplitterDrag === null) {
+                return;
+            }
+
+            _this.columnSplitterDrag = null;
+            $('#layout').removeClass('column-resizing');
+            $('#col-splitter').removeClass('dragging');
+            $(document).off('.icingaColumnSplitter');
+            _this.saveColumnSplitRatio();
+
+            event.preventDefault();
+        },
+
+        saveColumnSplitRatio: function () {
+            var ratio;
+
+            if (this.columnSplitterStorage === null) {
+                return;
+            }
+
+            ratio = this.getCurrentColumnSplitRatio();
+            if (ratio === null) {
+                this.columnSplitterStorage.remove(this.columnSplitterStorageKey);
+                return;
+            }
+
+            this.columnSplitterStorage.set(this.columnSplitterStorageKey, ratio);
+        },
+
+        loadColumnSplitRatio: function () {
+            var ratio;
+
+            if (this.columnSplitterStorage === null) {
+                return null;
+            }
+
+            ratio = this.columnSplitterStorage.get(this.columnSplitterStorageKey);
+            if (typeof ratio !== 'number') {
+                return null;
+            }
+
+            return ratio;
+        },
+
+        getCurrentColumnSplitRatio: function () {
+            var $main = $('#main');
+            var $col1 = $('#col1');
+            var splitterWidth = $('#col-splitter').outerWidth() || 0;
+            var availableWidth = ($main.innerWidth() || 0) - splitterWidth;
+
+            if (availableWidth <= 0 || this.isOneColLayout()) {
+                return null;
+            }
+
+            return this.normalizeColumnSplitRatio(($col1.outerWidth() || 0) / availableWidth);
+        },
+
+        normalizeColumnSplitRatio: function (ratio) {
+            if (typeof ratio !== 'number' || isNaN(ratio)) {
+                return null;
+            }
+
+            if (ratio < this.columnSplitRatioMin) {
+                return this.columnSplitRatioMin;
+            }
+
+            if (ratio > this.columnSplitRatioMax) {
+                return this.columnSplitRatioMax;
+            }
+
+            return ratio;
+        },
+
+        applyStoredColumnSplitRatio: function () {
+            var ratio = this.loadColumnSplitRatio();
+
+            if (ratio === null) {
+                this.resetColumnSplitStyles();
+                return;
+            }
+
+            this.applyColumnSplitRatio(ratio, false);
+        },
+
+        applyColumnSplitRatio: function (ratio, persist) {
+            var normalizedRatio = this.normalizeColumnSplitRatio(ratio);
+            var left;
+            var right;
+
+            if (normalizedRatio === null || this.isOneColLayout() || this.hasOnlyOneColumn()) {
+                return;
+            }
+
+            left = (normalizedRatio * 100).toFixed(4) + '%';
+            right = ((1 - normalizedRatio) * 100).toFixed(4) + '%';
+
+            $('#col1').css('flex', '0 0 ' + left);
+            $('#col2').css('flex', '0 0 ' + right);
+            $('#col-splitter').attr('aria-valuenow', Math.round(normalizedRatio * 100));
+
+            if (persist) {
+                this.saveColumnSplitRatio();
+            }
+        },
+
+        resetColumnSplitStyles: function () {
+            $('#col1').css('flex', '');
+            $('#col2').css('flex', '');
+            $('#col-splitter').removeAttr('aria-valuenow').removeClass('dragging');
+            $('#layout').removeClass('column-resizing');
+            this.columnSplitterDrag = null;
+            $(document).off('.icingaColumnSplitter');
         },
 
         prepareColumnFor: function ($el, $target) {

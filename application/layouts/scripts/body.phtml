@@ -61,9 +61,16 @@ if ($this->layout()->inlineLayout) {
             <?= $refresh; ?>
         >
             <?= $this->render($inlineLayoutScript) ?>
-      </div>
-      <div id="col2" class="container"></div>
-      <div id="col3" class="container"></div>
+        </div>
+        <div
+            id="col-splitter"
+            class="js"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="<?= $this->translate('Resize columns') ?>"
+        ></div>
+        <div id="col2" class="container"></div>
+        <div id="col3" class="container"></div>
     </div>
 </div>
 <div id="footer">
