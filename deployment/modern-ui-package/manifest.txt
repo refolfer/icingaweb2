@@ -11,4 +11,6 @@ public/css/icinga/widgets.less
 public/css/themes/NeoNOC-Compact.less
 public/css/themes/NeoNOC-Light.less
 public/css/themes/NeoNOC.less
+public/css/themes/Windows11-Dark.less
+public/css/themes/Windows11-Light.less
 public/js/icinga/behavior/floating-dashlets.js

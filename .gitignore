@@ -12,6 +12,7 @@ var/log/*
 /debian
 
 build/*
+/dist
 
 # Exclude dompdf font cache
 library/vendor/dompdf/lib/fonts/*.php
