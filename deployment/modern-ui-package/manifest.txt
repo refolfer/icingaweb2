@@ -1,4 +1,5 @@
 application/layouts/scripts/layout.phtml
+application/layouts/scripts/body.phtml
 application/views/scripts/dashboard/index.phtml
 application/views/scripts/search/index.phtml
 doc/99-Modern-UI-Dashboard-Blueprint.md
@@ -8,9 +9,11 @@ doc/99-Modern-UI-Smoke-Test.md
 doc/99-Modern-UI-Theme-Profiles.md
 doc/res/modern-ui-dashboard.ini.example
 public/css/icinga/widgets.less
+public/css/icinga/layout.less
 public/css/themes/NeoNOC-Compact.less
 public/css/themes/NeoNOC-Light.less
 public/css/themes/NeoNOC.less
 public/css/themes/Windows11-Dark.less
 public/css/themes/Windows11-Light.less
 public/js/icinga/behavior/floating-dashlets.js
+public/js/icinga/ui.js
