@@ -487,6 +487,11 @@
             if (! isOpen) {
                 $panel.prop('hidden', false);
                 $button.attr('aria-expanded', 'true');
+
+                var $firstInput = $panel.find('input[type="checkbox"]').first();
+                if ($firstInput.length) {
+                    _this.icinga.ui.focusElement($firstInput, $panel, false);
+                }
             }
         },
 
@@ -521,9 +526,19 @@
             var $manager = $controls.find('.dashboard-visibility-manager').first();
             var $list = $controls.find('.js-dashboard-visibility-list').first();
             var $tabs = $controls.find('.tabs.primary-nav').first();
+            var $button = $manager.find('.js-dashboard-visibility-toggle').first();
+            var $panel = $manager.find('.js-dashboard-visibility-panel').first();
 
             if (! $manager.length || ! $list.length || ! $tabs.length) {
                 return;
+            }
+
+            if ($panel.length && $button.length) {
+                if (! $panel.attr('id')) {
+                    $panel.attr('id', this.getDashboardVisibilityPanelId($dashboard));
+                }
+
+                $button.attr('aria-controls', $panel.attr('id'));
             }
 
             var tabs = this.collectDashboardTabs($tabs);
@@ -535,6 +550,13 @@
             $manager.show();
             this.renderDashboardVisibilityList($dashboard, $list, tabs);
             this.applyDashboardTabVisibility($dashboard);
+        },
+
+        getDashboardVisibilityPanelId: function($dashboard) {
+            return ('dashboard-visibility-' + this.getDashboardKey($dashboard))
+                .toLowerCase()
+                .replace(/[^a-z0-9\-_]+/g, '-')
+                .replace(/^-+|-+$/g, '');
         },
 
         collectDashboardTabs: function($tabs) {

@@ -99,6 +99,10 @@ form:has(input.search:focus) > .search-icon {
   // Display the pagination-control on a new line
   clear: both;
   float: left;
+  display: flex;
+  align-items: center;
+  gap: .75em;
+  flex-wrap: wrap;
 
   li {
     line-height: 1;
@@ -142,6 +146,28 @@ form:has(input.search:focus) > .search-icon {
   .next-page {
     padding-right: 0;
   }
+}
+
+.pagination-jump-form {
+  display: inline-flex;
+  align-items: center;
+  gap: .4em;
+  margin: 0;
+}
+
+.pagination-summary {
+  color: @text-color-light;
+  font-size: @font-size-small;
+  margin-right: .2em;
+}
+
+.pagination-jump-input {
+  width: 5.5em;
+  margin: 0;
+}
+
+.pagination-jump-button {
+  min-width: 3em;
 }
 
 // Multi-selection info

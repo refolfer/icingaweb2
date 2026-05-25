@@ -13,11 +13,17 @@
     var Form = function (icinga) {
         Icinga.EventListener.call(this, icinga);
         this.on('rendered', '.container', this.onRendered, this);
+        this.on('input change', '.container form input, .container form select, .container form textarea', this.onInputChange, this);
+        this.on('submit', '.container form', this.onSubmit, this);
 
         this.priority = 1;
 
         // store the modification state of all input fields
         this.inputs = new WeakMap();
+        this.dirtyForms = new WeakMap();
+
+        this.beforeUnloadHandler = this.onBeforeUnload.bind(this);
+        window.addEventListener('beforeunload', this.beforeUnloadHandler);
     };
     Form.prototype = new Icinga.EventListener();
 
@@ -28,12 +34,121 @@
         var _this = event.data.self;
         var container = event.target;
 
-        container.querySelectorAll('form input').forEach(function (input) {
-            if (! _this.inputs.has(input) && input.type !== 'hidden') {
-                _this.inputs.set(input, input.value);
-                _this.icinga.logger.debug('registering "' + input.value + '" as original input value');
+        container.querySelectorAll('form').forEach(function (form) {
+            _this.dirtyForms.set(form, false);
+            delete form.dataset.icingaFormSubmitted;
+
+            form.querySelectorAll('input, select, textarea').forEach(function (input) {
+                if (! _this.inputs.has(input) && _this.isTrackableInput(input)) {
+                    var value = _this.getFieldValue(input);
+                    _this.inputs.set(input, value);
+                    _this.icinga.logger.debug('registering "' + value + '" as original input value');
+                }
+            });
+        });
+    };
+
+    Form.prototype.isTrackableInput = function(input) {
+        if (input.disabled || input.readOnly) {
+            return false;
+        }
+
+        if (input.tagName === 'INPUT') {
+            switch (input.type) {
+                case 'hidden':
+                case 'button':
+                case 'submit':
+                case 'reset':
+                case 'image':
+                case 'file':
+                    return false;
+            }
+        }
+
+        return true;
+    };
+
+    Form.prototype.getFieldValue = function(input) {
+        if (input.tagName === 'INPUT' && (input.type === 'checkbox' || input.type === 'radio')) {
+            return input.checked ? '1' : '0';
+        }
+
+        return input.value;
+    };
+
+    Form.prototype.onInputChange = function(event) {
+        var _this = event.data.self;
+        var input = event.currentTarget;
+        var form = input.form;
+
+        if (! form || ! _this.isTrackableInput(input)) {
+            return;
+        }
+
+        if (! _this.inputs.has(input)) {
+            _this.inputs.set(input, _this.getFieldValue(input));
+        }
+
+        _this.updateDirtyState(form);
+    };
+
+    Form.prototype.updateDirtyState = function(form) {
+        var _this = this;
+        var dirty = false;
+
+        form.querySelectorAll('input, select, textarea').forEach(function (input) {
+            if (! _this.isTrackableInput(input) || ! _this.inputs.has(input)) {
+                return;
+            }
+
+            if (_this.inputs.get(input) !== _this.getFieldValue(input)) {
+                dirty = true;
             }
         });
+
+        this.dirtyForms.set(form, dirty);
+        form.dataset.icingaFormDirty = dirty ? '1' : '0';
+    };
+
+    Form.prototype.onSubmit = function(event) {
+        var _this = event.data.self;
+        var form = event.currentTarget;
+
+        _this.dirtyForms.set(form, false);
+        delete form.dataset.icingaFormDirty;
+        form.dataset.icingaFormSubmitted = '1';
+
+        form.querySelectorAll('input, select, textarea').forEach(function (input) {
+            if (_this.isTrackableInput(input)) {
+                _this.inputs.set(input, _this.getFieldValue(input));
+            }
+        });
+    };
+
+    Form.prototype.hasDirtyForms = function() {
+        var _this = this;
+        var dirty = false;
+
+        document.querySelectorAll('.container form').forEach(function (form) {
+            if (form.dataset.icingaFormSubmitted === '1' || form.getAttribute('role') === 'search') {
+                return;
+            }
+
+            if (_this.dirtyForms.get(form)) {
+                dirty = true;
+            }
+        });
+
+        return dirty;
+    };
+
+    Form.prototype.onBeforeUnload = function(event) {
+        if (! this.hasDirtyForms()) {
+            return;
+        }
+
+        event.preventDefault();
+        event.returnValue = '';
     };
 
     /**
@@ -94,6 +209,10 @@
         }
 
         return content;
+    };
+
+    Form.prototype.destroy = function() {
+        window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     };
 
     Icinga.Behaviors.Form = Form;

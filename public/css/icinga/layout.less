@@ -204,13 +204,21 @@
     background: none;
     border: none;
     font-size: 2em;
-    padding: 0 .5em;
+    min-width: 2.2em;
+    min-height: 2.2em;
+    padding: 0 .35em;
     line-height: 2;
+    cursor: pointer;
 
     -webkit-appearance: none;
        -moz-appearance: none;
         -ms-appearance: none;
             appearance: none;
+
+    &:focus {
+      outline: 2px solid @icinga-blue;
+      outline-offset: 2px;
+    }
   }
 
   i:before {

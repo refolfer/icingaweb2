@@ -57,6 +57,7 @@
             $(document).on('click', 'tr[href]', { self: this }, this.linkClicked);
 
             $(document).on('click', 'input[type="submit"], button[type="submit"]', this.rememberSubmitButton);
+            $(document).on('submit', '.js-pagination-jump-form', { self: this }, this.paginationJumpSubmit);
             // We catch all form submit events
             $(document).on('submit', 'form', { self: this }, this.submitForm);
 
@@ -91,6 +92,46 @@
             } else {
                 $parent.addClass('collapsed');
             }
+        },
+
+        paginationJumpSubmit: function (event) {
+            var _this = event.data.self;
+            var $form = $(event.currentTarget);
+            var template = $form.data('pageUrlTemplate');
+            var $input = $form.find('input[name="page"]').first();
+            var $target = $form.closest('.container');
+
+            if (typeof template !== 'string' || ! template.length || ! $input.length) {
+                return;
+            }
+
+            var page = parseInt($input.val(), 10);
+            var max = parseInt($input.attr('max'), 10);
+
+            if (isNaN(page) || page < 1) {
+                page = 1;
+            }
+
+            if (! isNaN(max) && page > max) {
+                page = max;
+            }
+
+            $input.val(page);
+
+            var url = template.replace('__PAGE__', page);
+
+            if (! $target.length) {
+                window.location.assign(url);
+                return false;
+            }
+
+            var req = _this.icinga.loader.loadUrl(url, $target);
+            req.addToHistory = true;
+            req.forceFocus = 'pagination';
+
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
         },
 
         onInit: function (event) {
@@ -448,6 +489,7 @@
             $(window).off('beforeunload', this.onUnload);
             $(document).off('scroll', '.container', this.onContainerScroll);
             $(document).off('click', 'a', this.linkClicked);
+            $(document).off('submit', '.js-pagination-jump-form', this.paginationJumpSubmit);
             $(document).off('submit', 'form', this.submitForm);
             $(document).off('change', 'form select.autosubmit', this.submitForm);
             $(document).off('change', 'form input.autosubmit', this.submitForm);

@@ -10,7 +10,9 @@
         data-icinga-clipboard
         tabindex="-1"
         data-copied-label="<?= $this->translate('Copied') ?>"
+        data-copy-failed-label="<?= $this->translate('Could not copy to clipboard') ?>"
         title="<?= $this->translate('Copy to clipboard') ?>"
+        aria-label="<?= $this->translate('Copy error details to clipboard') ?>"
 >
     <i class="icon fa fa-clone"></i>
 </button>

@@ -45,7 +45,12 @@ if ($this->layout()->inlineLayout) {
                 )
             ); ?>
             <div id="mobile-menu-toggle">
-                <button type="button"><?= $this->icon('menu') ?><?= $this->icon('cancel') ?></button>
+                <button
+                    type="button"
+                    aria-label="<?= $this->translate('Toggle navigation menu') ?>"
+                    aria-expanded="false"
+                    aria-controls="menu"
+                ><?= $this->icon('menu', null, ['aria-hidden' => 'true']) ?><?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?></button>
             </div>
         </div>
         <?= $this->render('parts/navigation.phtml'); ?>

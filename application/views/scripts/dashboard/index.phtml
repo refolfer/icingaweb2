@@ -7,7 +7,7 @@
             <button
                 type="button"
                 class="button-link js-dashboard-visibility-toggle"
-                title="<?= $this->escape($this->translate('Show or hide dashboards in this view')) ?>"
+                title="<?= $this->escape($this->translate('Choose which dashboards are visible in this view')) ?>"
                 aria-expanded="false"
             >
                 <?= $this->escape($this->translate('Manage Dashboards')) ?>
@@ -25,7 +25,8 @@
             data-label-classic="<?= $this->escape($this->translate('Classic View')) ?>"
             data-label-containers="<?= $this->escape($this->translate('Container View')) ?>"
             data-label-unavailable="<?= $this->escape($this->translate('Container view unavailable in compact layout')) ?>"
-            title="<?= $this->escape($this->translate('Classic View')) ?>"
+            title="<?= $this->escape($this->translate('Switch between classic and container view')) ?>"
+            aria-label="<?= $this->escape($this->translate('Switch between classic and container view')) ?>"
         >
             <?= $this->escape($this->translate('Classic View')) ?>
         </button>
@@ -33,10 +34,14 @@
             type="button"
             class="button-link js-reset-dashlet-layout"
             title="<?= $this->escape($this->translate('Reset dashboard layout to default arrangement')) ?>"
+            aria-label="<?= $this->escape($this->translate('Reset dashboard layout')) ?>"
         >
             <?= $this->escape($this->translate('Reset Layout')) ?>
         </button>
     </div>
+    <p class="dashboard-controls-hint">
+        <?= $this->escape($this->translate('Tip: use "Manage Dashboards" to show or hide dashboard tabs for this view.')) ?>
+    </p>
 </div>
 <?php if ($this->dashboard): ?>
     <div class="dashboard content floating-dashlets">

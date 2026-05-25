@@ -51,10 +51,15 @@
             this.initializeColumnSplitter();
             this.applyStoredColumnSplitRatio();
 
-            $(document).on('click', '#mobile-menu-toggle', this.toggleMobileMenu);
+            $(document).on('click', '#mobile-menu-toggle', { self: this }, this.toggleMobileMenu);
             $(document).on('keypress', '#search',{ self: this, type: 'key' }, this.closeMobileMenu);
             $(document).on('mouseleave', '#sidebar', { self: this, type: 'leave' }, this.closeMobileMenu);
             $(document).on('click', '#sidebar a', { self: this, type: 'navigate' }, this.closeMobileMenu);
+            $(document).on('keydown', { self: this }, this.handleGlobalShortcuts);
+            $(document).on('focus', '#search', { self: this }, this.populateSearchHistory);
+            $(document).on('submit', 'form.search-control', { self: this }, this.rememberSearchQuery);
+
+            this.setMobileMenuExpanded($('#sidebar').hasClass('expanded'));
         },
 
         fadeNotificationsAway: function() {
@@ -667,13 +672,160 @@
             return $calc.width() / 1000;
         },
 
+        isEditableTarget: function(target) {
+            if (! target || target.nodeType !== 1) {
+                return false;
+            }
+
+            var $target = $(target);
+
+            return $target.is('input, textarea, select, button')
+                || $target.is('[contenteditable]')
+                || $target.closest('[contenteditable]').length > 0;
+        },
+
+        handleGlobalShortcuts: function(event) {
+            var _this = event.data.self;
+            var key = event.key || '';
+
+            if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+                return;
+            }
+
+            if ((key === '/' || event.code === 'Slash') && ! _this.isEditableTarget(event.target)) {
+                if (_this.focusSearchField()) {
+                    event.preventDefault();
+                }
+                return;
+            }
+
+            if (key === 'Escape') {
+                _this.setMobileMenuExpanded(false);
+
+                var $search = $('#search');
+                if ($search.length && document.activeElement === $search[0]) {
+                    $search.trigger('blur');
+                }
+            }
+        },
+
+        focusSearchField: function() {
+            var $search = $('#search').first();
+            if (! $search.length) {
+                return false;
+            }
+
+            if (this.currentLayout === 'minimal') {
+                this.setMobileMenuExpanded(true);
+            }
+
+            $search.trigger('focus');
+            $search[0].select();
+            return true;
+        },
+
+        getSearchHistoryKey: function() {
+            return 'menu-search-history';
+        },
+
+        readSearchHistory: function() {
+            var history = [];
+
+            try {
+                var raw = window.sessionStorage.getItem(this.getSearchHistoryKey());
+                history = raw ? JSON.parse(raw) : [];
+            } catch (error) {
+                history = [];
+            }
+
+            return Array.isArray(history) ? history : [];
+        },
+
+        writeSearchHistory: function(history) {
+            try {
+                window.sessionStorage.setItem(this.getSearchHistoryKey(), JSON.stringify(history));
+            } catch (error) {
+                // Ignore storage failures (private mode, disabled storage, quota limits)
+            }
+        },
+
+        rememberSearchQuery: function(event) {
+            var _this = event.data.self;
+            var $input = $(event.currentTarget).find('#search').first();
+            var value;
+            var history;
+
+            if (! $input.length) {
+                return;
+            }
+
+            value = $.trim($input.val());
+            if (! value.length) {
+                return;
+            }
+
+            history = _this.readSearchHistory().filter(function (entry) {
+                return entry !== value;
+            });
+            history.unshift(value);
+            history = history.slice(0, 8);
+
+            _this.writeSearchHistory(history);
+            _this.populateSearchHistory(event);
+        },
+
+        populateSearchHistory: function(event) {
+            var _this = event.data.self;
+            var $list = $('#search-history-list');
+            var history = _this.readSearchHistory();
+            var options = [];
+
+            if (! $list.length) {
+                return;
+            }
+
+            for (var i = 0; i < history.length; i++) {
+                options.push('<option value="' + _this.icinga.utils.escape(history[i]) + '"></option>');
+            }
+
+            $list.html(options.join(''));
+        },
+
+        setMobileMenuExpanded: function(expanded) {
+            var $sidebar = $('#sidebar');
+            var $toggle = $('#mobile-menu-toggle > button').first();
+            var isExpanded = !! expanded;
+
+            $sidebar.toggleClass('expanded', isExpanded);
+
+            if ($toggle.length) {
+                $toggle.attr('aria-expanded', isExpanded ? 'true' : 'false');
+            }
+        },
+
         /**
          * Toggle mobile menu
          *
          * @param {object} e Event
          */
         toggleMobileMenu: function(e) {
-            $('#sidebar').toggleClass('expanded');
+            var _this = e && e.data && e.data.self ? e.data.self : null;
+            var isExpanded = ! $('#sidebar').hasClass('expanded');
+
+            if (_this) {
+                _this.setMobileMenuExpanded(isExpanded);
+            } else {
+                $('#sidebar').toggleClass('expanded', isExpanded);
+            }
+
+            if (isExpanded) {
+                var $search = $('#search').first();
+                if ($search.length) {
+                    window.setTimeout(function() {
+                        $search.trigger('focus');
+                    }, 0);
+                }
+            }
         },
 
         /**
@@ -687,12 +839,12 @@
             }
 
             if (e.data.type === 'key') {
-                if (e.which === 13) {
-                    $('#sidebar').removeClass('expanded');
+                if (e.which === 13 || e.which === 27 || e.key === 'Escape') {
+                    e.data.self.setMobileMenuExpanded(false);
                     $(e.target)[0].blur();
                 }
             } else {
-                $('#sidebar').removeClass('expanded');
+                e.data.self.setMobileMenuExpanded(false);
             }
         },
 

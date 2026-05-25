@@ -76,4 +76,27 @@
         </li>
     <?php endif ?>
     </ul>
+    <form
+        class="pagination-jump-form js-pagination-jump-form"
+        data-page-url-template="<?= $this->escape($this->url()->overwriteParams(array('page' => '__PAGE__'))->getAbsoluteUrl()) ?>"
+    >
+        <span class="pagination-summary">
+            <?= sprintf(
+                $this->translate('Page %u of %u'),
+                $this->current,
+                $this->pageCount
+            ) ?>
+        </span>
+        <label for="<?= $this->protectId('pagination-jump') ?>" class="sr-only"><?= $this->translate('Jump to page') ?></label>
+        <input
+            id="<?= $this->protectId('pagination-jump') ?>"
+            class="pagination-jump-input"
+            type="number"
+            name="page"
+            min="1"
+            max="<?= $this->escape($this->pageCount) ?>"
+            value="<?= $this->escape($this->current) ?>"
+        >
+        <button type="submit" class="btn-primary pagination-jump-button"><?= $this->translate('Go') ?></button>
+    </form>
 </div>

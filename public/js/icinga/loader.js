@@ -381,6 +381,19 @@
                         req.$target.addClass('impact');
                     }
                 }, 0);
+            } else {
+                setTimeout(function () {
+                    if (req.state() !== 'pending') {
+                        return;
+                    }
+
+                    var $content = req.$target.find(':scope > .content').first();
+                    if ($content.length) {
+                        $content.addClass('autorefresh-impact');
+                    } else {
+                        req.$target.addClass('autorefresh-impact');
+                    }
+                }, 0);
             }
             this.icinga.ui.refreshDebug();
             return req;
@@ -984,6 +997,15 @@
                 const $impact = req.$target.find(':scope > .content.impact').first();
                 if ($impact.length) {
                     $impact.removeClass('impact');
+                }
+            }
+
+            if (req.$target.hasClass('autorefresh-impact')) {
+                req.$target.removeClass('autorefresh-impact');
+            } else {
+                const $autorefreshImpact = req.$target.find(':scope > .content.autorefresh-impact').first();
+                if ($autorefreshImpact.length) {
+                    $autorefreshImpact.removeClass('autorefresh-impact');
                 }
             }
 
