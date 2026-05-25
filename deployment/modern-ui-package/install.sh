@@ -50,6 +50,24 @@ ensure_parent_dir() {
   mkdir -p "$(dirname "$path")"
 }
 
+copy_preserving_basic_metadata() {
+  local src="$1"
+  local dst="$2"
+  cp --preserve=mode,ownership,timestamps "$src" "$dst"
+}
+
+restore_selinux_context() {
+  local path="$1"
+
+  if command -v restorecon >/dev/null 2>&1; then
+    if restorecon "$path" >/dev/null 2>&1; then
+      :
+    else
+      log "WARNING: restorecon failed for ${path}"
+    fi
+  fi
+}
+
 list_manifest() {
   grep -v '^[[:space:]]*$' "$MANIFEST_FILE"
 }
@@ -79,17 +97,18 @@ install_files() {
 
     if [[ -e "$dst" ]]; then
       ensure_parent_dir "$bkp"
-      cp -a "$dst" "$bkp"
+      copy_preserving_basic_metadata "$dst" "$bkp"
     else
       printf '%s\n' "$rel" >> "$missing_file"
     fi
 
     ensure_parent_dir "$dst"
-    cp -a "$src" "$dst"
+    copy_preserving_basic_metadata "$src" "$dst"
+    restore_selinux_context "$dst"
     log "Installed: $rel"
   done < <(list_manifest)
 
-  cp -a "$MANIFEST_FILE" "${BACKUP_DIR}/manifest.txt"
+  copy_preserving_basic_metadata "$MANIFEST_FILE" "${BACKUP_DIR}/manifest.txt"
   cat > "${BACKUP_DIR}/meta.env" <<EOF
 BACKUP_ID=${backup_id}
 CREATED_AT=$(date -Is)
@@ -120,7 +139,8 @@ restore_files() {
 
     if [[ -f "$orig" ]]; then
       ensure_parent_dir "$dst"
-      cp -a "$orig" "$dst"
+      copy_preserving_basic_metadata "$orig" "$dst"
+      restore_selinux_context "$dst"
       log "Restored original: $rel"
       continue
     fi

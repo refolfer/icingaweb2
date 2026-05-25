@@ -29,6 +29,9 @@ cd icingaweb2-modern-ui-package
 bash install.sh install --target /usr/share/icingaweb2
 ```
 
+The installer restores SELinux labels for installed files (via `restorecon`, if available)
+to avoid context-related runtime errors on enforcing systems.
+
 ## Restore Original Files
 
 Restore from the latest backup:
