@@ -58,10 +58,10 @@ $innerLayoutScript = $this->layout()->innerLayout . '.phtml';
 <?= $this->render($innerLayoutScript); ?>
 </div>
 <div id="collapsible-control-ghost" class="collapsible-control">
-    <button type="button">
-        <!-- TODO: Accessibility attributes are missing since usage of the Icon class -->
-        <?= new Icon('angle-double-down', ['class' => 'expand-icon', 'title' => $this->translate('Expand')]) ?>
-        <?= new Icon('angle-double-up', ['class' => 'collapse-icon', 'title' => $this->translate('Collapse')]) ?>
+    <button type="button" aria-label="<?= $this->translate('Toggle pane') ?>">
+        <span class="sr-only"><?= $this->translate('Toggle pane') ?></span>
+        <?= new Icon('angle-double-down', ['class' => 'expand-icon', 'title' => $this->translate('Expand'), 'aria-hidden' => 'true']) ?>
+        <?= new Icon('angle-double-up', ['class' => 'collapse-icon', 'title' => $this->translate('Collapse'), 'aria-hidden' => 'true']) ?>
     </button>
 </div>
 <div id="modal-ghost">

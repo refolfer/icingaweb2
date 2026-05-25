@@ -4,6 +4,18 @@
       "php": "8.2"
     }
   },
+  "scripts": {
+    "lint:php": "phpcs --standard=phpcs.xml",
+    "stan": "phpstan analyse -c phpstan.neon",
+    "stan:baseline:guard": "php ./bin/check-phpstan-baseline-budget.php",
+    "test": "phpunit -c phpunit.xml",
+    "quality": [
+      "@lint:php",
+      "@stan:baseline:guard",
+      "@stan",
+      "@test"
+    ]
+  },
   "require-dev": {
     "mockery/mockery": "^1.6"
   }

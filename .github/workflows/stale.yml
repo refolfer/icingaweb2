@@ -8,4 +8,4 @@ on:
 jobs:
   php:
     name: Stale
-    uses: Icinga/github-actions/.github/workflows/stale.yml@main
+    uses: Icinga/github-actions/.github/workflows/stale.yml@ea00fefeee718346f7cf319b61e430243c0a3797

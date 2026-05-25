@@ -7,5 +7,5 @@ on:
 
 jobs:
   update:
-    uses: icinga/github-actions/.github/workflows/L10n-update.yml@main
+    uses: Icinga/github-actions/.github/workflows/L10n-update.yml@ea00fefeee718346f7cf319b61e430243c0a3797
     secrets: inherit

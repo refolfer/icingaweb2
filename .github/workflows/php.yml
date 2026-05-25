@@ -13,7 +13,7 @@ on:
 jobs:
   php:
     name: PHP
-    uses: Icinga/github-actions/.github/workflows/php.yml@main
+    uses: Icinga/github-actions/.github/workflows/php.yml@ea00fefeee718346f7cf319b61e430243c0a3797
     with:
       databases: true
       php-extensions: ldap

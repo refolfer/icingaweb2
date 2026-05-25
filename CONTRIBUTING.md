@@ -128,7 +128,7 @@ Existing branch:
 git push -f origin fix/style-detail-view
 ```
 
-You can now either use the [hub](https://hub.github.com) CLI tool to create a PR, or nagivate
+You can now either use the [GitHub CLI](https://cli.github.com) to create a PR, or navigate
 to your GitHub repository and create a PR there.
 
 The pull request should again contain a telling subject and a reference
@@ -136,11 +136,7 @@ with `fixes` to an existing issue id if any. That allows developers
 to automatically resolve the issues once your PR gets merged.
 
 ```
-hub pull-request
-
-<a telling subject>
-
-fixes #1234
+gh pr create --fill
 ```
 
 Thanks a lot for your contribution!
@@ -242,6 +238,16 @@ Snapshot packages from the latest development branch are available inside the
 
 You can help test-drive the latest Icinga 2 snapshot packages inside the
 [Icinga 2 Vagrant boxes](https://github.com/icinga/icinga-vagrant).
+
+For local quality checks, these composer scripts are available:
+
+```
+composer run lint:php
+composer run stan:baseline:guard
+composer run stan
+composer run test
+composer run quality
+```
 
 
 ## <a id="contributing-patches-source-code"></a> Source Code Patches

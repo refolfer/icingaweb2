@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Docker image
-        uses: Icinga/docker-icingaweb2@master
+        uses: Icinga/docker-icingaweb2@1e730db8a8543872c33a81fb1af2434d22fc681b
         with:
           dockerhub-token: '${{ secrets.DOCKER_HUB_PERSONAL_TOKEN }}'
 
@@ -27,6 +27,6 @@ jobs:
 
     steps:
       - name: Docker image
-        uses: Icinga/docker-icingaweb2@master
+        uses: Icinga/docker-icingaweb2@1e730db8a8543872c33a81fb1af2434d22fc681b
         with:
           dockerhub-token: '${{ secrets.DOCKER_HUB_PERSONAL_TOKEN }}'
