@@ -228,14 +228,33 @@
         return [getTacticalContainer(), getTopEventsPanel()].filter(Boolean);
     }
 
+    function getLayoutRoot() {
+        return document.getElementById('layout');
+    }
+
+    function setTopWidgetResizingClass(active) {
+        var layout = getLayoutRoot();
+
+        document.documentElement.classList.toggle('top-widget-resizing', active);
+
+        if (layout) {
+            layout.classList.toggle('top-widget-resizing', active);
+        }
+    }
+
     function setTopWidgetHeight(px) {
         var height = clamp(px, TOP_WIDGET_MIN_HEIGHT, TOP_WIDGET_MAX_HEIGHT);
+
+        document.documentElement.style.setProperty('--top-widget-height', height + 'px');
         getTopWidgetTargets().forEach(function (el) {
             el.style.height = height + 'px';
         });
+
+        return height;
     }
 
     function clearTopWidgetHeight() {
+        document.documentElement.style.removeProperty('--top-widget-height');
         getTopWidgetTargets().forEach(function (el) {
             el.style.height = '';
         });
@@ -257,23 +276,19 @@
         }
     }
 
-    function syncTopEventsHeightWithTactical() {
-        var tactical = getTacticalContainer();
-        var topEvents = getTopEventsPanel();
-        if (! tactical || ! topEvents) {
-            return;
-        }
-
-        topEvents.style.height = tactical.getBoundingClientRect().height + 'px';
-    }
-
     function applySavedTopWidgetHeight() {
+        var tactical;
         var saved = readSavedTopWidgetHeight();
+
         if (Number.isFinite(saved)) {
             setTopWidgetHeight(saved);
         } else {
-            clearTopWidgetHeight();
-            syncTopEventsHeightWithTactical();
+            tactical = getTacticalContainer();
+            if (tactical) {
+                setTopWidgetHeight(tactical.getBoundingClientRect().height);
+            } else {
+                clearTopWidgetHeight();
+            }
         }
     }
 
@@ -298,7 +313,7 @@
         }
 
         topWidgetResizeState = null;
-        document.documentElement.classList.remove('top-widget-resizing');
+        setTopWidgetResizingClass(false);
         window.removeEventListener('mousemove', onTopWidgetResizeMove);
         window.removeEventListener('mouseup', onTopWidgetResizeEnd);
     }
@@ -314,7 +329,7 @@
             startHeight: tactical.getBoundingClientRect().height
         };
 
-        document.documentElement.classList.add('top-widget-resizing');
+        setTopWidgetResizingClass(true);
         window.addEventListener('mousemove', onTopWidgetResizeMove);
         window.addEventListener('mouseup', onTopWidgetResizeEnd);
         event.preventDefault();
@@ -370,7 +385,10 @@
 
         window.addEventListener('resize', function () {
             if (! Number.isFinite(readSavedTopWidgetHeight())) {
-                syncTopEventsHeightWithTactical();
+                var currentTactical = getTacticalContainer();
+                if (currentTactical) {
+                    setTopWidgetHeight(currentTactical.getBoundingClientRect().height);
+                }
             }
         });
     }

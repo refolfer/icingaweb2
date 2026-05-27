@@ -6,6 +6,9 @@
   --ux-focus-shadow: rgba(53, 182, 217, 0.35);
   --ux-panel-bg: rgba(255, 255, 255, 0.04);
   --ux-panel-border: rgba(255, 255, 255, 0.15);
+  --top-widget-height: 160px;
+  --top-widget-resizer-height: 0.6em;
+  --top-widget-offset: calc(var(--top-widget-height) + var(--top-widget-resizer-height) + 0.2em);
 
   --to-bg: rgba(255, 255, 255, 0.08);
   --to-border: rgba(120, 150, 185, 0.38);
@@ -38,19 +41,24 @@ body.modal-open {
 }
 
 #main {
-  flex-wrap: wrap;
-  align-content: flex-start;
+  position: relative;
+  padding-top: var(--top-widget-offset);
+  box-sizing: border-box;
 }
 
 .top-events-panel {
-  order: 1;
-  flex: 1 0 100%;
-  height: clamp(9.5em, 22vh, 12em);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: var(--top-widget-height);
   min-height: 9.5em;
   padding: 0.45em 0.7em 0.6em;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.44) 100%);
   border-bottom: 1px solid rgba(120, 150, 185, 0.45);
   overflow: auto;
+  box-sizing: border-box;
 }
 
 .top-events-header {
@@ -111,13 +119,15 @@ body.modal-open {
 }
 
 #top-events-resizer {
-  order: 2;
-  flex: 1 0 100%;
+  position: absolute;
+  top: var(--top-widget-height);
+  left: 0;
+  right: 0;
+  z-index: 3;
   display: block;
-  position: relative;
-  height: 0.6em;
+  height: var(--top-widget-resizer-height);
   cursor: row-resize;
-  margin: 0 0 0.1em;
+  margin: 0;
   border-radius: 0.35em;
   outline: none;
 }
@@ -137,11 +147,6 @@ body.modal-open {
 #top-events-resizer:focus-visible::before,
 #layout.top-widget-resizing #top-events-resizer::before {
   background: linear-gradient(90deg, transparent, rgba(35, 182, 217, 0.95), transparent);
-}
-
-#main > .container,
-#main > #col-splitter {
-  order: 3;
 }
 
 #layout:not(.minimal-layout):not(.sidebar-collapsed) #header-logo-container {
@@ -429,9 +434,20 @@ body.modal-open {
 }
 
 @media screen and (max-width: 36em) {
+  #layout.minimal-layout {
+    --top-widget-height: 0px;
+    --top-widget-resizer-height: 0px;
+    --top-widget-offset: 0px;
+  }
+
+  #layout.minimal-layout #top-events-panel,
+  #layout.minimal-layout #top-events-resizer {
+    display: none;
+  }
+
   .top-events-panel {
-    min-height: 8em;
-    height: 8em;
+    min-height: 7em;
+    height: var(--top-widget-height);
     padding: 0.35em 0.45em;
   }
 
