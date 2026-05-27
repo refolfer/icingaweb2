@@ -122,6 +122,23 @@
         }
     }
 
+    function setBarWidth(selector, value, maxValue) {
+        var el = document.querySelector(selector);
+        var count = parseIntOrZero(value);
+        var max = parseIntOrZero(maxValue);
+        var width = 0;
+
+        if (! el) {
+            return;
+        }
+
+        if (max > 0 && count > 0) {
+            width = Math.max(6, Math.min(100, Math.round((count / max) * 100)));
+        }
+
+        el.style.width = width + '%';
+    }
+
     function readMenuBadgeCount(matcher) {
         var links = document.querySelectorAll('#menu a[href]');
         var i;
@@ -155,29 +172,25 @@
             return href.indexOf('/monitoring/list/services') !== -1
                 && (href.indexOf('service_problem') !== -1 || href.indexOf('service_state=2') !== -1);
         });
+        var maxIncidentCount = Math.max(
+            hostDown === null ? 0 : hostDown,
+            serviceCritical === null ? 0 : serviceCritical
+        );
 
         if (hostDown === null) {
             setText('[data-to-host-down]', '--');
-            setText('[data-to-host-down-badge]', '--');
-            setText('[data-to-host-ok-badge]', '--');
-            setText('[data-to-host-total]', '--');
+            setBarWidth('[data-to-host-bar]', 0, 1);
         } else {
             setText('[data-to-host-down]', hostDown);
-            setText('[data-to-host-down-badge]', hostDown);
-            setText('[data-to-host-ok-badge]', '--');
-            setText('[data-to-host-total]', '--');
+            setBarWidth('[data-to-host-bar]', hostDown, maxIncidentCount);
         }
 
         if (serviceCritical === null) {
             setText('[data-to-service-critical]', '--');
-            setText('[data-to-service-critical-badge]', '--');
-            setText('[data-to-service-ok-badge]', '--');
-            setText('[data-to-service-total]', '--');
+            setBarWidth('[data-to-service-bar]', 0, 1);
         } else {
             setText('[data-to-service-critical]', serviceCritical);
-            setText('[data-to-service-critical-badge]', serviceCritical);
-            setText('[data-to-service-ok-badge]', '--');
-            setText('[data-to-service-total]', '--');
+            setBarWidth('[data-to-service-bar]', serviceCritical, maxIncidentCount);
         }
     }
 

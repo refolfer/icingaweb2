@@ -45,34 +45,32 @@ if ($this->layout()->inlineLayout) {
                     <section class="tactical-card hosts">
                         <header>
                             <h3><?= $this->translate('Hosts') ?></h3>
-                            <span><?= $this->translate('Total') ?> <strong data-to-host-total>--</strong></span>
+                            <span><?= $this->translate('Active issues') ?></span>
                         </header>
-                        <div class="tactical-donut hosts-donut">
-                            <div class="tactical-center">
-                                <strong data-to-host-down>--</strong>
+                        <div class="tactical-metric">
+                            <div class="tactical-metric-head">
                                 <span><?= $this->translate('Down') ?></span>
+                                <strong data-to-host-down>--</strong>
+                            </div>
+                            <div class="tactical-bar">
+                                <span class="tactical-bar-fill state-critical" data-to-host-bar></span>
                             </div>
                         </div>
-                        <ul class="tactical-legend">
-                            <li class="state-critical" data-to-host-down-badge>--</li>
-                            <li class="state-ok" data-to-host-ok-badge>--</li>
-                        </ul>
                     </section>
                     <section class="tactical-card services">
                         <header>
                             <h3><?= $this->translate('Services') ?></h3>
-                            <span><?= $this->translate('Total') ?> <strong data-to-service-total>--</strong></span>
+                            <span><?= $this->translate('Active issues') ?></span>
                         </header>
-                        <div class="tactical-donut services-donut">
-                            <div class="tactical-center">
-                                <strong data-to-service-critical>--</strong>
+                        <div class="tactical-metric">
+                            <div class="tactical-metric-head">
                                 <span><?= $this->translate('Critical') ?></span>
+                                <strong data-to-service-critical>--</strong>
+                            </div>
+                            <div class="tactical-bar">
+                                <span class="tactical-bar-fill state-critical" data-to-service-bar></span>
                             </div>
                         </div>
-                        <ul class="tactical-legend">
-                            <li class="state-critical" data-to-service-critical-badge>--</li>
-                            <li class="state-ok" data-to-service-ok-badge>--</li>
-                        </ul>
                     </section>
                 </div>
                 <span class="tactical-overview-label" aria-hidden="true" title="<?= $this->escape($this->translate('Tactical Overview')) ?>">TO</span>
