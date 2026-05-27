@@ -110,6 +110,10 @@ body.modal-open {
   place-items: center;
 }
 
+.keyboard-shortcuts-modal[hidden] {
+  display: none !important;
+}
+
 .keyboard-shortcuts-backdrop {
   position: absolute;
   inset: 0;
