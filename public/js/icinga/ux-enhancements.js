@@ -14,6 +14,17 @@
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
     var TOP_PANELS_OFFSET_MAX = 360;
+    var TACTICAL_COLORS = {
+        ok: '#2aa86a',
+        critical: '#d94b63',
+        criticalHandled: '#f1a9b6',
+        warning: '#d89a22',
+        warningHandled: '#edc37b',
+        unknown: '#7565d9',
+        unknownHandled: '#aba3ee',
+        pending: '#2f87d3',
+        empty: '#d9e6ef'
+    };
 
     var goState = {
         pending: false,
@@ -237,7 +248,7 @@
         var next;
 
         if (! total || total <= 0) {
-            return 'conic-gradient(from -90deg, rgba(47, 125, 213, 0.2), rgba(47, 125, 213, 0.2))';
+            return 'conic-gradient(from -90deg, ' + TACTICAL_COLORS.empty + ', ' + TACTICAL_COLORS.empty + ')';
         }
 
         for (i = 0; i < slices.length; i++) {
@@ -253,7 +264,7 @@
         }
 
         if (! parts.length) {
-            return 'conic-gradient(from -90deg, rgba(47, 125, 213, 0.2), rgba(47, 125, 213, 0.2))';
+            return 'conic-gradient(from -90deg, ' + TACTICAL_COLORS.empty + ', ' + TACTICAL_COLORS.empty + ')';
         }
 
         return 'conic-gradient(from -90deg, ' + parts.join(', ') + ')';
@@ -324,10 +335,10 @@
 
         if (donut) {
             donut.style.background = buildDonutGradient([
-                { value: host.up, color: 'var(--to-ok)' },
-                { value: host.downHandled, color: 'var(--to-critical-handled)' },
-                { value: host.downUnhandled, color: 'var(--to-critical)' },
-                { value: host.pending, color: 'var(--to-pending)' }
+                { value: host.up, color: TACTICAL_COLORS.ok },
+                { value: host.downHandled, color: TACTICAL_COLORS.criticalHandled },
+                { value: host.downUnhandled, color: TACTICAL_COLORS.critical },
+                { value: host.pending, color: TACTICAL_COLORS.pending }
             ], total);
         }
 
@@ -359,14 +370,14 @@
 
         if (donut) {
             donut.style.background = buildDonutGradient([
-                { value: service.ok, color: 'var(--to-ok)' },
-                { value: service.warningHandled, color: 'var(--to-warning-handled)' },
-                { value: service.warningUnhandled, color: 'var(--to-warning)' },
-                { value: service.criticalHandled, color: 'var(--to-critical-handled)' },
-                { value: service.criticalUnhandled, color: 'var(--to-critical)' },
-                { value: service.unknownHandled, color: 'var(--to-unknown-handled)' },
-                { value: service.unknownUnhandled, color: 'var(--to-unknown)' },
-                { value: service.pending, color: 'var(--to-pending)' }
+                { value: service.ok, color: TACTICAL_COLORS.ok },
+                { value: service.warningHandled, color: TACTICAL_COLORS.warningHandled },
+                { value: service.warningUnhandled, color: TACTICAL_COLORS.warning },
+                { value: service.criticalHandled, color: TACTICAL_COLORS.criticalHandled },
+                { value: service.criticalUnhandled, color: TACTICAL_COLORS.critical },
+                { value: service.unknownHandled, color: TACTICAL_COLORS.unknownHandled },
+                { value: service.unknownUnhandled, color: TACTICAL_COLORS.unknown },
+                { value: service.pending, color: TACTICAL_COLORS.pending }
             ], total);
         }
 

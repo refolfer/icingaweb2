@@ -12,18 +12,18 @@
   --top-widget-offset: calc(var(--top-widget-height) + var(--top-widget-resizer-height) + 0.2em);
 
   --to-bg: #f6fbff;
-  --to-border: #b7cad9;
-  --to-card-bg: #f1f7fb;
+  --to-border: #9db7c8;
+  --to-card-bg: #f7fbfe;
   --to-text-strong: #1d3d5b;
   --to-text-muted: #3b5b78;
-  --to-ok: #26a35f;
-  --to-critical: #cf3f57;
-  --to-critical-handled: #e7a1ad;
-  --to-warning: #c8861b;
-  --to-warning-handled: #deb170;
-  --to-unknown: #6e63d8;
-  --to-unknown-handled: #9d95e7;
-  --to-pending: #2f7fcb;
+  --to-ok: #2aa86a;
+  --to-critical: #d94b63;
+  --to-critical-handled: #f1a9b6;
+  --to-warning: #d89a22;
+  --to-warning-handled: #edc37b;
+  --to-unknown: #7565d9;
+  --to-unknown-handled: #aba3ee;
+  --to-pending: #2f87d3;
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -190,13 +190,15 @@ body.modal-open {
   min-height: 9.5em;
   padding: 0.35em;
   flex: 0 0 auto;
-  background: #eef4f9;
-  opacity: 1;
+  background: #eef4f9 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
 }
 
 #header-logo.tactical-overview-link {
   background-image: none !important;
-  background: #eef4f9;
+  background: #eef4f9 !important;
   width: 100%;
   height: 100%;
   display: flex;
@@ -205,11 +207,13 @@ body.modal-open {
   color: inherit;
   font-size: clamp(0.72rem, 0.85vw, 0.9rem);
   line-height: 1.25;
-  opacity: 1;
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
 }
 
 #header-logo.tactical-overview-link:focus {
-  opacity: 1;
+  opacity: 1 !important;
 }
 
 .tactical-overview {
@@ -217,6 +221,18 @@ body.modal-open {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.3em;
   height: 100%;
+  background: #eef4f9 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  isolation: isolate;
+  mix-blend-mode: normal !important;
+}
+
+.tactical-overview,
+.tactical-overview * {
+  filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
 }
 
 .tactical-overview-label {
@@ -261,9 +277,9 @@ body.modal-open {
   min-height: 0;
   padding: 0.3em;
   border-radius: 0.65em;
-  border: 1px solid var(--to-border);
-  background: var(--to-card-bg);
-  opacity: 1;
+  border: 1px solid var(--to-border) !important;
+  background: var(--to-card-bg) !important;
+  opacity: 1 !important;
 }
 
 .tactical-card header {
@@ -300,9 +316,9 @@ body.modal-open {
   width: clamp(5rem, calc(var(--top-widget-height) * 0.42), 9rem);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  background: conic-gradient(from -90deg, #d5e2ec, #d5e2ec);
+  background: conic-gradient(from -90deg, #d9e6ef, #d9e6ef);
   box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.4);
-  opacity: 1;
+  opacity: 1 !important;
 }
 
 .tactical-donut::before {
@@ -310,7 +326,7 @@ body.modal-open {
   position: absolute;
   inset: 16%;
   border-radius: 50%;
-  background: #fdfefe;
+  background: #f7fbfe !important;
   box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.24);
 }
 
