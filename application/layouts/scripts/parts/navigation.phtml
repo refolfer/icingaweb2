@@ -19,6 +19,41 @@ if (! $this->auth()->isAuthenticated()) {
         </li>
     </ul>
 </div>
+<nav class="quick-actions" aria-label="<?= $this->escape($this->translate('Quick Actions')) ?>">
+    <h2 class="quick-actions-title"><?= $this->escape($this->translate('Quick Actions')) ?></h2>
+    <ul class="quick-actions-list">
+        <li>
+            <a href="<?= $this->href('dashboard') ?>" data-base-target="_main" data-shortcut-go="d">
+                <?= $this->icon('dashboard', null, ['aria-hidden' => 'true']) ?>
+                <span><?= $this->escape($this->translate('Dashboard')) ?></span>
+            </a>
+        </li>
+        <li>
+            <a href="<?= $this->href('search') ?>" data-base-target="_main" data-shortcut-go="s">
+                <?= $this->icon('search', null, ['aria-hidden' => 'true']) ?>
+                <span><?= $this->escape($this->translate('Search')) ?></span>
+            </a>
+        </li>
+        <li>
+            <a href="<?= $this->href('account') ?>" data-base-target="_main" data-shortcut-go="a">
+                <?= $this->icon('user', null, ['aria-hidden' => 'true']) ?>
+                <span><?= $this->escape($this->translate('My Account')) ?></span>
+            </a>
+        </li>
+        <li>
+            <a href="<?= $this->href('authentication/logout') ?>" data-shortcut-go="l">
+                <?= $this->icon('off', null, ['aria-hidden' => 'true']) ?>
+                <span><?= $this->escape($this->translate('Logout')) ?></span>
+            </a>
+        </li>
+        <li>
+            <button type="button" class="button-link" data-open-shortcuts>
+                <?= $this->icon('keyboard', null, ['aria-hidden' => 'true']) ?>
+                <span><?= $this->escape($this->translate('Keyboard Shortcuts')) ?></span>
+            </button>
+        </li>
+    </ul>
+</nav>
 <div id="menu" data-last-update="-1" data-base-target="_main" class="container"
       data-icinga-url="<?= $this->href('layout/menu') ?>"  data-icinga-refresh="15">
     <?= $this->partial(

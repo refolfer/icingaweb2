@@ -108,3 +108,47 @@ if ($this->layout()->inlineLayout) {
   ?></ul>
   <div id="application-state-summary" class="container" data-icinga-url="<?= $this->url('application-state/summary') ?>" data-last-update="-1" data-icinga-refresh="60"></div>
 </div>
+<div id="keyboard-shortcuts-modal" class="keyboard-shortcuts-modal" hidden aria-hidden="true">
+    <div class="keyboard-shortcuts-backdrop" data-close-shortcuts></div>
+    <section class="keyboard-shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="keyboard-shortcuts-title">
+        <header class="keyboard-shortcuts-header">
+            <h2 id="keyboard-shortcuts-title"><?= $this->translate('Keyboard Shortcuts') ?></h2>
+            <button type="button" class="keyboard-shortcuts-close" data-close-shortcuts aria-label="<?= $this->translate('Close') ?>">
+                <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+            </button>
+        </header>
+        <p class="keyboard-shortcuts-description">
+            <?= $this->translate('Use these shortcuts to navigate faster through Icinga Web 2.') ?>
+        </p>
+        <ul class="keyboard-shortcuts-list">
+            <li>
+                <kbd>/</kbd>
+                <span><?= $this->translate('Focus global search') ?></span>
+            </li>
+            <li>
+                <kbd>?</kbd>
+                <span><?= $this->translate('Open this help') ?></span>
+            </li>
+            <li>
+                <kbd>g</kbd> <kbd>d</kbd>
+                <span><?= $this->translate('Go to Dashboard') ?></span>
+            </li>
+            <li>
+                <kbd>g</kbd> <kbd>s</kbd>
+                <span><?= $this->translate('Go to Search') ?></span>
+            </li>
+            <li>
+                <kbd>g</kbd> <kbd>a</kbd>
+                <span><?= $this->translate('Go to My Account') ?></span>
+            </li>
+            <li>
+                <kbd>g</kbd> <kbd>l</kbd>
+                <span><?= $this->translate('Log out') ?></span>
+            </li>
+            <li>
+                <kbd>Esc</kbd>
+                <span><?= $this->translate('Close mobile menu or this dialog') ?></span>
+            </li>
+        </ul>
+    </section>
+</div>

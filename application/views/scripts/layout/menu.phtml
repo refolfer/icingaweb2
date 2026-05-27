@@ -19,6 +19,15 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
                 aria-label="<?= $this->translate('Clear search') ?>"></button>
         <datalist id="search-history-list"></datalist>
     </form>
+    <div
+        class="search-history-container"
+        data-search-history-container
+        data-title-label="<?= $this->escape($this->translate('Recent Searches')) ?>"
+        hidden
+    >
+        <p class="search-history-title"></p>
+        <div class="search-history-actions"></div>
+    </div>
 <?php endif; ?>
 <?= $menuRenderer->setCssClass('primary-nav')->setElementTag('nav')->setHeading(t('Navigation')); ?>
 <nav class="config-menu">

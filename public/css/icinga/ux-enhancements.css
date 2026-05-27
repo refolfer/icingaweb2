@@ -1,0 +1,206 @@
+/* SPDX-FileCopyrightText: 2026 Icinga GmbH <https://icinga.com> */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+:root {
+  --ux-focus-ring-color: #35b6d9;
+  --ux-focus-shadow: rgba(53, 182, 217, 0.35);
+  --ux-panel-bg: rgba(255, 255, 255, 0.04);
+  --ux-panel-border: rgba(255, 255, 255, 0.15);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ux-focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 0.2em var(--ux-focus-shadow);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.quick-actions {
+  margin: 0.5em;
+  padding: 0.4em;
+  border: 1px solid var(--ux-panel-border);
+  border-radius: 0.35em;
+  background: var(--ux-panel-bg);
+}
+
+.quick-actions-title {
+  margin: 0 0 0.45em;
+  font-size: 0.82em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.92;
+}
+
+.quick-actions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.2em;
+}
+
+.quick-actions-list li {
+  margin: 0;
+}
+
+.quick-actions-list a,
+.quick-actions-list button {
+  appearance: none;
+  border: 1px solid transparent;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  border-radius: 0.25em;
+  padding: 0.35em 0.45em;
+}
+
+.quick-actions-list a:hover,
+.quick-actions-list button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.search-history-container {
+  margin: 0.3em 0.6em 0.6em;
+}
+
+.search-history-title {
+  margin: 0 0 0.35em;
+  font-size: 0.82em;
+  opacity: 0.9;
+}
+
+.search-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.search-history-action {
+  border: 1px solid var(--ux-panel-border);
+  background: rgba(0, 0, 0, 0.12);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.18em 0.65em;
+  font-size: 0.82em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-history-action:hover,
+.search-history-action:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-shortcuts-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+}
+
+.keyboard-shortcuts-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.56);
+}
+
+.keyboard-shortcuts-dialog {
+  position: relative;
+  width: min(38em, calc(100vw - 2em));
+  max-height: calc(100vh - 2em);
+  overflow: auto;
+  border-radius: 0.5em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--body-bg-color, #1f2730);
+  color: inherit;
+  box-shadow: 0 1em 2em rgba(0, 0, 0, 0.4);
+  padding: 1em;
+}
+
+.keyboard-shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.keyboard-shortcuts-header h2 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.keyboard-shortcuts-close {
+  border: 1px solid transparent;
+  border-radius: 0.25em;
+  background: transparent;
+  color: inherit;
+  min-width: 2em;
+  min-height: 2em;
+}
+
+.keyboard-shortcuts-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.keyboard-shortcuts-description {
+  margin: 0 0 1em;
+  opacity: 0.92;
+}
+
+.keyboard-shortcuts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45em;
+}
+
+.keyboard-shortcuts-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  padding: 0.45em 0.5em;
+  border-radius: 0.25em;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.keyboard-shortcuts-list kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom-width: 2px;
+  border-radius: 0.2em;
+  min-width: 1.7em;
+  padding: 0.1em 0.4em;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media screen and (max-width: 36em) {
+  .quick-actions {
+    margin: 0.4em;
+  }
+
+  .keyboard-shortcuts-dialog {
+    width: calc(100vw - 1em);
+    max-height: calc(100vh - 1em);
+    padding: 0.75em;
+  }
+
+  .keyboard-shortcuts-list li {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
