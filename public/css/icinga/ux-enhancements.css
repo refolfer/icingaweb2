@@ -6,6 +6,7 @@
   --ux-focus-shadow: rgba(53, 182, 217, 0.35);
   --ux-panel-bg: rgba(255, 255, 255, 0.04);
   --ux-panel-border: rgba(255, 255, 255, 0.15);
+  --ux-sidebar-width: 16em;
   --top-widget-height: 160px;
   --top-widget-resizer-height: 0.6em;
   --top-widget-offset: calc(var(--top-widget-height) + var(--top-widget-resizer-height) + 0.2em);
@@ -150,10 +151,19 @@ body.modal-open {
 }
 
 #layout:not(.minimal-layout):not(.sidebar-collapsed) #header-logo-container {
+  width: 100%;
   height: clamp(9.5em, 22vh, 12em);
   min-height: 9.5em;
   padding: 0.35em;
   flex: 0 0 auto;
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar {
+  width: var(--ux-sidebar-width);
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #footer {
+  left: var(--ux-sidebar-width);
 }
 
 #header-logo.tactical-overview-link {
@@ -248,49 +258,97 @@ body.modal-open {
 
 .tactical-metric {
   display: grid;
-  gap: 0.35em;
+  gap: 0.25em;
   align-content: center;
 }
 
-.tactical-metric-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35em;
+.tactical-metric.donut-style {
+  justify-items: center;
 }
 
-.tactical-metric-head span {
-  font-size: 0.86em;
-  font-weight: 700;
-  color: #17385a;
-}
-
-.tactical-metric-head strong {
-  display: block;
-  font-size: clamp(1.05em, 1.45vh, 1.45em);
-  line-height: 1;
-  color: var(--to-critical);
-}
-
-.tactical-bar {
+.tactical-donut {
   position: relative;
-  height: 0.62em;
-  border-radius: 999px;
-  background: rgba(20, 44, 68, 0.2);
+  width: clamp(3.8em, 8.4vh, 5.8em);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: conic-gradient(from -90deg, rgba(47, 125, 213, 0.2), rgba(47, 125, 213, 0.2));
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.4);
+}
+
+.tactical-donut::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: rgba(235, 243, 249, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.24);
+}
+
+.tactical-donut-center {
+  position: absolute;
+  inset: 24%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  z-index: 1;
+}
+
+.tactical-donut-center strong {
+  margin: 0;
+  color: var(--to-critical);
+  font-size: clamp(1.05em, 1.6vh, 1.5em);
+  line-height: 1;
+}
+
+.tactical-donut-center span {
+  margin-top: 0.1em;
+  color: #1c4268;
+  font-size: clamp(0.72em, 1.05vh, 0.9em);
+  font-weight: 700;
+}
+
+.tactical-legend {
+  width: 100%;
+  text-align: center;
+  color: #355472;
+  font-size: 0.78em;
+  line-height: 1.2;
+  white-space: nowrap;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.32);
+  text-overflow: ellipsis;
 }
 
-.tactical-bar-fill {
+#sidebar-width-resizer {
+  display: none;
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer {
   display: block;
-  height: 100%;
-  width: 0%;
-  border-radius: inherit;
-  transition: width 160ms ease-out;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0.55em;
+  cursor: col-resize;
+  z-index: 4;
+  outline: none;
 }
 
-.tactical-bar-fill.state-critical {
-  background: linear-gradient(90deg, rgba(217, 75, 99, 0.95), rgba(217, 75, 99, 0.72));
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, transparent, rgba(80, 120, 160, 0.7), transparent);
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer:hover::before,
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer:focus-visible::before,
+#layout.sidebar-width-resizing #sidebar-width-resizer::before {
+  background: linear-gradient(180deg, transparent, rgba(35, 182, 217, 0.95), transparent);
 }
 
 .search-history-container {

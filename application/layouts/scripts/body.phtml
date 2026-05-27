@@ -35,41 +35,45 @@ if ($this->layout()->inlineLayout) {
     <div id="sidebar">
         <div id="header-logo-container">
             <a
-                href="<?= $this->href(Auth::getInstance()->isAuthenticated() ? 'dashboard' : '') ?>"
+                href="<?= $this->href(Auth::getInstance()->isAuthenticated() ? 'icingadb/tactical' : '') ?>"
                 id="header-logo"
                 class="tactical-overview-link"
                 data-base-target="_main"
-                aria-label="<?= $this->escape($this->translate('Open Dashboard')) ?>"
+                aria-label="<?= $this->escape($this->translate('Open Tactical Overview')) ?>"
             >
-                <div class="tactical-overview" aria-hidden="true">
+                <div
+                    class="tactical-overview"
+                    data-tactical-url="<?= $this->href('icingadb/tactical') ?>"
+                    aria-hidden="true"
+                >
                     <section class="tactical-card hosts">
                         <header>
                             <h3><?= $this->translate('Hosts') ?></h3>
-                            <span><?= $this->translate('Active issues') ?></span>
+                            <span data-to-host-total><?= $this->translate('Total --') ?></span>
                         </header>
-                        <div class="tactical-metric">
-                            <div class="tactical-metric-head">
-                                <span><?= $this->translate('Down') ?></span>
-                                <strong data-to-host-down>--</strong>
+                        <div class="tactical-metric donut-style">
+                            <div class="tactical-donut host" data-to-host-donut>
+                                <div class="tactical-donut-center">
+                                    <strong data-to-host-down>--</strong>
+                                    <span><?= $this->translate('Down') ?></span>
+                                </div>
                             </div>
-                            <div class="tactical-bar">
-                                <span class="tactical-bar-fill state-critical" data-to-host-bar></span>
-                            </div>
+                            <div class="tactical-legend" data-to-host-legend>-- / -- / -- / --</div>
                         </div>
                     </section>
                     <section class="tactical-card services">
                         <header>
                             <h3><?= $this->translate('Services') ?></h3>
-                            <span><?= $this->translate('Active issues') ?></span>
+                            <span data-to-service-total><?= $this->translate('Total --') ?></span>
                         </header>
-                        <div class="tactical-metric">
-                            <div class="tactical-metric-head">
-                                <span><?= $this->translate('Critical') ?></span>
-                                <strong data-to-service-critical>--</strong>
+                        <div class="tactical-metric donut-style">
+                            <div class="tactical-donut service" data-to-service-donut>
+                                <div class="tactical-donut-center">
+                                    <strong data-to-service-critical>--</strong>
+                                    <span><?= $this->translate('Critical') ?></span>
+                                </div>
                             </div>
-                            <div class="tactical-bar">
-                                <span class="tactical-bar-fill state-critical" data-to-service-bar></span>
-                            </div>
+                            <div class="tactical-legend" data-to-service-legend>-- / -- / -- / -- / --</div>
                         </div>
                     </section>
                 </div>
@@ -93,6 +97,14 @@ if ($this->layout()->inlineLayout) {
             tabindex="0"
         ></div>
         <?= $this->render('parts/navigation.phtml'); ?>
+        <div
+            id="sidebar-width-resizer"
+            class="js"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="<?= $this->translate('Resize sidebar width') ?>"
+            tabindex="0"
+        ></div>
     </div>
 <?php endif ?>
     <div id="main" role="main">

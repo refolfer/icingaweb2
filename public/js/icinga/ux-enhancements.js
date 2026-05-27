@@ -10,6 +10,10 @@
     var TOP_WIDGET_MIN_HEIGHT = 120;
     var TOP_WIDGET_MAX_HEIGHT = 340;
     var TOP_EVENTS_REFRESH_MS = 15000;
+    var TACTICAL_REFRESH_MS = 10000;
+    var SIDEBAR_WIDTH_KEY = 'sidebar-width';
+    var SIDEBAR_MIN_WIDTH = 180;
+    var SIDEBAR_MAX_WIDTH = 520;
 
     var goState = {
         pending: false,
@@ -18,7 +22,13 @@
 
     var lastFocusedElement = null;
     var topWidgetResizeState = null;
+    var sidebarResizeState = null;
     var topEventsState = {
+        lastSignature: '',
+        pollingTimer: null,
+        inFlight: false
+    };
+    var tacticalState = {
         lastSignature: '',
         pollingTimer: null,
         inFlight: false
@@ -136,76 +146,302 @@
         }
     }
 
-    function setBarWidth(selector, value, maxValue) {
-        var el = document.querySelector(selector);
-        var count = parseIntOrZero(value);
-        var max = parseIntOrZero(maxValue);
-        var width = 0;
-
-        if (! el) {
-            return;
-        }
-
-        if (max > 0 && count > 0) {
-            width = Math.max(6, Math.min(100, Math.round((count / max) * 100)));
-        }
-
-        el.style.width = width + '%';
+    function getTacticalOverviewNode() {
+        return document.querySelector('.tactical-overview');
     }
 
-    function readMenuBadgeCount(matcher) {
-        var links = document.querySelectorAll('#menu a[href]');
-        var i;
-        var href;
-        var badge;
+    function getTacticalOverviewUrl() {
+        var tactical = getTacticalOverviewNode();
+        if (tactical && tactical.dataset.tacticalUrl) {
+            return tactical.dataset.tacticalUrl;
+        }
 
-        for (i = 0; i < links.length; i++) {
-            href = links[i].getAttribute('href') || '';
-            if (! matcher(href)) {
+        return getBaseUrl() + '/icingadb/tactical';
+    }
+
+    function parseCompactNumber(value) {
+        var text = normalizeText(value).toLowerCase();
+        var multiplier = 1;
+        var raw;
+        var number;
+
+        if (! text.length) {
+            return 0;
+        }
+
+        text = text.replace(/^~/, '').replace(/,/g, '');
+        if (text.slice(-1) === 'k') {
+            multiplier = 1000;
+            text = text.slice(0, -1);
+        }
+
+        raw = text.match(/-?\d+(\.\d+)?/);
+        if (! raw) {
+            return 0;
+        }
+
+        number = parseFloat(raw[0]);
+        if (! Number.isFinite(number)) {
+            return 0;
+        }
+
+        return Math.max(0, Math.round(number * multiplier));
+    }
+
+    function formatTotal(count) {
+        return 'Total ' + String(parseIntOrZero(count));
+    }
+
+    function stateCountFromClasses(container, classes) {
+        var candidates = container.querySelectorAll('.state-badges [class]');
+        var i;
+        var j;
+        var classList;
+        var count;
+
+        for (i = 0; i < candidates.length; i++) {
+            classList = String(candidates[i].className || '').split(/\s+/);
+            for (j = 0; j < classes.length; j++) {
+                if (classList.indexOf(classes[j]) === -1) {
+                    continue;
+                }
+
+                count = parseCompactNumber(candidates[i].textContent);
+                if (count > 0) {
+                    return count;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    function buildDonutGradient(slices, total) {
+        var current = 0;
+        var parts = [];
+        var i;
+        var slice;
+        var amount;
+        var next;
+
+        if (! total || total <= 0) {
+            return 'conic-gradient(from -90deg, rgba(47, 125, 213, 0.2), rgba(47, 125, 213, 0.2))';
+        }
+
+        for (i = 0; i < slices.length; i++) {
+            slice = slices[i];
+            amount = parseIntOrZero(slice.value);
+            if (! amount) {
                 continue;
             }
 
-            badge = links[i].closest('li') ? links[i].closest('li').querySelector('.badge') : null;
-            if (badge) {
-                return parseIntOrZero(badge.textContent);
+            next = current + (amount / total) * 360;
+            parts.push(slice.color + ' ' + current + 'deg ' + next + 'deg');
+            current = next;
+        }
+
+        if (! parts.length) {
+            return 'conic-gradient(from -90deg, rgba(47, 125, 213, 0.2), rgba(47, 125, 213, 0.2))';
+        }
+
+        return 'conic-gradient(from -90deg, ' + parts.join(', ') + ')';
+    }
+
+    function parseTacticalCard(container, type) {
+        var meta = container.querySelector('.meta');
+        var big = container.querySelector('.donut-label-big');
+        var small = container.querySelector('.donut-label-small');
+
+        if (type === 'host') {
+            return {
+                total: parseCompactNumber(meta ? meta.textContent : ''),
+                primary: parseCompactNumber(big ? big.textContent : ''),
+                primaryLabel: normalizeText(small ? small.textContent : 'Down') || 'Down',
+                up: stateCountFromClasses(container, ['state-up', 'state-ok']),
+                downUnhandled: stateCountFromClasses(container, ['state-down', 'state-critical']),
+                downHandled: stateCountFromClasses(container, ['state-down-handled', 'state-critical-handled']),
+                pending: stateCountFromClasses(container, ['state-pending'])
+            };
+        }
+
+        return {
+            total: parseCompactNumber(meta ? meta.textContent : ''),
+            primary: parseCompactNumber(big ? big.textContent : ''),
+            primaryLabel: normalizeText(small ? small.textContent : 'Critical') || 'Critical',
+            ok: stateCountFromClasses(container, ['state-ok']),
+            warningUnhandled: stateCountFromClasses(container, ['state-warning']),
+            warningHandled: stateCountFromClasses(container, ['state-warning-handled']),
+            criticalUnhandled: stateCountFromClasses(container, ['state-critical']),
+            criticalHandled: stateCountFromClasses(container, ['state-critical-handled']),
+            unknownUnhandled: stateCountFromClasses(container, ['state-unknown']),
+            unknownHandled: stateCountFromClasses(container, ['state-unknown-handled']),
+            pending: stateCountFromClasses(container, ['state-pending'])
+        };
+    }
+
+    function parseTacticalOverviewFromHtml(html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var cards = doc.querySelectorAll('.donut-container');
+        var result = { host: null, service: null };
+        var i;
+        var title;
+
+        for (i = 0; i < cards.length; i++) {
+            title = normalizeText(cards[i].querySelector('h2') ? cards[i].querySelector('h2').textContent : '').toLowerCase();
+
+            if (! result.host && title.indexOf('host') !== -1) {
+                result.host = parseTacticalCard(cards[i], 'host');
+            } else if (! result.service && title.indexOf('service') !== -1) {
+                result.service = parseTacticalCard(cards[i], 'service');
             }
         }
 
-        return null;
+        return result;
     }
 
-    function refreshTacticalOverview() {
-        if (! document.querySelector('.tactical-overview')) {
+    function renderHostTactical(host) {
+        var total = host.total || (host.up + host.downHandled + host.downUnhandled + host.pending);
+        var primary = host.primary || host.downUnhandled;
+        var donut = document.querySelector('[data-to-host-donut]');
+        var legend = document.querySelector('[data-to-host-legend]');
+
+        setText('[data-to-host-total]', formatTotal(total));
+        setText('[data-to-host-down]', primary);
+
+        if (donut) {
+            donut.style.background = buildDonutGradient([
+                { value: host.up, color: 'var(--to-ok)' },
+                { value: host.downHandled, color: 'var(--to-critical-handled)' },
+                { value: host.downUnhandled, color: 'var(--to-critical)' },
+                { value: host.pending, color: 'var(--to-pending)' }
+            ], total);
+        }
+
+        if (legend) {
+            legend.textContent = 'DOWN ' + host.downUnhandled + '/' + host.downHandled
+                + ' • UP ' + host.up
+                + ' • PEND ' + host.pending;
+        }
+    }
+
+    function renderServiceTactical(service) {
+        var total = service.total
+            || (
+                service.ok
+                + service.warningUnhandled
+                + service.warningHandled
+                + service.criticalUnhandled
+                + service.criticalHandled
+                + service.unknownUnhandled
+                + service.unknownHandled
+                + service.pending
+            );
+        var primary = service.primary || service.criticalUnhandled;
+        var donut = document.querySelector('[data-to-service-donut]');
+        var legend = document.querySelector('[data-to-service-legend]');
+
+        setText('[data-to-service-total]', formatTotal(total));
+        setText('[data-to-service-critical]', primary);
+
+        if (donut) {
+            donut.style.background = buildDonutGradient([
+                { value: service.ok, color: 'var(--to-ok)' },
+                { value: service.warningHandled, color: 'var(--to-warning-handled)' },
+                { value: service.warningUnhandled, color: 'var(--to-warning)' },
+                { value: service.criticalHandled, color: 'var(--to-critical-handled)' },
+                { value: service.criticalUnhandled, color: 'var(--to-critical)' },
+                { value: service.unknownHandled, color: 'var(--to-unknown-handled)' },
+                { value: service.unknownUnhandled, color: 'var(--to-unknown)' },
+                { value: service.pending, color: 'var(--to-pending)' }
+            ], total);
+        }
+
+        if (legend) {
+            legend.textContent = 'CRIT ' + service.criticalUnhandled + '/' + service.criticalHandled
+                + ' • WARN ' + service.warningUnhandled + '/' + service.warningHandled
+                + ' • UNK ' + service.unknownUnhandled + '/' + service.unknownHandled
+                + ' • OK ' + service.ok
+                + ' • PEND ' + service.pending;
+        }
+    }
+
+    function renderTacticalOverviewData(data) {
+        if (data.host) {
+            renderHostTactical(data.host);
+        }
+
+        if (data.service) {
+            renderServiceTactical(data.service);
+        }
+    }
+
+    function renderTacticalOverviewError() {
+        setText('[data-to-host-total]', 'Total --');
+        setText('[data-to-service-total]', 'Total --');
+        setText('[data-to-host-down]', '--');
+        setText('[data-to-service-critical]', '--');
+        setText('[data-to-host-legend]', 'Unable to load tactical data');
+        setText('[data-to-service-legend]', 'Open Tactical Overview');
+    }
+
+    function refreshTacticalOverview(forceRender) {
+        if (! getTacticalOverviewNode() || tacticalState.inFlight) {
             return;
         }
 
-        var hostDown = readMenuBadgeCount(function (href) {
-            return href.indexOf('/monitoring/list/hosts') !== -1 && href.indexOf('host_problem') !== -1;
-        });
-        var serviceCritical = readMenuBadgeCount(function (href) {
-            return href.indexOf('/monitoring/list/services') !== -1
-                && (href.indexOf('service_problem') !== -1 || href.indexOf('service_state=2') !== -1);
-        });
-        var maxIncidentCount = Math.max(
-            hostDown === null ? 0 : hostDown,
-            serviceCritical === null ? 0 : serviceCritical
-        );
+        tacticalState.inFlight = true;
 
-        if (hostDown === null) {
-            setText('[data-to-host-down]', '--');
-            setBarWidth('[data-to-host-bar]', 0, 1);
-        } else {
-            setText('[data-to-host-down]', hostDown);
-            setBarWidth('[data-to-host-bar]', hostDown, maxIncidentCount);
+        fetch(getTacticalOverviewUrl(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store'
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Request failed with status ' + response.status);
+                }
+
+                return response.text();
+            })
+            .then(function (html) {
+                var data = parseTacticalOverviewFromHtml(html);
+                var signature = JSON.stringify(data);
+
+                if (! data.host && ! data.service) {
+                    throw new Error('No tactical cards found');
+                }
+
+                if (forceRender || signature !== tacticalState.lastSignature) {
+                    renderTacticalOverviewData(data);
+                    tacticalState.lastSignature = signature;
+                }
+            })
+            .catch(function () {
+                if (! tacticalState.lastSignature.length || forceRender) {
+                    renderTacticalOverviewError();
+                }
+            })
+            .then(function () {
+                tacticalState.inFlight = false;
+            }, function () {
+                tacticalState.inFlight = false;
+            });
+    }
+
+    function startTacticalOverviewPolling() {
+        if (! getTacticalOverviewNode()) {
+            return;
         }
 
-        if (serviceCritical === null) {
-            setText('[data-to-service-critical]', '--');
-            setBarWidth('[data-to-service-bar]', 0, 1);
-        } else {
-            setText('[data-to-service-critical]', serviceCritical);
-            setBarWidth('[data-to-service-bar]', serviceCritical, maxIncidentCount);
+        refreshTacticalOverview(true);
+
+        if (tacticalState.pollingTimer !== null) {
+            window.clearInterval(tacticalState.pollingTimer);
         }
+
+        tacticalState.pollingTimer = window.setInterval(function () {
+            refreshTacticalOverview(false);
+        }, TACTICAL_REFRESH_MS);
     }
 
     function getTacticalContainer() {
@@ -224,6 +460,14 @@
         return document.getElementById('top-events-resizer');
     }
 
+    function getSidebar() {
+        return document.getElementById('sidebar');
+    }
+
+    function getSidebarWidthResizer() {
+        return document.getElementById('sidebar-width-resizer');
+    }
+
     function getTopWidgetTargets() {
         return [getTacticalContainer(), getTopEventsPanel()].filter(Boolean);
     }
@@ -240,6 +484,139 @@
         if (layout) {
             layout.classList.toggle('top-widget-resizing', active);
         }
+    }
+
+    function setSidebarResizingClass(active) {
+        var layout = getLayoutRoot();
+
+        document.documentElement.classList.toggle('sidebar-width-resizing', active);
+
+        if (layout) {
+            layout.classList.toggle('sidebar-width-resizing', active);
+        }
+    }
+
+    function setSidebarWidth(px) {
+        var width = clamp(px, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+
+        document.documentElement.style.setProperty('--ux-sidebar-width', width + 'px');
+
+        return width;
+    }
+
+    function readSavedSidebarWidth() {
+        try {
+            return parseInt(window.localStorage.getItem(SIDEBAR_WIDTH_KEY), 10);
+        } catch (error) {
+            return NaN;
+        }
+    }
+
+    function saveSidebarWidth(px) {
+        try {
+            window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(clamp(px, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH)));
+        } catch (error) {
+            // Ignore storage errors
+        }
+    }
+
+    function clearSidebarWidth() {
+        document.documentElement.style.removeProperty('--ux-sidebar-width');
+    }
+
+    function applySavedSidebarWidth() {
+        var saved = readSavedSidebarWidth();
+        if (Number.isFinite(saved)) {
+            setSidebarWidth(saved);
+        } else {
+            clearSidebarWidth();
+        }
+    }
+
+    function onSidebarResizeMove(event) {
+        if (! sidebarResizeState) {
+            return;
+        }
+
+        event.preventDefault();
+        setSidebarWidth(sidebarResizeState.startWidth + (event.clientX - sidebarResizeState.startX));
+    }
+
+    function onSidebarResizeEnd() {
+        var sidebar = getSidebar();
+
+        if (! sidebarResizeState) {
+            return;
+        }
+
+        if (sidebar) {
+            saveSidebarWidth(sidebar.getBoundingClientRect().width);
+        }
+
+        sidebarResizeState = null;
+        setSidebarResizingClass(false);
+        window.removeEventListener('mousemove', onSidebarResizeMove);
+        window.removeEventListener('mouseup', onSidebarResizeEnd);
+    }
+
+    function onSidebarResizeStart(event) {
+        var sidebar = getSidebar();
+
+        if (! sidebar || event.button !== 0) {
+            return;
+        }
+
+        sidebarResizeState = {
+            startX: event.clientX,
+            startWidth: sidebar.getBoundingClientRect().width
+        };
+
+        setSidebarResizingClass(true);
+        window.addEventListener('mousemove', onSidebarResizeMove);
+        window.addEventListener('mouseup', onSidebarResizeEnd);
+        event.preventDefault();
+    }
+
+    function onSidebarResizeKeydown(event) {
+        var sidebar = getSidebar();
+        var current;
+        var next;
+
+        if (! sidebar) {
+            return;
+        }
+
+        current = sidebar.getBoundingClientRect().width;
+        next = current;
+
+        if (event.key === 'ArrowLeft') {
+            next = current - 14;
+        } else if (event.key === 'ArrowRight') {
+            next = current + 14;
+        } else if (event.key === 'Home') {
+            next = SIDEBAR_MIN_WIDTH;
+        } else if (event.key === 'End') {
+            next = SIDEBAR_MAX_WIDTH;
+        } else {
+            return;
+        }
+
+        event.preventDefault();
+        next = setSidebarWidth(next);
+        saveSidebarWidth(next);
+    }
+
+    function initSidebarWidthResizer() {
+        var sidebar = getSidebar();
+        var resizer = getSidebarWidthResizer();
+
+        if (! sidebar || ! resizer) {
+            return;
+        }
+
+        applySavedSidebarWidth();
+        resizer.addEventListener('mousedown', onSidebarResizeStart);
+        resizer.addEventListener('keydown', onSidebarResizeKeydown);
     }
 
     function setTopWidgetHeight(px) {
@@ -850,19 +1227,20 @@
     document.addEventListener('keydown', trapDialogFocus);
     document.addEventListener('DOMContentLoaded', function () {
         renderRecentSearches();
-        refreshTacticalOverview();
+        startTacticalOverviewPolling();
         initTopWidgetResizers();
+        initSidebarWidthResizer();
         startTopEventsPolling();
     });
 
     if (typeof window.jQuery !== 'undefined') {
         window.jQuery(document).on('rendered', '#menu', function () {
             renderRecentSearches();
-            refreshTacticalOverview();
+            refreshTacticalOverview(false);
             refreshTopEvents(false);
         });
     }
 
     renderRecentSearches();
-    refreshTacticalOverview();
+    refreshTacticalOverview(true);
 })();
