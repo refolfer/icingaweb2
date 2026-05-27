@@ -37,8 +37,14 @@ body.modal-open {
   flex-direction: column;
 }
 
+#main {
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+
 .top-events-panel {
-  width: 100%;
+  order: 1;
+  flex: 1 0 100%;
   height: clamp(9.5em, 22vh, 12em);
   min-height: 9.5em;
   padding: 0.45em 0.7em 0.6em;
@@ -105,6 +111,8 @@ body.modal-open {
 }
 
 #top-events-resizer {
+  order: 2;
+  flex: 1 0 100%;
   display: block;
   position: relative;
   height: 0.6em;
@@ -129,6 +137,11 @@ body.modal-open {
 #top-events-resizer:focus-visible::before,
 #layout.top-widget-resizing #top-events-resizer::before {
   background: linear-gradient(90deg, transparent, rgba(35, 182, 217, 0.95), transparent);
+}
+
+#main > .container,
+#main > #col-splitter {
+  order: 3;
 }
 
 #layout:not(.minimal-layout):not(.sidebar-collapsed) #header-logo-container {

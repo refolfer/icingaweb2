@@ -26,37 +26,6 @@ if ($this->layout()->inlineLayout) {
 
 ?>
 <div id="header">
-    <section
-        id="top-events-panel"
-        class="top-events-panel"
-        data-history-url="<?= $this->href('icingadb/history') ?>"
-        aria-live="polite"
-    >
-        <header class="top-events-header">
-            <h2><?= $this->translate('Latest Events') ?></h2>
-            <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
-                <?= $this->translate('History > Event Overview') ?>
-            </a>
-        </header>
-        <ul class="top-events-list">
-            <li class="top-event-item" data-top-event-item="0">
-                <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
-                <p class="top-event-meta"></p>
-            </li>
-            <li class="top-event-item" data-top-event-item="1">
-                <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
-                <p class="top-event-meta"></p>
-            </li>
-        </ul>
-    </section>
-    <div
-        id="top-events-resizer"
-        class="js"
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="<?= $this->translate('Resize top event panel area') ?>"
-        tabindex="0"
-    ></div>
     <div id="announcements" class="container">
         <?= $this->widget('announcements') ?>
     </div>
@@ -127,6 +96,37 @@ if ($this->layout()->inlineLayout) {
     </div>
 <?php endif ?>
     <div id="main" role="main">
+        <section
+            id="top-events-panel"
+            class="top-events-panel"
+            data-history-url="<?= $this->href('icingadb/history') ?>"
+            aria-live="polite"
+        >
+            <header class="top-events-header">
+                <h2><?= $this->translate('Latest Events') ?></h2>
+                <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
+                    <?= $this->translate('History > Event Overview') ?>
+                </a>
+            </header>
+            <ul class="top-events-list">
+                <li class="top-event-item" data-top-event-item="0">
+                    <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
+                    <p class="top-event-meta"></p>
+                </li>
+                <li class="top-event-item" data-top-event-item="1">
+                    <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
+                    <p class="top-event-meta"></p>
+                </li>
+            </ul>
+        </section>
+        <div
+            id="top-events-resizer"
+            class="js"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="<?= $this->translate('Resize top event panel area') ?>"
+            tabindex="0"
+        ></div>
         <div id="col1"
             class="container<?= $moduleClass ?>"
         <?php if ($moduleName): ?>
