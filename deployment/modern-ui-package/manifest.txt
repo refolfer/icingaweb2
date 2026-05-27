@@ -1,7 +1,10 @@
 application/layouts/scripts/layout.phtml
 application/layouts/scripts/body.phtml
+application/layouts/scripts/parts/navigation.phtml
 application/views/scripts/dashboard/index.phtml
+application/views/scripts/layout/menu.phtml
 application/views/scripts/search/index.phtml
+application/views/scripts/search/hint.phtml
 doc/99-Modern-UI-Dashboard-Blueprint.md
 doc/99-Modern-UI-Pilot-Checklist.md
 doc/99-Modern-UI-Plan.md
@@ -10,6 +13,7 @@ doc/99-Modern-UI-Theme-Profiles.md
 doc/res/modern-ui-dashboard.ini.example
 public/css/icinga/widgets.less
 public/css/icinga/layout.less
+public/css/icinga/ux-enhancements.css
 public/css/themes/NeoNOC-Compact.less
 public/css/themes/NeoNOC-Light.less
 public/css/themes/NeoNOC.less
@@ -17,3 +21,4 @@ public/css/themes/Windows11-Dark.less
 public/css/themes/Windows11-Light.less
 public/js/icinga/behavior/floating-dashlets.js
 public/js/icinga/ui.js
+public/js/icinga/ux-enhancements.js
