@@ -11,9 +11,9 @@
     var TOP_WIDGET_MAX_HEIGHT = 340;
     var TOP_EVENTS_REFRESH_MS = 15000;
     var TACTICAL_REFRESH_MS = 10000;
-    var TOP_PANELS_WIDTH_KEY = 'top-panels-left-width';
-    var TOP_PANELS_WIDTH_MIN = 180;
-    var TOP_PANELS_WIDTH_MAX = 520;
+    var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
+    var TOP_PANELS_OFFSET_MIN = 0;
+    var TOP_PANELS_OFFSET_MAX = 360;
 
     var goState = {
         pending: false,
@@ -460,10 +460,6 @@
         return document.getElementById('top-events-resizer');
     }
 
-    function getSidebar() {
-        return document.getElementById('sidebar');
-    }
-
     function getTopPanelsWidthResizer() {
         return document.getElementById('top-panels-width-resizer');
     }
@@ -496,42 +492,49 @@
         }
     }
 
-    function setTopPanelsLeftWidth(px) {
-        var width = clamp(px, TOP_PANELS_WIDTH_MIN, TOP_PANELS_WIDTH_MAX);
-        document.documentElement.style.setProperty('--ux-top-panels-left-width', width + 'px');
+    function setTopPanelsOffset(px) {
+        var offset = clamp(px, TOP_PANELS_OFFSET_MIN, TOP_PANELS_OFFSET_MAX);
+        document.documentElement.style.setProperty('--ux-top-panels-offset', offset + 'px');
 
-        return width;
+        return offset;
     }
 
-    function clearTopPanelsLeftWidth() {
-        document.documentElement.style.removeProperty('--ux-top-panels-left-width');
+    function clearTopPanelsOffset() {
+        document.documentElement.style.removeProperty('--ux-top-panels-offset');
     }
 
-    function readSavedTopPanelsLeftWidth() {
+    function getCurrentTopPanelsOffset() {
+        var raw = window.getComputedStyle(document.documentElement).getPropertyValue('--ux-top-panels-offset');
+        var parsed = parseFloat(String(raw || '').replace(/[^\d.-]/g, ''));
+
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function readSavedTopPanelsOffset() {
         try {
-            return parseInt(window.localStorage.getItem(TOP_PANELS_WIDTH_KEY), 10);
+            return parseInt(window.localStorage.getItem(TOP_PANELS_OFFSET_KEY), 10);
         } catch (error) {
             return NaN;
         }
     }
 
-    function saveTopPanelsLeftWidth(px) {
+    function saveTopPanelsOffset(px) {
         try {
             window.localStorage.setItem(
-                TOP_PANELS_WIDTH_KEY,
-                String(clamp(px, TOP_PANELS_WIDTH_MIN, TOP_PANELS_WIDTH_MAX))
+                TOP_PANELS_OFFSET_KEY,
+                String(clamp(px, TOP_PANELS_OFFSET_MIN, TOP_PANELS_OFFSET_MAX))
             );
         } catch (error) {
             // Ignore storage errors
         }
     }
 
-    function applySavedTopPanelsLeftWidth() {
-        var saved = readSavedTopPanelsLeftWidth();
+    function applySavedTopPanelsOffset() {
+        var saved = readSavedTopPanelsOffset();
         if (Number.isFinite(saved)) {
-            setTopPanelsLeftWidth(saved);
+            setTopPanelsOffset(saved);
         } else {
-            clearTopPanelsLeftWidth();
+            clearTopPanelsOffset();
         }
     }
 
@@ -541,19 +544,15 @@
         }
 
         event.preventDefault();
-        setTopPanelsLeftWidth(topPanelsWidthResizeState.startWidth + (event.clientX - topPanelsWidthResizeState.startX));
+        setTopPanelsOffset(topPanelsWidthResizeState.startOffset + (event.clientX - topPanelsWidthResizeState.startX));
     }
 
     function onTopPanelsWidthResizeEnd() {
-        var sidebar = getSidebar();
-
         if (! topPanelsWidthResizeState) {
             return;
         }
 
-        if (sidebar) {
-            saveTopPanelsLeftWidth(sidebar.getBoundingClientRect().width);
-        }
+        saveTopPanelsOffset(getCurrentTopPanelsOffset());
 
         topPanelsWidthResizeState = null;
         setTopPanelsWidthResizingClass(false);
@@ -562,15 +561,13 @@
     }
 
     function onTopPanelsWidthResizeStart(event) {
-        var sidebar = getSidebar();
-
-        if (! sidebar || event.button !== 0) {
+        if (event.button !== 0) {
             return;
         }
 
         topPanelsWidthResizeState = {
             startX: event.clientX,
-            startWidth: sidebar.getBoundingClientRect().width
+            startOffset: getCurrentTopPanelsOffset()
         };
 
         setTopPanelsWidthResizingClass(true);
@@ -580,15 +577,10 @@
     }
 
     function onTopPanelsWidthResizeKeydown(event) {
-        var sidebar = getSidebar();
         var current;
         var next;
 
-        if (! sidebar) {
-            return;
-        }
-
-        current = sidebar.getBoundingClientRect().width;
+        current = getCurrentTopPanelsOffset();
         next = current;
 
         if (event.key === 'ArrowLeft') {
@@ -596,27 +588,26 @@
         } else if (event.key === 'ArrowRight') {
             next = current + 14;
         } else if (event.key === 'Home') {
-            next = TOP_PANELS_WIDTH_MIN;
+            next = TOP_PANELS_OFFSET_MIN;
         } else if (event.key === 'End') {
-            next = TOP_PANELS_WIDTH_MAX;
+            next = TOP_PANELS_OFFSET_MAX;
         } else {
             return;
         }
 
         event.preventDefault();
-        next = setTopPanelsLeftWidth(next);
-        saveTopPanelsLeftWidth(next);
+        next = setTopPanelsOffset(next);
+        saveTopPanelsOffset(next);
     }
 
     function initTopPanelsWidthResizer() {
-        var sidebar = getSidebar();
         var resizer = getTopPanelsWidthResizer();
 
-        if (! sidebar || ! resizer) {
+        if (! resizer) {
             return;
         }
 
-        applySavedTopPanelsLeftWidth();
+        applySavedTopPanelsOffset();
         resizer.addEventListener('mousedown', onTopPanelsWidthResizeStart);
         resizer.addEventListener('keydown', onTopPanelsWidthResizeKeydown);
     }
