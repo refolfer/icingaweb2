@@ -11,9 +11,6 @@
     var TOP_WIDGET_MAX_HEIGHT = 340;
     var TOP_EVENTS_REFRESH_MS = 15000;
     var TACTICAL_REFRESH_MS = 10000;
-    var SIDEBAR_WIDTH_KEY = 'sidebar-width';
-    var SIDEBAR_MIN_WIDTH = 180;
-    var SIDEBAR_MAX_WIDTH = 520;
 
     var goState = {
         pending: false,
@@ -22,7 +19,6 @@
 
     var lastFocusedElement = null;
     var topWidgetResizeState = null;
-    var sidebarResizeState = null;
     var topEventsState = {
         lastSignature: '',
         pollingTimer: null,
@@ -460,14 +456,6 @@
         return document.getElementById('top-events-resizer');
     }
 
-    function getSidebar() {
-        return document.getElementById('sidebar');
-    }
-
-    function getSidebarWidthResizer() {
-        return document.getElementById('sidebar-width-resizer');
-    }
-
     function getTopWidgetTargets() {
         return [getTacticalContainer(), getTopEventsPanel()].filter(Boolean);
     }
@@ -484,139 +472,6 @@
         if (layout) {
             layout.classList.toggle('top-widget-resizing', active);
         }
-    }
-
-    function setSidebarResizingClass(active) {
-        var layout = getLayoutRoot();
-
-        document.documentElement.classList.toggle('sidebar-width-resizing', active);
-
-        if (layout) {
-            layout.classList.toggle('sidebar-width-resizing', active);
-        }
-    }
-
-    function setSidebarWidth(px) {
-        var width = clamp(px, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-
-        document.documentElement.style.setProperty('--ux-sidebar-width', width + 'px');
-
-        return width;
-    }
-
-    function readSavedSidebarWidth() {
-        try {
-            return parseInt(window.localStorage.getItem(SIDEBAR_WIDTH_KEY), 10);
-        } catch (error) {
-            return NaN;
-        }
-    }
-
-    function saveSidebarWidth(px) {
-        try {
-            window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(clamp(px, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH)));
-        } catch (error) {
-            // Ignore storage errors
-        }
-    }
-
-    function clearSidebarWidth() {
-        document.documentElement.style.removeProperty('--ux-sidebar-width');
-    }
-
-    function applySavedSidebarWidth() {
-        var saved = readSavedSidebarWidth();
-        if (Number.isFinite(saved)) {
-            setSidebarWidth(saved);
-        } else {
-            clearSidebarWidth();
-        }
-    }
-
-    function onSidebarResizeMove(event) {
-        if (! sidebarResizeState) {
-            return;
-        }
-
-        event.preventDefault();
-        setSidebarWidth(sidebarResizeState.startWidth + (event.clientX - sidebarResizeState.startX));
-    }
-
-    function onSidebarResizeEnd() {
-        var sidebar = getSidebar();
-
-        if (! sidebarResizeState) {
-            return;
-        }
-
-        if (sidebar) {
-            saveSidebarWidth(sidebar.getBoundingClientRect().width);
-        }
-
-        sidebarResizeState = null;
-        setSidebarResizingClass(false);
-        window.removeEventListener('mousemove', onSidebarResizeMove);
-        window.removeEventListener('mouseup', onSidebarResizeEnd);
-    }
-
-    function onSidebarResizeStart(event) {
-        var sidebar = getSidebar();
-
-        if (! sidebar || event.button !== 0) {
-            return;
-        }
-
-        sidebarResizeState = {
-            startX: event.clientX,
-            startWidth: sidebar.getBoundingClientRect().width
-        };
-
-        setSidebarResizingClass(true);
-        window.addEventListener('mousemove', onSidebarResizeMove);
-        window.addEventListener('mouseup', onSidebarResizeEnd);
-        event.preventDefault();
-    }
-
-    function onSidebarResizeKeydown(event) {
-        var sidebar = getSidebar();
-        var current;
-        var next;
-
-        if (! sidebar) {
-            return;
-        }
-
-        current = sidebar.getBoundingClientRect().width;
-        next = current;
-
-        if (event.key === 'ArrowLeft') {
-            next = current - 14;
-        } else if (event.key === 'ArrowRight') {
-            next = current + 14;
-        } else if (event.key === 'Home') {
-            next = SIDEBAR_MIN_WIDTH;
-        } else if (event.key === 'End') {
-            next = SIDEBAR_MAX_WIDTH;
-        } else {
-            return;
-        }
-
-        event.preventDefault();
-        next = setSidebarWidth(next);
-        saveSidebarWidth(next);
-    }
-
-    function initSidebarWidthResizer() {
-        var sidebar = getSidebar();
-        var resizer = getSidebarWidthResizer();
-
-        if (! sidebar || ! resizer) {
-            return;
-        }
-
-        applySavedSidebarWidth();
-        resizer.addEventListener('mousedown', onSidebarResizeStart);
-        resizer.addEventListener('keydown', onSidebarResizeKeydown);
     }
 
     function setTopWidgetHeight(px) {
@@ -1229,7 +1084,6 @@
         renderRecentSearches();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
-        initSidebarWidthResizer();
         startTopEventsPolling();
     });
 

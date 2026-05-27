@@ -6,7 +6,6 @@
   --ux-focus-shadow: rgba(53, 182, 217, 0.35);
   --ux-panel-bg: rgba(255, 255, 255, 0.04);
   --ux-panel-border: rgba(255, 255, 255, 0.15);
-  --ux-sidebar-width: 16em;
   --top-widget-height: 160px;
   --top-widget-resizer-height: 0.6em;
   --top-widget-offset: calc(var(--top-widget-height) + var(--top-widget-resizer-height) + 0.2em);
@@ -156,14 +155,6 @@ body.modal-open {
   min-height: 9.5em;
   padding: 0.35em;
   flex: 0 0 auto;
-}
-
-#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar {
-  width: var(--ux-sidebar-width);
-}
-
-#layout:not(.minimal-layout):not(.sidebar-collapsed) #footer {
-  left: var(--ux-sidebar-width);
 }
 
 #header-logo.tactical-overview-link {
@@ -316,39 +307,6 @@ body.modal-open {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-#sidebar-width-resizer {
-  display: none;
-}
-
-#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer {
-  display: block;
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 0.55em;
-  cursor: col-resize;
-  z-index: 4;
-  outline: none;
-}
-
-#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 2px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, transparent, rgba(80, 120, 160, 0.7), transparent);
-}
-
-#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer:hover::before,
-#layout:not(.minimal-layout):not(.sidebar-collapsed) #sidebar-width-resizer:focus-visible::before,
-#layout.sidebar-width-resizing #sidebar-width-resizer::before {
-  background: linear-gradient(180deg, transparent, rgba(35, 182, 217, 0.95), transparent);
 }
 
 .search-history-container {
