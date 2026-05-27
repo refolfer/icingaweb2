@@ -131,6 +131,14 @@ if ($this->layout()->inlineLayout) {
             aria-label="<?= $this->translate('Resize top event panel area') ?>"
             tabindex="0"
         ></div>
+        <div
+            id="top-panels-width-resizer"
+            class="js"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="<?= $this->translate('Resize top panel split') ?>"
+            tabindex="0"
+        ></div>
         <div id="col1"
             class="container<?= $moduleClass ?>"
         <?php if ($moduleName): ?>

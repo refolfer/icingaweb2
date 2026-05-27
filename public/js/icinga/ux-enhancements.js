@@ -11,6 +11,9 @@
     var TOP_WIDGET_MAX_HEIGHT = 340;
     var TOP_EVENTS_REFRESH_MS = 15000;
     var TACTICAL_REFRESH_MS = 10000;
+    var TOP_PANELS_WIDTH_KEY = 'top-panels-left-width';
+    var TOP_PANELS_WIDTH_MIN = 180;
+    var TOP_PANELS_WIDTH_MAX = 520;
 
     var goState = {
         pending: false,
@@ -19,6 +22,7 @@
 
     var lastFocusedElement = null;
     var topWidgetResizeState = null;
+    var topPanelsWidthResizeState = null;
     var topEventsState = {
         lastSignature: '',
         pollingTimer: null,
@@ -456,6 +460,14 @@
         return document.getElementById('top-events-resizer');
     }
 
+    function getSidebar() {
+        return document.getElementById('sidebar');
+    }
+
+    function getTopPanelsWidthResizer() {
+        return document.getElementById('top-panels-width-resizer');
+    }
+
     function getTopWidgetTargets() {
         return [getTacticalContainer(), getTopEventsPanel()].filter(Boolean);
     }
@@ -472,6 +484,141 @@
         if (layout) {
             layout.classList.toggle('top-widget-resizing', active);
         }
+    }
+
+    function setTopPanelsWidthResizingClass(active) {
+        var layout = getLayoutRoot();
+
+        document.documentElement.classList.toggle('top-panels-width-resizing', active);
+
+        if (layout) {
+            layout.classList.toggle('top-panels-width-resizing', active);
+        }
+    }
+
+    function setTopPanelsLeftWidth(px) {
+        var width = clamp(px, TOP_PANELS_WIDTH_MIN, TOP_PANELS_WIDTH_MAX);
+        document.documentElement.style.setProperty('--ux-top-panels-left-width', width + 'px');
+
+        return width;
+    }
+
+    function clearTopPanelsLeftWidth() {
+        document.documentElement.style.removeProperty('--ux-top-panels-left-width');
+    }
+
+    function readSavedTopPanelsLeftWidth() {
+        try {
+            return parseInt(window.localStorage.getItem(TOP_PANELS_WIDTH_KEY), 10);
+        } catch (error) {
+            return NaN;
+        }
+    }
+
+    function saveTopPanelsLeftWidth(px) {
+        try {
+            window.localStorage.setItem(
+                TOP_PANELS_WIDTH_KEY,
+                String(clamp(px, TOP_PANELS_WIDTH_MIN, TOP_PANELS_WIDTH_MAX))
+            );
+        } catch (error) {
+            // Ignore storage errors
+        }
+    }
+
+    function applySavedTopPanelsLeftWidth() {
+        var saved = readSavedTopPanelsLeftWidth();
+        if (Number.isFinite(saved)) {
+            setTopPanelsLeftWidth(saved);
+        } else {
+            clearTopPanelsLeftWidth();
+        }
+    }
+
+    function onTopPanelsWidthResizeMove(event) {
+        if (! topPanelsWidthResizeState) {
+            return;
+        }
+
+        event.preventDefault();
+        setTopPanelsLeftWidth(topPanelsWidthResizeState.startWidth + (event.clientX - topPanelsWidthResizeState.startX));
+    }
+
+    function onTopPanelsWidthResizeEnd() {
+        var sidebar = getSidebar();
+
+        if (! topPanelsWidthResizeState) {
+            return;
+        }
+
+        if (sidebar) {
+            saveTopPanelsLeftWidth(sidebar.getBoundingClientRect().width);
+        }
+
+        topPanelsWidthResizeState = null;
+        setTopPanelsWidthResizingClass(false);
+        window.removeEventListener('mousemove', onTopPanelsWidthResizeMove);
+        window.removeEventListener('mouseup', onTopPanelsWidthResizeEnd);
+    }
+
+    function onTopPanelsWidthResizeStart(event) {
+        var sidebar = getSidebar();
+
+        if (! sidebar || event.button !== 0) {
+            return;
+        }
+
+        topPanelsWidthResizeState = {
+            startX: event.clientX,
+            startWidth: sidebar.getBoundingClientRect().width
+        };
+
+        setTopPanelsWidthResizingClass(true);
+        window.addEventListener('mousemove', onTopPanelsWidthResizeMove);
+        window.addEventListener('mouseup', onTopPanelsWidthResizeEnd);
+        event.preventDefault();
+    }
+
+    function onTopPanelsWidthResizeKeydown(event) {
+        var sidebar = getSidebar();
+        var current;
+        var next;
+
+        if (! sidebar) {
+            return;
+        }
+
+        current = sidebar.getBoundingClientRect().width;
+        next = current;
+
+        if (event.key === 'ArrowLeft') {
+            next = current - 14;
+        } else if (event.key === 'ArrowRight') {
+            next = current + 14;
+        } else if (event.key === 'Home') {
+            next = TOP_PANELS_WIDTH_MIN;
+        } else if (event.key === 'End') {
+            next = TOP_PANELS_WIDTH_MAX;
+        } else {
+            return;
+        }
+
+        event.preventDefault();
+        next = setTopPanelsLeftWidth(next);
+        saveTopPanelsLeftWidth(next);
+    }
+
+    function initTopPanelsWidthResizer() {
+        var sidebar = getSidebar();
+        var resizer = getTopPanelsWidthResizer();
+
+        if (! sidebar || ! resizer) {
+            return;
+        }
+
+        applySavedTopPanelsLeftWidth();
+        resizer.addEventListener('mousedown', onTopPanelsWidthResizeStart);
+        resizer.addEventListener('keydown', onTopPanelsWidthResizeKeydown);
     }
 
     function setTopWidgetHeight(px) {
@@ -1084,6 +1231,7 @@
         renderRecentSearches();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
+        initTopPanelsWidthResizer();
         startTopEventsPolling();
     });
 
