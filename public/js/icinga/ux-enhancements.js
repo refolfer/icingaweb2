@@ -192,25 +192,37 @@
         return 'Total ' + String(parseIntOrZero(count));
     }
 
-    function stateCountFromClasses(container, classes) {
-        var candidates = container.querySelectorAll('.state-badges [class]');
+    function hasClassToken(tokens, expected) {
+        return tokens.indexOf(expected) !== -1 || tokens.indexOf('state-' + expected) !== -1;
+    }
+
+    function stateCountFromBadges(container, state, mode) {
+        var candidates = container.querySelectorAll('.state-badges .state-badge, .state-badges [class*="state-"]');
         var i;
-        var j;
-        var classList;
+        var tokens;
+        var isState;
+        var isHandled;
         var count;
 
         for (i = 0; i < candidates.length; i++) {
-            classList = String(candidates[i].className || '').split(/\s+/);
-            for (j = 0; j < classes.length; j++) {
-                if (classList.indexOf(classes[j]) === -1) {
-                    continue;
-                }
+            tokens = String(candidates[i].className || '').toLowerCase().split(/\s+/);
+            isState = hasClassToken(tokens, state);
 
-                count = parseCompactNumber(candidates[i].textContent);
-                if (count > 0) {
-                    return count;
-                }
+            if (! isState) {
+                continue;
             }
+
+            isHandled = hasClassToken(tokens, 'handled') || hasClassToken(tokens, state + '-handled');
+            if (mode === 'handled' && ! isHandled) {
+                continue;
+            }
+
+            if (mode === 'unhandled' && isHandled) {
+                continue;
+            }
+
+            count = parseCompactNumber(candidates[i].textContent);
+            return count;
         }
 
         return 0;
@@ -257,10 +269,12 @@
                 total: parseCompactNumber(meta ? meta.textContent : ''),
                 primary: parseCompactNumber(big ? big.textContent : ''),
                 primaryLabel: normalizeText(small ? small.textContent : 'Down') || 'Down',
-                up: stateCountFromClasses(container, ['state-up', 'state-ok']),
-                downUnhandled: stateCountFromClasses(container, ['state-down', 'state-critical']),
-                downHandled: stateCountFromClasses(container, ['state-down-handled', 'state-critical-handled']),
-                pending: stateCountFromClasses(container, ['state-pending'])
+                up: stateCountFromBadges(container, 'up', 'any') || stateCountFromBadges(container, 'ok', 'any'),
+                downUnhandled: stateCountFromBadges(container, 'down', 'unhandled')
+                    || stateCountFromBadges(container, 'critical', 'unhandled'),
+                downHandled: stateCountFromBadges(container, 'down', 'handled')
+                    || stateCountFromBadges(container, 'critical', 'handled'),
+                pending: stateCountFromBadges(container, 'pending', 'any')
             };
         }
 
@@ -268,14 +282,14 @@
             total: parseCompactNumber(meta ? meta.textContent : ''),
             primary: parseCompactNumber(big ? big.textContent : ''),
             primaryLabel: normalizeText(small ? small.textContent : 'Critical') || 'Critical',
-            ok: stateCountFromClasses(container, ['state-ok']),
-            warningUnhandled: stateCountFromClasses(container, ['state-warning']),
-            warningHandled: stateCountFromClasses(container, ['state-warning-handled']),
-            criticalUnhandled: stateCountFromClasses(container, ['state-critical']),
-            criticalHandled: stateCountFromClasses(container, ['state-critical-handled']),
-            unknownUnhandled: stateCountFromClasses(container, ['state-unknown']),
-            unknownHandled: stateCountFromClasses(container, ['state-unknown-handled']),
-            pending: stateCountFromClasses(container, ['state-pending'])
+            ok: stateCountFromBadges(container, 'ok', 'any'),
+            warningUnhandled: stateCountFromBadges(container, 'warning', 'unhandled'),
+            warningHandled: stateCountFromBadges(container, 'warning', 'handled'),
+            criticalUnhandled: stateCountFromBadges(container, 'critical', 'unhandled'),
+            criticalHandled: stateCountFromBadges(container, 'critical', 'handled'),
+            unknownUnhandled: stateCountFromBadges(container, 'unknown', 'unhandled'),
+            unknownHandled: stateCountFromBadges(container, 'unknown', 'handled'),
+            pending: stateCountFromBadges(container, 'pending', 'any')
         };
     }
 
