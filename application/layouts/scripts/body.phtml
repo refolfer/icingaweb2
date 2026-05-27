@@ -84,6 +84,14 @@ if ($this->layout()->inlineLayout) {
                 ><?= $this->icon('menu', null, ['aria-hidden' => 'true']) ?><?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?></button>
             </div>
         </div>
+        <div
+            id="tactical-overview-resizer"
+            class="js"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="<?= $this->translate('Resize tactical overview area') ?>"
+            tabindex="0"
+        ></div>
         <?= $this->render('parts/navigation.phtml'); ?>
     </div>
 <?php endif ?>

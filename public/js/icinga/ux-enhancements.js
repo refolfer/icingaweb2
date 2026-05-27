@@ -6,6 +6,9 @@
 
     var SEARCH_HISTORY_KEY = 'menu-search-history';
     var NAV_SEQUENCE_TIMEOUT = 1200;
+    var TACTICAL_HEIGHT_KEY = 'tactical-overview-height';
+    var TACTICAL_MIN_HEIGHT = 120;
+    var TACTICAL_MAX_HEIGHT = 340;
 
     var goState = {
         pending: false,
@@ -13,6 +16,11 @@
     };
 
     var lastFocusedElement = null;
+    var tacticalResizeState = null;
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
 
     function getSearchInput() {
         return document.getElementById('search');
@@ -192,6 +200,129 @@
             setText('[data-to-service-critical]', serviceCritical);
             setBarWidth('[data-to-service-bar]', serviceCritical, maxIncidentCount);
         }
+    }
+
+    function getTacticalContainer() {
+        return document.getElementById('header-logo-container');
+    }
+
+    function getTacticalResizer() {
+        return document.getElementById('tactical-overview-resizer');
+    }
+
+    function setTacticalHeight(px) {
+        var container = getTacticalContainer();
+        if (! container) {
+            return;
+        }
+
+        container.style.height = clamp(px, TACTICAL_MIN_HEIGHT, TACTICAL_MAX_HEIGHT) + 'px';
+    }
+
+    function readSavedTacticalHeight() {
+        try {
+            return parseInt(window.localStorage.getItem(TACTICAL_HEIGHT_KEY), 10);
+        } catch (error) {
+            return NaN;
+        }
+    }
+
+    function saveTacticalHeight(px) {
+        try {
+            window.localStorage.setItem(TACTICAL_HEIGHT_KEY, String(clamp(px, TACTICAL_MIN_HEIGHT, TACTICAL_MAX_HEIGHT)));
+        } catch (error) {
+            // Ignore storage errors
+        }
+    }
+
+    function applySavedTacticalHeight() {
+        var saved = readSavedTacticalHeight();
+        if (Number.isFinite(saved)) {
+            setTacticalHeight(saved);
+        }
+    }
+
+    function onTacticalResizeMove(event) {
+        if (! tacticalResizeState) {
+            return;
+        }
+
+        event.preventDefault();
+
+        var delta = event.clientY - tacticalResizeState.startY;
+        setTacticalHeight(tacticalResizeState.startHeight + delta);
+    }
+
+    function onTacticalResizeEnd() {
+        if (! tacticalResizeState) {
+            return;
+        }
+
+        var container = getTacticalContainer();
+        if (container) {
+            saveTacticalHeight(container.getBoundingClientRect().height);
+        }
+
+        tacticalResizeState = null;
+        document.documentElement.classList.remove('tactical-resizing');
+        window.removeEventListener('mousemove', onTacticalResizeMove);
+        window.removeEventListener('mouseup', onTacticalResizeEnd);
+    }
+
+    function onTacticalResizeStart(event) {
+        var container = getTacticalContainer();
+        if (! container || event.button !== 0) {
+            return;
+        }
+
+        tacticalResizeState = {
+            startY: event.clientY,
+            startHeight: container.getBoundingClientRect().height
+        };
+
+        document.documentElement.classList.add('tactical-resizing');
+        window.addEventListener('mousemove', onTacticalResizeMove);
+        window.addEventListener('mouseup', onTacticalResizeEnd);
+        event.preventDefault();
+    }
+
+    function onTacticalResizeKeydown(event) {
+        var container = getTacticalContainer();
+        if (! container) {
+            return;
+        }
+
+        var current = container.getBoundingClientRect().height;
+        var next = current;
+
+        if (event.key === 'ArrowUp') {
+            next = current - 12;
+        } else if (event.key === 'ArrowDown') {
+            next = current + 12;
+        } else if (event.key === 'Home') {
+            next = TACTICAL_MIN_HEIGHT;
+        } else if (event.key === 'End') {
+            next = TACTICAL_MAX_HEIGHT;
+        } else {
+            return;
+        }
+
+        event.preventDefault();
+        setTacticalHeight(next);
+        saveTacticalHeight(next);
+    }
+
+    function initTacticalResizer() {
+        var resizer = getTacticalResizer();
+        var container = getTacticalContainer();
+
+        if (! resizer || ! container) {
+            return;
+        }
+
+        applySavedTacticalHeight();
+        resizer.addEventListener('mousedown', onTacticalResizeStart);
+        resizer.addEventListener('keydown', onTacticalResizeKeydown);
     }
 
     function focusSearchField() {
@@ -458,6 +589,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         renderRecentSearches();
         refreshTacticalOverview();
+        initTacticalResizer();
     });
 
     if (typeof window.jQuery !== 'undefined') {

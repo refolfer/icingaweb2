@@ -36,6 +36,7 @@ body.modal-open {
   height: clamp(9.5em, 22vh, 12em);
   min-height: 9.5em;
   padding: 0.35em;
+  flex: 0 0 auto;
 }
 
 #header-logo.tactical-overview-link {
@@ -64,6 +65,37 @@ body.modal-open {
 
 .tactical-overview-label {
   display: none;
+}
+
+#tactical-overview-resizer {
+  display: none;
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #tactical-overview-resizer {
+  display: block;
+  position: relative;
+  height: 0.6em;
+  cursor: row-resize;
+  margin: 0 0.35em 0.2em;
+  border-radius: 0.35em;
+  outline: none;
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #tactical-overview-resizer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, rgba(80, 120, 160, 0.6), transparent);
+}
+
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #tactical-overview-resizer:hover::before,
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #tactical-overview-resizer:focus-visible::before,
+#layout.tactical-resizing #tactical-overview-resizer::before {
+  background: linear-gradient(90deg, transparent, rgba(35, 182, 217, 0.9), transparent);
 }
 
 .tactical-card {
