@@ -209,7 +209,7 @@ body.modal-open {
   flex-direction: column;
   text-decoration: none;
   color: inherit;
-  font-size: clamp(0.56em, 0.95vh, 0.82em);
+  font-size: clamp(0.72rem, 0.85vw, 0.9rem);
   line-height: 1.25;
 }
 
@@ -280,12 +280,12 @@ body.modal-open {
 
 .tactical-card h3 {
   margin: 0;
-  font-size: 0.95em;
+  font-size: clamp(0.86rem, 1.05vw, 1.02rem);
   color: var(--to-text-strong);
 }
 
 .tactical-card header span {
-  font-size: 0.78em;
+  font-size: clamp(0.72rem, 0.82vw, 0.82rem);
   color: var(--to-text-muted);
   white-space: nowrap;
 }
@@ -302,7 +302,7 @@ body.modal-open {
 
 .tactical-donut {
   position: relative;
-  width: clamp(3.8em, 8.4vh, 5.8em);
+  width: clamp(5rem, calc(var(--top-widget-height) * 0.42), 9rem);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: conic-gradient(from -90deg, rgba(47, 125, 213, 0.2), rgba(47, 125, 213, 0.2));
@@ -330,14 +330,14 @@ body.modal-open {
 .tactical-donut-center strong {
   margin: 0;
   color: var(--to-critical);
-  font-size: clamp(1.05em, 1.6vh, 1.5em);
+  font-size: clamp(1rem, calc(var(--top-widget-height) * 0.115), 2rem);
   line-height: 1;
 }
 
 .tactical-donut-center span {
   margin-top: 0.1em;
   color: #1c4268;
-  font-size: clamp(0.72em, 1.05vh, 0.9em);
+  font-size: clamp(0.64rem, calc(var(--top-widget-height) * 0.044), 0.92rem);
   font-weight: 700;
 }
 
@@ -345,7 +345,7 @@ body.modal-open {
   width: 100%;
   text-align: center;
   color: #355472;
-  font-size: 0.78em;
+  font-size: clamp(0.62rem, calc(var(--top-widget-height) * 0.036), 0.84rem);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -517,7 +517,7 @@ body.modal-open {
 
   #header-logo.tactical-overview-link {
     justify-content: center;
-    font-size: 0.8em;
+    font-size: 0.78rem;
   }
 
   #layout.minimal-layout .tactical-overview {
