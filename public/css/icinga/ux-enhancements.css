@@ -6,6 +6,20 @@
   --ux-focus-shadow: rgba(53, 182, 217, 0.35);
   --ux-panel-bg: rgba(255, 255, 255, 0.04);
   --ux-panel-border: rgba(255, 255, 255, 0.15);
+
+  --to-bg: rgba(255, 255, 255, 0.08);
+  --to-border: rgba(120, 150, 185, 0.38);
+  --to-card-bg: rgba(20, 34, 48, 0.2);
+  --to-text-strong: #17385a;
+  --to-text-muted: #355472;
+  --to-ok: #22a35a;
+  --to-critical: #d94b63;
+  --to-critical-handled: #e58a9a;
+  --to-warning: #c8871d;
+  --to-warning-handled: #d9a957;
+  --to-unknown: #7565d9;
+  --to-unknown-handled: #9489df;
+  --to-pending: #2f7dd5;
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -18,54 +32,198 @@ body.modal-open {
   overflow: hidden;
 }
 
-.quick-actions {
-  margin: 0.5em;
-  padding: 0.4em;
-  border: 1px solid var(--ux-panel-border);
-  border-radius: 0.35em;
-  background: var(--ux-panel-bg);
+#layout:not(.minimal-layout):not(.sidebar-collapsed) #header-logo-container {
+  height: min(44vh, 23em);
+  min-height: 13em;
+  padding: 0.5em;
 }
 
-.quick-actions-title {
-  margin: 0 0 0.45em;
-  font-size: 0.82em;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.92;
+#header-logo.tactical-overview-link {
+  background-image: none !important;
+  background: transparent;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  font-size: clamp(0.56em, 0.95vh, 0.82em);
+  line-height: 1.25;
 }
 
-.quick-actions-list {
+#header-logo.tactical-overview-link:focus {
+  opacity: 1;
+}
+
+.tactical-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45em;
+  height: 100%;
+}
+
+.tactical-overview-label {
+  display: none;
+}
+
+.tactical-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.45em;
+  min-height: 0;
+  padding: 0.45em;
+  border-radius: 0.65em;
+  border: 1px solid var(--to-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(3px);
+}
+
+.tactical-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.35em;
+}
+
+.tactical-card h3 {
+  margin: 0;
+  font-size: 1.05em;
+  color: var(--to-text-strong);
+}
+
+.tactical-card header span {
+  font-size: 0.9em;
+  color: var(--to-text-muted);
+  white-space: nowrap;
+}
+
+.tactical-donut {
+  align-self: center;
+  width: 100%;
+  max-width: 10em;
+  margin: 0 auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.tactical-donut::after {
+  content: "";
+  position: absolute;
+  inset: 29%;
+  border-radius: 50%;
+  background: var(--to-card-bg);
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.24);
+}
+
+.hosts-donut {
+  background: conic-gradient(
+    var(--to-critical) 0 0.6deg,
+    var(--to-ok) 0.6deg 360deg
+  );
+}
+
+.services-donut {
+  background: conic-gradient(
+    var(--to-critical) 0deg 2.56deg,
+    var(--to-critical-handled) 2.56deg 3.65deg,
+    var(--to-warning) 3.65deg 16.98deg,
+    var(--to-warning-handled) 16.98deg 17.04deg,
+    var(--to-unknown) 17.04deg 17.11deg,
+    var(--to-unknown-handled) 17.11deg 18.33deg,
+    var(--to-ok) 18.33deg 359.42deg,
+    var(--to-pending) 359.42deg 360deg
+  );
+}
+
+.tactical-center {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.tactical-center strong {
+  display: block;
+  font-size: clamp(1.8em, 2.1vh, 2.8em);
+  line-height: 1;
+  color: var(--to-critical);
+}
+
+.tactical-center span {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: #17385a;
+}
+
+.tactical-legend {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.2em;
-}
-
-.quick-actions-list li {
-  margin: 0;
-}
-
-.quick-actions-list a,
-.quick-actions-list button {
-  appearance: none;
-  border: 1px solid transparent;
-  width: 100%;
   display: flex;
-  align-items: center;
-  gap: 0.5em;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  text-decoration: none;
-  border-radius: 0.25em;
-  padding: 0.35em 0.45em;
+  flex-wrap: wrap;
+  gap: 0.25em;
 }
 
-.quick-actions-list a:hover,
-.quick-actions-list button:hover {
-  background: rgba(255, 255, 255, 0.08);
+.tactical-legend li {
+  min-width: 2.05em;
+  text-align: center;
+  border-radius: 999px;
+  padding: 0.14em 0.5em;
+  border: 1px solid rgba(120, 150, 185, 0.6);
+  background: rgba(255, 255, 255, 0.58);
+  color: #1f3f61;
+  font-weight: 700;
+  font-size: 0.92em;
+}
+
+.tactical-legend .state-ok {
+  border-color: rgba(34, 163, 90, 0.55);
+  color: #14663a;
+  background: rgba(34, 163, 90, 0.2);
+}
+
+.tactical-legend .state-critical {
+  border-color: rgba(217, 75, 99, 0.6);
+  color: #9c2337;
+  background: rgba(217, 75, 99, 0.18);
+}
+
+.tactical-legend .state-critical-handled {
+  border-color: rgba(229, 138, 154, 0.65);
+  color: #9c4454;
+  background: rgba(229, 138, 154, 0.2);
+}
+
+.tactical-legend .state-warning {
+  border-color: rgba(200, 135, 29, 0.65);
+  color: #8e5a0d;
+  background: rgba(200, 135, 29, 0.2);
+}
+
+.tactical-legend .state-warning-handled {
+  border-color: rgba(217, 169, 87, 0.65);
+  color: #865f1a;
+  background: rgba(217, 169, 87, 0.2);
+}
+
+.tactical-legend .state-unknown {
+  border-color: rgba(117, 101, 217, 0.65);
+  color: #43389a;
+  background: rgba(117, 101, 217, 0.2);
+}
+
+.tactical-legend .state-unknown-handled {
+  border-color: rgba(148, 137, 223, 0.65);
+  color: #544aa9;
+  background: rgba(148, 137, 223, 0.2);
+}
+
+.tactical-legend .state-pending {
+  border-color: rgba(47, 125, 213, 0.6);
+  color: #1f4b84;
+  background: rgba(47, 125, 213, 0.18);
 }
 
 .search-history-container {
@@ -192,9 +350,37 @@ body.modal-open {
   background: rgba(255, 255, 255, 0.08);
 }
 
+#layout:not(.minimal-layout).sidebar-collapsed .tactical-overview {
+  display: none;
+}
+
+#layout:not(.minimal-layout).sidebar-collapsed #header-logo.tactical-overview-link {
+  align-items: center;
+  justify-content: center;
+}
+
+#layout:not(.minimal-layout).sidebar-collapsed .tactical-overview-label {
+  display: inline-block;
+  font-size: 1.05em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
 @media screen and (max-width: 36em) {
-  .quick-actions {
-    margin: 0.4em;
+  #header-logo.tactical-overview-link {
+    justify-content: center;
+    font-size: 0.8em;
+  }
+
+  #layout.minimal-layout .tactical-overview {
+    display: none;
+  }
+
+  #layout.minimal-layout .tactical-overview-label {
+    display: inline-block;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0 0.25em;
   }
 
   .keyboard-shortcuts-dialog {

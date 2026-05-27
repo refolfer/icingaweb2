@@ -34,16 +34,55 @@ if ($this->layout()->inlineLayout) {
 <?php if (! $this->layout()->isIframe): ?>
     <div id="sidebar">
         <div id="header-logo-container">
-            <?= $this->qlink(
-                '',
-                Auth::getInstance()->isAuthenticated() ? 'dashboard' : '',
-                null,
-                array(
-                    'aria-hidden'       => 'true',
-                    'data-base-target'  => '_main',
-                    'id'                => 'header-logo'
-                )
-            ); ?>
+            <a
+                href="<?= $this->href(Auth::getInstance()->isAuthenticated() ? 'dashboard' : '') ?>"
+                id="header-logo"
+                class="tactical-overview-link"
+                data-base-target="_main"
+                aria-label="<?= $this->escape($this->translate('Open Dashboard')) ?>"
+            >
+                <div class="tactical-overview" aria-hidden="true">
+                    <section class="tactical-card hosts">
+                        <header>
+                            <h3><?= $this->translate('Hosts') ?></h3>
+                            <span><?= $this->translate('Total') ?> 649</span>
+                        </header>
+                        <div class="tactical-donut hosts-donut">
+                            <div class="tactical-center">
+                                <strong>1</strong>
+                                <span><?= $this->translate('Down') ?></span>
+                            </div>
+                        </div>
+                        <ul class="tactical-legend">
+                            <li class="state-critical">1</li>
+                            <li class="state-ok">648</li>
+                        </ul>
+                    </section>
+                    <section class="tactical-card services">
+                        <header>
+                            <h3><?= $this->translate('Services') ?></h3>
+                            <span><?= $this->translate('Total') ?> 5619</span>
+                        </header>
+                        <div class="tactical-donut services-donut">
+                            <div class="tactical-center">
+                                <strong>40</strong>
+                                <span><?= $this->translate('Critical') ?></span>
+                            </div>
+                        </div>
+                        <ul class="tactical-legend">
+                            <li class="state-critical">40</li>
+                            <li class="state-critical-handled">17</li>
+                            <li class="state-warning">208</li>
+                            <li class="state-warning-handled">1</li>
+                            <li class="state-unknown">1</li>
+                            <li class="state-unknown-handled">19</li>
+                            <li class="state-ok">5324</li>
+                            <li class="state-pending">9</li>
+                        </ul>
+                    </section>
+                </div>
+                <span class="tactical-overview-label" aria-hidden="true" title="<?= $this->escape($this->translate('Tactical Overview')) ?>">TO</span>
+            </a>
             <div id="mobile-menu-toggle">
                 <button
                     type="button"

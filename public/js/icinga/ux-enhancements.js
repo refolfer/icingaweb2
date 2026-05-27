@@ -179,22 +179,39 @@
         return !! modal && ! modal.hidden;
     }
 
+    function getBaseUrl() {
+        return (document.documentElement.dataset.icingaBaseUrl || '').replace(/\/+$/, '');
+    }
+
+    function navigateTo(path) {
+        var baseUrl = getBaseUrl();
+        var cleanPath = (path || '').replace(/^\/+/, '');
+
+        window.location.href = cleanPath.length ? (baseUrl + '/' + cleanPath) : (baseUrl + '/');
+    }
+
     function activateShortcutTarget(target) {
-        var element = document.querySelector('[data-shortcut-go="' + target + '"]');
-
-        if (! element) {
-            return;
-        }
-
         if (target === 's') {
             if (! focusSearchField()) {
-                element.click();
+                navigateTo('search');
             }
 
             return;
         }
 
-        element.click();
+        if (target === 'd') {
+            navigateTo('dashboard');
+            return;
+        }
+
+        if (target === 'a') {
+            navigateTo('account');
+            return;
+        }
+
+        if (target === 'l') {
+            navigateTo('authentication/logout');
+        }
     }
 
     function clearGoSequence() {
