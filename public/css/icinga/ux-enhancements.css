@@ -33,9 +33,9 @@ body.modal-open {
 }
 
 #layout:not(.minimal-layout):not(.sidebar-collapsed) #header-logo-container {
-  height: min(44vh, 23em);
-  min-height: 13em;
-  padding: 0.5em;
+  height: clamp(9.5em, 22vh, 12em);
+  min-height: 9.5em;
+  padding: 0.35em;
 }
 
 #header-logo.tactical-overview-link {
@@ -58,7 +58,7 @@ body.modal-open {
 .tactical-overview {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45em;
+  gap: 0.3em;
   height: 100%;
 }
 
@@ -71,7 +71,7 @@ body.modal-open {
   grid-template-rows: auto 1fr auto;
   gap: 0.45em;
   min-height: 0;
-  padding: 0.45em;
+  padding: 0.3em;
   border-radius: 0.65em;
   border: 1px solid var(--to-border);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.35) 100%);
@@ -87,12 +87,12 @@ body.modal-open {
 
 .tactical-card h3 {
   margin: 0;
-  font-size: 1.05em;
+  font-size: 0.95em;
   color: var(--to-text-strong);
 }
 
 .tactical-card header span {
-  font-size: 0.9em;
+  font-size: 0.78em;
   color: var(--to-text-muted);
   white-space: nowrap;
 }
@@ -100,7 +100,7 @@ body.modal-open {
 .tactical-donut {
   align-self: center;
   width: 100%;
-  max-width: 10em;
+  max-width: 5.8em;
   margin: 0 auto;
   aspect-ratio: 1;
   border-radius: 50%;
@@ -112,30 +112,18 @@ body.modal-open {
 .tactical-donut::after {
   content: "";
   position: absolute;
-  inset: 29%;
+  inset: 30%;
   border-radius: 50%;
   background: var(--to-card-bg);
   box-shadow: inset 0 0 0 1px rgba(120, 150, 185, 0.24);
 }
 
 .hosts-donut {
-  background: conic-gradient(
-    var(--to-critical) 0 0.6deg,
-    var(--to-ok) 0.6deg 360deg
-  );
+  background: conic-gradient(var(--to-ok) 0 360deg);
 }
 
 .services-donut {
-  background: conic-gradient(
-    var(--to-critical) 0deg 2.56deg,
-    var(--to-critical-handled) 2.56deg 3.65deg,
-    var(--to-warning) 3.65deg 16.98deg,
-    var(--to-warning-handled) 16.98deg 17.04deg,
-    var(--to-unknown) 17.04deg 17.11deg,
-    var(--to-unknown-handled) 17.11deg 18.33deg,
-    var(--to-ok) 18.33deg 359.42deg,
-    var(--to-pending) 359.42deg 360deg
-  );
+  background: conic-gradient(var(--to-ok) 0 360deg);
 }
 
 .tactical-center {
@@ -146,13 +134,13 @@ body.modal-open {
 
 .tactical-center strong {
   display: block;
-  font-size: clamp(1.8em, 2.1vh, 2.8em);
+  font-size: clamp(1.2em, 1.7vh, 1.9em);
   line-height: 1;
   color: var(--to-critical);
 }
 
 .tactical-center span {
-  font-size: 1.05em;
+  font-size: 0.86em;
   font-weight: 700;
   color: #17385a;
 }
@@ -164,10 +152,11 @@ body.modal-open {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25em;
+  justify-content: center;
 }
 
 .tactical-legend li {
-  min-width: 2.05em;
+  min-width: 1.9em;
   text-align: center;
   border-radius: 999px;
   padding: 0.14em 0.5em;
@@ -175,7 +164,7 @@ body.modal-open {
   background: rgba(255, 255, 255, 0.58);
   color: #1f3f61;
   font-weight: 700;
-  font-size: 0.92em;
+  font-size: 0.78em;
 }
 
 .tactical-legend .state-ok {

@@ -110,6 +110,77 @@
         container.hidden = false;
     }
 
+    function parseIntOrZero(value) {
+        var parsed = parseInt(String(value || '').replace(/[^\d-]/g, ''), 10);
+        return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+    }
+
+    function setText(selector, value) {
+        var el = document.querySelector(selector);
+        if (el) {
+            el.textContent = String(value);
+        }
+    }
+
+    function readMenuBadgeCount(matcher) {
+        var links = document.querySelectorAll('#menu a[href]');
+        var i;
+        var href;
+        var badge;
+
+        for (i = 0; i < links.length; i++) {
+            href = links[i].getAttribute('href') || '';
+            if (! matcher(href)) {
+                continue;
+            }
+
+            badge = links[i].closest('li') ? links[i].closest('li').querySelector('.badge') : null;
+            if (badge) {
+                return parseIntOrZero(badge.textContent);
+            }
+        }
+
+        return null;
+    }
+
+    function refreshTacticalOverview() {
+        if (! document.querySelector('.tactical-overview')) {
+            return;
+        }
+
+        var hostDown = readMenuBadgeCount(function (href) {
+            return href.indexOf('/monitoring/list/hosts') !== -1 && href.indexOf('host_problem') !== -1;
+        });
+        var serviceCritical = readMenuBadgeCount(function (href) {
+            return href.indexOf('/monitoring/list/services') !== -1
+                && (href.indexOf('service_problem') !== -1 || href.indexOf('service_state=2') !== -1);
+        });
+
+        if (hostDown === null) {
+            setText('[data-to-host-down]', '--');
+            setText('[data-to-host-down-badge]', '--');
+            setText('[data-to-host-ok-badge]', '--');
+            setText('[data-to-host-total]', '--');
+        } else {
+            setText('[data-to-host-down]', hostDown);
+            setText('[data-to-host-down-badge]', hostDown);
+            setText('[data-to-host-ok-badge]', '--');
+            setText('[data-to-host-total]', '--');
+        }
+
+        if (serviceCritical === null) {
+            setText('[data-to-service-critical]', '--');
+            setText('[data-to-service-critical-badge]', '--');
+            setText('[data-to-service-ok-badge]', '--');
+            setText('[data-to-service-total]', '--');
+        } else {
+            setText('[data-to-service-critical]', serviceCritical);
+            setText('[data-to-service-critical-badge]', serviceCritical);
+            setText('[data-to-service-ok-badge]', '--');
+            setText('[data-to-service-total]', '--');
+        }
+    }
+
     function focusSearchField() {
         var input = getSearchInput();
 
@@ -358,26 +429,6 @@
         }
     }
 
-    function observeMenuRenders() {
-        if (typeof MutationObserver === 'undefined') {
-            return;
-        }
-
-        var menu = document.getElementById('menu');
-        if (! menu) {
-            return;
-        }
-
-        var observer = new MutationObserver(function () {
-            renderRecentSearches();
-        });
-
-        observer.observe(menu, {
-            childList: true,
-            subtree: true
-        });
-    }
-
     function escapeHtml(value) {
         return value
             .replace(/&/g, '&amp;')
@@ -391,8 +442,18 @@
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', handleGlobalShortcuts);
     document.addEventListener('keydown', trapDialogFocus);
-    document.addEventListener('DOMContentLoaded', renderRecentSearches);
+    document.addEventListener('DOMContentLoaded', function () {
+        renderRecentSearches();
+        refreshTacticalOverview();
+    });
 
-    observeMenuRenders();
+    if (typeof window.jQuery !== 'undefined') {
+        window.jQuery(document).on('rendered', '#menu', function () {
+            renderRecentSearches();
+            refreshTacticalOverview();
+        });
+    }
+
     renderRecentSearches();
+    refreshTacticalOverview();
 })();

@@ -45,39 +45,33 @@ if ($this->layout()->inlineLayout) {
                     <section class="tactical-card hosts">
                         <header>
                             <h3><?= $this->translate('Hosts') ?></h3>
-                            <span><?= $this->translate('Total') ?> 649</span>
+                            <span><?= $this->translate('Total') ?> <strong data-to-host-total>--</strong></span>
                         </header>
                         <div class="tactical-donut hosts-donut">
                             <div class="tactical-center">
-                                <strong>1</strong>
+                                <strong data-to-host-down>--</strong>
                                 <span><?= $this->translate('Down') ?></span>
                             </div>
                         </div>
                         <ul class="tactical-legend">
-                            <li class="state-critical">1</li>
-                            <li class="state-ok">648</li>
+                            <li class="state-critical" data-to-host-down-badge>--</li>
+                            <li class="state-ok" data-to-host-ok-badge>--</li>
                         </ul>
                     </section>
                     <section class="tactical-card services">
                         <header>
                             <h3><?= $this->translate('Services') ?></h3>
-                            <span><?= $this->translate('Total') ?> 5619</span>
+                            <span><?= $this->translate('Total') ?> <strong data-to-service-total>--</strong></span>
                         </header>
                         <div class="tactical-donut services-donut">
                             <div class="tactical-center">
-                                <strong>40</strong>
+                                <strong data-to-service-critical>--</strong>
                                 <span><?= $this->translate('Critical') ?></span>
                             </div>
                         </div>
                         <ul class="tactical-legend">
-                            <li class="state-critical">40</li>
-                            <li class="state-critical-handled">17</li>
-                            <li class="state-warning">208</li>
-                            <li class="state-warning-handled">1</li>
-                            <li class="state-unknown">1</li>
-                            <li class="state-unknown-handled">19</li>
-                            <li class="state-ok">5324</li>
-                            <li class="state-pending">9</li>
+                            <li class="state-critical" data-to-service-critical-badge>--</li>
+                            <li class="state-ok" data-to-service-ok-badge>--</li>
                         </ul>
                     </section>
                 </div>
