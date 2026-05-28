@@ -592,13 +592,13 @@ body.modal-open {
 }
 
 .quick-menu-root {
-  margin: 0.4em 0.6em 0.55em;
+  margin: 0.35em 0.6em 0.5em;
 }
 
 .quick-menu-panel {
-  border: 1px solid var(--ux-panel-border);
-  border-radius: 0.45em;
-  background: var(--ux-panel-bg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.35em;
+  background: rgba(0, 0, 0, 0.12);
   overflow: hidden;
 }
 
@@ -609,8 +609,9 @@ body.modal-open {
   align-items: center;
   justify-content: space-between;
   gap: 0.5em;
-  padding: 0.38em 0.56em;
-  font-size: 0.87em;
+  padding: 0.36em 0.55em;
+  font-size: 0.84em;
+  font-weight: 600;
   user-select: none;
 }
 
@@ -628,20 +629,18 @@ body.modal-open {
   border-radius: 999px;
   font-size: 0.84em;
   padding: 0.05em 0.45em;
-  background: rgba(53, 182, 217, 0.2);
-  border: 1px solid rgba(53, 182, 217, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .quick-menu-content {
-  padding: 0.2em 0.5em 0.5em;
+  padding: 0.28em 0.5em 0.5em;
 }
 
 .quick-menu-label {
   margin: 0.2em 0 0.35em;
-  font-size: 0.78em;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.86;
+  font-size: 0.8em;
+  opacity: 0.9;
 }
 
 .quick-menu-links-list {
@@ -655,8 +654,10 @@ body.modal-open {
 }
 
 .quick-menu-link {
-  display: inline-block;
+  display: block;
   max-width: 100%;
+  padding: 0.2em 0.32em;
+  border-radius: 0.2em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -666,7 +667,8 @@ body.modal-open {
 
 .quick-menu-link:hover,
 .quick-menu-link:focus-visible {
-  text-decoration: underline;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .quick-menu-empty {
@@ -695,10 +697,10 @@ body.modal-open {
 
 .quick-menu-remove,
 .quick-menu-actions button {
-  border: 1px solid var(--ux-panel-border);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.08);
   color: inherit;
-  border-radius: 0.28em;
+  border-radius: 0.2em;
   padding: 0.18em 0.45em;
   min-height: 2em;
 }
@@ -728,17 +730,6 @@ body.modal-open {
   color: #d94b63;
 }
 
-.quick-menu-note-label {
-  margin-top: 0.55em;
-}
-
-.quick-menu-note {
-  width: 100%;
-  min-height: 5.6em;
-  resize: vertical;
-  box-sizing: border-box;
-}
-
 .quick-menu-context {
   position: fixed;
   z-index: 20000;
@@ -762,6 +753,87 @@ body.modal-open {
 .quick-menu-context button:hover,
 .quick-menu-context button:focus-visible {
   background: rgba(255, 255, 255, 0.12);
+}
+
+.quick-notebook-float {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(34rem, calc(100vw - 1.5rem));
+  min-width: 20rem;
+  min-height: 14rem;
+  max-width: calc(100vw - 0.75rem);
+  max-height: calc(100vh - 0.75rem);
+  resize: both;
+  overflow: auto;
+  z-index: 30000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.35em;
+  background: var(--body-bg-color, #1f2730);
+  box-shadow: 0 0.8em 1.9em rgba(0, 0, 0, 0.45);
+}
+
+.quick-notebook-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.42em 0.65em;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quick-notebook-header h3 {
+  margin: 0;
+  font-size: 0.95em;
+}
+
+.quick-notebook-body {
+  padding: 0.55em 0.65em 0.65em;
+}
+
+.quick-notebook-input,
+.quick-notebook-content {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.quick-notebook-content {
+  min-height: 10em;
+  margin-top: 0.45em;
+  resize: vertical;
+}
+
+.quick-notebook-actions {
+  margin-top: 0.4em;
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.quick-notebook-actions button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border-radius: 0.2em;
+  min-height: 2em;
+  padding: 0.18em 0.5em;
+}
+
+.quick-notebook-actions button:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.quick-notebook-status {
+  font-size: 0.82em;
+  opacity: 0.86;
+}
+
+.quick-notebook-status.is-error {
+  color: #d94b63;
 }
 
 #layout:not(.minimal-layout).sidebar-collapsed .tactical-overview {
@@ -836,5 +908,14 @@ body.modal-open {
 
   .quick-menu-remove {
     justify-self: end;
+  }
+
+  .quick-notebook-float {
+    left: 0.4rem;
+    right: 0.4rem;
+    bottom: 0.4rem;
+    width: auto;
+    min-width: 0;
+    max-width: none;
   }
 }

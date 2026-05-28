@@ -33,7 +33,6 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
         <div class="search-history-actions"></div>
     </div>
 <?php endif; ?>
-<?= $menuRenderer->setCssClass('primary-nav')->setElementTag('nav')->setHeading(t('Navigation')); ?>
 <section
     id="quick-menu-root"
     class="quick-menu-root"
@@ -45,6 +44,9 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     data-empty-label="<?= $this->escape($this->translate('No quick links yet. Right-click any link to add it.')) ?>"
     data-links-label="<?= $this->escape($this->translate('Links')) ?>"
     data-note-label="<?= $this->escape($this->translate('Personal Notebook')) ?>"
+    data-note-placeholder="<?= $this->escape($this->translate('Type note content...')) ?>"
+    data-note-add-label="<?= $this->escape($this->translate('Add Entry')) ?>"
+    data-note-clear-label="<?= $this->escape($this->translate('Clear Notebook')) ?>"
     data-save-label="<?= $this->escape($this->translate('Save')) ?>"
     data-add-row-label="<?= $this->escape($this->translate('Add Row')) ?>"
     data-context-add-label="<?= $this->escape($this->translate('Add to Quick Menu')) ?>"
@@ -52,6 +54,7 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     data-status-saving="<?= $this->escape($this->translate('Saving...')) ?>"
     data-status-error="<?= $this->escape($this->translate('Unable to save')) ?>"
 ></section>
+<?= $menuRenderer->setCssClass('primary-nav')->setElementTag('nav')->setHeading(t('Navigation')); ?>
 <nav class="config-menu">
     <?= new ConfigMenu() ?>
 </nav>

@@ -63,6 +63,10 @@
     var quickMenuContextState = {
         anchor: null
     };
+    var quickNotebookState = {
+        initialized: false,
+        visible: false
+    };
 
     function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -1874,6 +1878,52 @@
         return normalized;
     }
 
+    function pad2(value) {
+        return value < 10 ? ('0' + String(value)) : String(value);
+    }
+
+    function formatNotebookTimestamp(date) {
+        return String(date.getFullYear())
+            + '-' + pad2(date.getMonth() + 1)
+            + '-' + pad2(date.getDate())
+            + ' ' + pad2(date.getHours())
+            + ':' + pad2(date.getMinutes())
+            + ':' + pad2(date.getSeconds());
+    }
+
+    function getCol1Path() {
+        var col1 = document.getElementById('col1');
+        var url;
+        var parsed;
+
+        if (! col1) {
+            return '';
+        }
+
+        url = col1.getAttribute('data-icinga-url') || '';
+        if (! url.length) {
+            return '';
+        }
+
+        try {
+            parsed = new URL(url, window.location.href);
+        } catch (error) {
+            return '';
+        }
+
+        return parsed.pathname.replace(/\/+$/, '');
+    }
+
+    function isMainDashboardPage() {
+        var path = getCol1Path();
+
+        if (! path.length) {
+            return false;
+        }
+
+        return /\/dashboard$/i.test(path) || /\/index\/welcome$/i.test(path) || /\/welcome$/i.test(path);
+    }
+
     function renderQuickMenuStatus(state) {
         var status = document.querySelector('[data-qm-status]');
         var root = getQuickMenuRoot();
@@ -1910,7 +1960,6 @@
         var root = getQuickMenuRoot();
         var title;
         var linksLabel;
-        var noteLabel;
         var addRowLabel;
         var saveLabel;
         var emptyLabel;
@@ -1927,7 +1976,6 @@
 
         title = root.dataset.title || 'Quick Menu';
         linksLabel = root.dataset.linksLabel || 'Links';
-        noteLabel = root.dataset.noteLabel || 'Personal Notebook';
         addRowLabel = root.dataset.addRowLabel || 'Add Row';
         saveLabel = root.dataset.saveLabel || 'Save';
         emptyLabel = root.dataset.emptyLabel || 'No quick links yet.';
@@ -1973,17 +2021,8 @@
             + '<button type="button" data-qm-save class="spinner">' + escapeHtml(saveLabel) + '</button>'
             + '<span class="quick-menu-status" data-qm-status></span>'
             + '</div>'
-            + '<label class="quick-menu-label quick-menu-note-label">' + escapeHtml(noteLabel) + '</label>'
-            + '<textarea data-qm-note class="quick-menu-note" rows="6"></textarea>'
             + '</div>'
             + '</details>';
-
-        {
-            var note = root.querySelector('[data-qm-note]');
-            if (note) {
-                note.value = quickMenuState.note;
-            }
-        }
     }
 
     function syncQuickMenuStateFromEditor() {
@@ -2045,10 +2084,13 @@
                 quickMenuState.items = normalizeQuickMenuItems(result.items || []);
                 quickMenuState.note = String(result.note || '');
                 renderQuickMenu();
+                refreshQuickNotebookContent();
                 renderQuickMenuStatus('saved');
+                updateQuickNotebookStatus('Saved', false);
             })
             .catch(function () {
                 renderQuickMenuStatus('error');
+                updateQuickNotebookStatus('Unable to save', true);
             })
             .then(function () {
                 quickMenuState.inFlight = false;
@@ -2176,6 +2218,117 @@
         renderQuickMenu();
     }
 
+    function getQuickNotebook() {
+        return document.getElementById('quick-notebook-float');
+    }
+
+    function renderQuickNotebook() {
+        var root = getQuickMenuRoot();
+        var notebook = getQuickNotebook();
+        var title;
+        var placeholder;
+        var addLabel;
+        var clearLabel;
+
+        if (! root) {
+            return;
+        }
+
+        if (! notebook) {
+            notebook = document.createElement('section');
+            notebook.id = 'quick-notebook-float';
+            notebook.className = 'quick-notebook-float';
+            notebook.hidden = true;
+            document.body.appendChild(notebook);
+        }
+
+        title = root.dataset.noteLabel || 'Personal Notebook';
+        placeholder = root.dataset.notePlaceholder || 'Type note content...';
+        addLabel = root.dataset.noteAddLabel || 'Add Entry';
+        clearLabel = root.dataset.noteClearLabel || 'Clear Notebook';
+
+        notebook.innerHTML = ''
+            + '<header class="quick-notebook-header">'
+            + '<h3>' + escapeHtml(title) + '</h3>'
+            + '</header>'
+            + '<div class="quick-notebook-body">'
+            + '<textarea class="quick-notebook-input" data-qn-input rows="3" placeholder="'
+            + escapeHtml(placeholder)
+            + '"></textarea>'
+            + '<div class="quick-notebook-actions">'
+            + '<button type="button" data-qn-add>' + escapeHtml(addLabel) + '</button>'
+            + '<button type="button" data-qn-clear>' + escapeHtml(clearLabel) + '</button>'
+            + '<span class="quick-notebook-status" data-qn-status></span>'
+            + '</div>'
+            + '<textarea class="quick-notebook-content" data-qn-content rows="10" readonly></textarea>'
+            + '</div>';
+
+        {
+            var content = notebook.querySelector('[data-qn-content]');
+            if (content) {
+                content.value = quickMenuState.note;
+            }
+        }
+    }
+
+    function updateQuickNotebookStatus(text, isError) {
+        var status = document.querySelector('[data-qn-status]');
+        if (! status) {
+            return;
+        }
+
+        status.textContent = text || '';
+        status.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function refreshQuickNotebookContent() {
+        var content = document.querySelector('[data-qn-content]');
+        if (content) {
+            content.value = quickMenuState.note;
+        }
+    }
+
+    function setQuickNotebookVisible(visible) {
+        var notebook = getQuickNotebook();
+        if (! notebook) {
+            return;
+        }
+
+        notebook.hidden = ! visible;
+        quickNotebookState.visible = visible;
+    }
+
+    function updateQuickNotebookVisibility() {
+        setQuickNotebookVisible(isMainDashboardPage());
+    }
+
+    function appendNotebookEntry(rawText) {
+        var text = String(rawText || '').trim();
+        var entry;
+
+        if (! text.length) {
+            return false;
+        }
+
+        entry = '[' + formatNotebookTimestamp(new Date()) + '] ' + text;
+        quickMenuState.note = quickMenuState.note.trim().length
+            ? (quickMenuState.note.replace(/\s*$/, '') + '\n\n' + entry)
+            : entry;
+
+        refreshQuickNotebookContent();
+        return true;
+    }
+
+    function initQuickNotebook() {
+        if (! getQuickMenuRoot()) {
+            return;
+        }
+
+        renderQuickNotebook();
+        updateQuickNotebookVisibility();
+        quickNotebookState.initialized = true;
+    }
+
     function onClick(event) {
         var action = event.target.closest('.search-history-action');
         var close = event.target.closest('[data-close-shortcuts]');
@@ -2184,6 +2337,8 @@
         var removeRow = event.target.closest('[data-qm-remove]');
         var saveQuickMenu = event.target.closest('[data-qm-save]');
         var addLink = event.target.closest('[data-qm-add-link]');
+        var qnAdd = event.target.closest('[data-qn-add]');
+        var qnClear = event.target.closest('[data-qn-clear]');
         if (action) {
             var input = getSearchInput();
             var query = action.getAttribute('data-search-query') || '';
@@ -2237,8 +2392,36 @@
         if (saveQuickMenu) {
             event.preventDefault();
             syncQuickMenuStateFromEditor();
-            var note = document.querySelector('[data-qm-note]');
-            quickMenuState.note = note ? String(note.value || '') : quickMenuState.note;
+            updateQuickNotebookStatus('', false);
+            saveQuickMenuState();
+            return;
+        }
+
+        if (qnAdd) {
+            var input = document.querySelector('[data-qn-input]');
+            var value = input ? input.value : '';
+            event.preventDefault();
+
+            if (! appendNotebookEntry(value)) {
+                updateQuickNotebookStatus('Type note content first', true);
+                return;
+            }
+
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+
+            updateQuickNotebookStatus('', false);
+            saveQuickMenuState();
+            return;
+        }
+
+        if (qnClear) {
+            event.preventDefault();
+            quickMenuState.note = '';
+            refreshQuickNotebookContent();
+            updateQuickNotebookStatus('', false);
             saveQuickMenuState();
             return;
         }
@@ -2267,9 +2450,8 @@
             return;
         }
 
-        if (event.target.matches('[data-qm-note]')) {
-            quickMenuState.note = String(event.target.value || '');
-            renderQuickMenuStatus('');
+        if (event.target.matches('[data-qn-input]')) {
+            updateQuickNotebookStatus('', false);
         }
     }
 
@@ -2297,6 +2479,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         renderRecentSearches();
         initQuickMenu();
+        initQuickNotebook();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
@@ -2307,12 +2490,17 @@
         window.jQuery(document).on('rendered', '#menu', function () {
             renderRecentSearches();
             initQuickMenu();
+            initQuickNotebook();
             refreshTacticalOverview(false);
             refreshTopEvents(false);
+        });
+        window.jQuery(document).on('rendered', '#col1', function () {
+            updateQuickNotebookVisibility();
         });
     }
 
     renderRecentSearches();
     initQuickMenu();
+    initQuickNotebook();
     refreshTacticalOverview(true);
 })();
