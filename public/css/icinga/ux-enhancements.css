@@ -653,8 +653,16 @@ body.modal-open {
   margin-top: 0.18em;
 }
 
+.quick-menu-link-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
 .quick-menu-link {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
   padding: 0.2em 0.32em;
   border-radius: 0.2em;
@@ -677,24 +685,6 @@ body.modal-open {
   opacity: 0.86;
 }
 
-.quick-menu-editor {
-  margin-top: 0.45em;
-  display: grid;
-  gap: 0.3em;
-}
-
-.quick-menu-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 0.3em;
-  align-items: center;
-}
-
-.quick-menu-input {
-  min-width: 0;
-  width: 100%;
-}
-
 .quick-menu-remove,
 .quick-menu-actions button {
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -703,6 +693,12 @@ body.modal-open {
   border-radius: 0.2em;
   padding: 0.18em 0.45em;
   min-height: 2em;
+}
+
+.quick-menu-remove {
+  flex: 0 0 auto;
+  min-width: 2em;
+  line-height: 1;
 }
 
 .quick-menu-remove:hover,
@@ -922,14 +918,6 @@ body.modal-open {
   .keyboard-shortcuts-list li {
     align-items: flex-start;
     flex-wrap: wrap;
-  }
-
-  .quick-menu-row {
-    grid-template-columns: 1fr;
-  }
-
-  .quick-menu-remove {
-    justify-self: end;
   }
 
   .quick-notebook-float {

@@ -1965,9 +1965,6 @@
         var emptyLabel;
         var validItems;
         var linksHtml = '';
-        var editorHtml = '';
-        var i;
-        var item;
         var count;
 
         if (! root) {
@@ -1983,30 +1980,23 @@
 
         if (count) {
             linksHtml = '<ul class="quick-menu-links-list">'
-                + validItems.map(function (entry) {
-                    return '<li><a href="' + escapeHtml(entry.url) + '" class="quick-menu-link">'
+                + validItems.map(function (entry, index) {
+                    return '<li class="quick-menu-link-item">'
+                        + '<a href="' + escapeHtml(entry.url) + '" class="quick-menu-link">'
                         + escapeHtml(entry.label)
-                        + '</a></li>';
+                        + '</a>'
+                        + '<button type="button" class="quick-menu-remove" data-qm-remove data-index="'
+                        + String(index)
+                        + '" title="Remove">×</button>'
+                        + '</li>';
                 }).join('')
                 + '</ul>';
         } else {
             linksHtml = '<p class="quick-menu-empty">' + escapeHtml(emptyLabel) + '</p>';
         }
 
-        for (i = 0; i < quickMenuState.items.length; i++) {
-            item = quickMenuState.items[i];
-            editorHtml += ''
-                + '<div class="quick-menu-row" data-qm-row data-index="' + String(i) + '">'
-                + '<input type="text" class="quick-menu-input" data-qm-label value="' + escapeHtml(item.label) + '"'
-                + ' placeholder="Label">'
-                + '<input type="text" class="quick-menu-input" data-qm-url value="' + escapeHtml(item.url) + '"'
-                + ' placeholder="/path?filter=value">'
-                + '<button type="button" class="quick-menu-remove" data-qm-remove title="Remove">×</button>'
-                + '</div>';
-        }
-
         root.innerHTML = ''
-            + '<details class="quick-menu-panel">'
+            + '<details class="quick-menu-panel" open>'
             + '<summary class="quick-menu-summary">'
             + '<span class="quick-menu-title">' + escapeHtml(title) + '</span>'
             + '<span class="quick-menu-count">' + String(count) + '</span>'
@@ -2014,7 +2004,6 @@
             + '<div class="quick-menu-content">'
             + '<p class="quick-menu-label">' + escapeHtml(linksLabel) + '</p>'
             + linksHtml
-            + '<div class="quick-menu-editor" data-qm-editor>' + editorHtml + '</div>'
             + '<div class="quick-menu-actions">'
             + '<button type="button" data-qm-toggle-note class="quick-menu-note-toggle">'
             + escapeHtml(noteToggleLabel)
@@ -2035,26 +2024,6 @@
 
         button.textContent = root.dataset.noteToggleLabel || 'Notebook';
         button.classList.toggle('active', quickNotebookState.visible);
-    }
-
-    function syncQuickMenuStateFromEditor() {
-        var rows = document.querySelectorAll('[data-qm-row]');
-        var items = [];
-
-        rows.forEach(function (row) {
-            var label = row.querySelector('[data-qm-label]');
-            var url = row.querySelector('[data-qm-url]');
-            var normalized = normalizeQuickMenuItem({
-                label: label ? label.value : '',
-                url: url ? url.value : ''
-            });
-
-            if (normalized) {
-                items.push(normalized);
-            }
-        });
-
-        quickMenuState.items = normalizeQuickMenuItems(items);
     }
 
     function saveQuickMenuState() {
@@ -2500,8 +2469,7 @@
         }
 
         if (removeRow) {
-            var row = removeRow.closest('[data-qm-row]');
-            var idx = row ? parseInt(row.getAttribute('data-index') || '-1', 10) : -1;
+            var idx = parseInt(removeRow.getAttribute('data-index') || '-1', 10);
             if (idx >= 0 && idx < quickMenuState.items.length) {
                 quickMenuState.items.splice(idx, 1);
                 renderQuickMenu();
@@ -2569,13 +2537,6 @@
     }
 
     function onInput(event) {
-        if (event.target.matches('[data-qm-label], [data-qm-url]')) {
-            syncQuickMenuStateFromEditor();
-            renderQuickMenuStatus('');
-            scheduleQuickMenuSave(450);
-            return;
-        }
-
         if (event.target.matches('[data-qn-input]')) {
             updateQuickNotebookStatus('', false);
             return;
