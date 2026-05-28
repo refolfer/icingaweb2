@@ -633,8 +633,7 @@ body.modal-open {
   text-overflow: ellipsis;
 }
 
-#menu .nav-level-2 > .quick-menu-empty-item > .quick-menu-empty,
-#menu .nav-level-2 > .quick-menu-status-item > .quick-menu-status {
+#menu .nav-level-2 > .quick-menu-empty-item > .quick-menu-empty {
   display: block;
   color: inherit;
   font-size: 0.9em;
@@ -662,14 +661,6 @@ body.modal-open {
 
 .quick-menu-note-toggle.active {
   font-weight: 700;
-}
-
-.quick-menu-status.is-busy {
-  color: #35b6d9;
-}
-
-.quick-menu-status.is-error {
-  color: #d94b63;
 }
 
 .quick-menu-context {

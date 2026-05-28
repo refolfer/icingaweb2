@@ -2021,7 +2021,7 @@
             + '<nav class="quick-menu-panel">'
             + '<ul class="nav-level-1">'
             + '<li class="nav-item active quick-menu-nav-item">'
-            + '<a href="#" data-qm-toggle-note class="quick-menu-title-link">'
+            + '<a href="#" class="quick-menu-title-link" data-qm-title>'
             + '<i class="icon icon-info-circled" aria-hidden="true"></i>'
             + '<span class="quick-menu-title">' + escapeHtml(title) + '</span>'
             + '<span class="badge quick-menu-count">' + String(count) + '</span>'
@@ -2033,7 +2033,6 @@
             + escapeHtml(noteToggleLabel)
             + '</a>'
             + '</li>'
-            + '<li class="nav-item quick-menu-status-item"><span class="quick-menu-status" data-qm-status></span></li>'
             + '</ul>'
             + '</li>'
             + '</ul>'
@@ -2042,7 +2041,7 @@
 
     function updateQuickMenuNotebookToggleLabel() {
         var root = getQuickMenuRoot();
-        var button = document.querySelector('[data-qm-toggle-note]');
+        var button = document.querySelector('.quick-menu-note-toggle[data-qm-toggle-note]');
 
         if (! root || ! button) {
             return;
@@ -2459,6 +2458,7 @@
         var action = event.target.closest('.search-history-action');
         var close = event.target.closest('[data-close-shortcuts]');
         var open = event.target.closest('[data-open-shortcuts]');
+        var quickMenuTitle = event.target.closest('[data-qm-title]');
         var toggleNotebook = event.target.closest('[data-qm-toggle-note]');
         var removeRow = event.target.closest('[data-qm-remove]');
         var addLink = event.target.closest('[data-qm-add-link]');
@@ -2484,6 +2484,11 @@
         if (open) {
             event.preventDefault();
             openShortcutsDialog();
+            return;
+        }
+
+        if (quickMenuTitle) {
+            event.preventDefault();
             return;
         }
 
