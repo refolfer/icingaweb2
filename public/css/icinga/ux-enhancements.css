@@ -710,6 +710,11 @@ body.modal-open {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.quick-menu-note-toggle.active {
+  background: rgba(53, 182, 217, 0.24);
+  border-color: rgba(53, 182, 217, 0.5);
+}
+
 .quick-menu-actions {
   margin-top: 0.35em;
   display: flex;

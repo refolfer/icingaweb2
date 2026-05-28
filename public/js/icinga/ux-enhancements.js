@@ -1962,8 +1962,6 @@
         var title;
         var linksLabel;
         var noteToggleLabel;
-        var addRowLabel;
-        var saveLabel;
         var emptyLabel;
         var validItems;
         var linksHtml = '';
@@ -1978,11 +1976,7 @@
 
         title = root.dataset.title || 'Quick Menu';
         linksLabel = root.dataset.linksLabel || 'Links';
-        noteToggleLabel = quickNotebookState.visible
-            ? (root.dataset.noteHideLabel || 'Hide Notebook')
-            : (root.dataset.noteShowLabel || 'Show Notebook');
-        addRowLabel = root.dataset.addRowLabel || 'Add Row';
-        saveLabel = root.dataset.saveLabel || 'Save';
+        noteToggleLabel = root.dataset.noteLabel || 'Notebook';
         emptyLabel = root.dataset.emptyLabel || 'No quick links yet.';
         validItems = normalizeQuickMenuItems(quickMenuState.items);
         count = validItems.length;
@@ -2022,9 +2016,9 @@
             + linksHtml
             + '<div class="quick-menu-editor" data-qm-editor>' + editorHtml + '</div>'
             + '<div class="quick-menu-actions">'
-            + '<button type="button" data-qm-toggle-note>' + escapeHtml(noteToggleLabel) + '</button>'
-            + '<button type="button" data-qm-add-row>' + escapeHtml(addRowLabel) + '</button>'
-            + '<button type="button" data-qm-save class="spinner">' + escapeHtml(saveLabel) + '</button>'
+            + '<button type="button" data-qm-toggle-note class="quick-menu-note-toggle">'
+            + escapeHtml(noteToggleLabel)
+            + '</button>'
             + '<span class="quick-menu-status" data-qm-status></span>'
             + '</div>'
             + '</div>'
@@ -2039,9 +2033,8 @@
             return;
         }
 
-        button.textContent = quickNotebookState.visible
-            ? (root.dataset.noteHideLabel || 'Hide Notebook')
-            : (root.dataset.noteShowLabel || 'Show Notebook');
+        button.textContent = root.dataset.noteLabel || 'Notebook';
+        button.classList.toggle('active', quickNotebookState.visible);
     }
 
     function syncQuickMenuStateFromEditor() {
@@ -2322,7 +2315,11 @@
     }
 
     function updateQuickNotebookVisibility() {
-        setQuickNotebookVisible(isMainDashboardPage());
+        if (! isMainDashboardPage()) {
+            setQuickNotebookVisible(false);
+        } else {
+            updateQuickMenuNotebookToggleLabel();
+        }
     }
 
     function toggleQuickNotebookVisible() {
@@ -2448,6 +2445,9 @@
         }
 
         renderQuickNotebook();
+        if (! quickNotebookState.initialized) {
+            setQuickNotebookVisible(false);
+        }
         updateQuickNotebookVisibility();
         quickNotebookState.initialized = true;
     }
@@ -2457,9 +2457,7 @@
         var close = event.target.closest('[data-close-shortcuts]');
         var open = event.target.closest('[data-open-shortcuts]');
         var toggleNotebook = event.target.closest('[data-qm-toggle-note]');
-        var addRow = event.target.closest('[data-qm-add-row]');
         var removeRow = event.target.closest('[data-qm-remove]');
-        var saveQuickMenu = event.target.closest('[data-qm-save]');
         var addLink = event.target.closest('[data-qm-add-link]');
         var qnAdd = event.target.closest('[data-qn-add]');
         var qnClear = event.target.closest('[data-qn-clear]');
@@ -2497,16 +2495,6 @@
             return;
         }
 
-        if (addRow) {
-            event.preventDefault();
-            quickMenuState.items.push({
-                label: '',
-                url: ''
-            });
-            renderQuickMenu();
-            return;
-        }
-
         if (removeRow) {
             var row = removeRow.closest('[data-qm-row]');
             var idx = row ? parseInt(row.getAttribute('data-index') || '-1', 10) : -1;
@@ -2514,16 +2502,9 @@
                 quickMenuState.items.splice(idx, 1);
                 renderQuickMenu();
                 renderQuickMenuStatus('');
+                scheduleQuickMenuSave(150);
             }
 
-            return;
-        }
-
-        if (saveQuickMenu) {
-            event.preventDefault();
-            syncQuickMenuStateFromEditor();
-            updateQuickNotebookStatus('', false);
-            saveQuickMenuState();
             return;
         }
 
@@ -2576,7 +2557,9 @@
 
     function onInput(event) {
         if (event.target.matches('[data-qm-label], [data-qm-url]')) {
+            syncQuickMenuStateFromEditor();
             renderQuickMenuStatus('');
+            scheduleQuickMenuSave(450);
             return;
         }
 
@@ -2594,6 +2577,17 @@
             .replace(/'/g, '&#039;');
     }
 
+    function onGlobalEscape(event) {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        hideQuickMenuContextMenu();
+        if (quickNotebookState.visible) {
+            setQuickNotebookVisible(false);
+        }
+    }
+
     document.addEventListener('submit', onSubmit, true);
     document.addEventListener('click', onClick);
     document.addEventListener('mousedown', onQuickNotebookDragStart);
@@ -2601,14 +2595,7 @@
     document.addEventListener('contextmenu', onContextMenu);
     document.addEventListener('keydown', handleGlobalShortcuts);
     document.addEventListener('keydown', trapDialogFocus);
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            hideQuickMenuContextMenu();
-            if (quickNotebookState.visible) {
-                setQuickNotebookVisible(false);
-            }
-        }
-    });
+    document.addEventListener('keydown', onGlobalEscape, true);
     document.addEventListener('scroll', hideQuickMenuContextMenu, true);
     window.addEventListener('resize', function () {
         if (quickNotebookState.visible && quickNotebookState.initialized) {
