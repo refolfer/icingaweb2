@@ -606,6 +606,10 @@ body.modal-open {
   background-color: transparent;
 }
 
+#layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item::after {
+  display: none;
+}
+
 #layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item > a.quick-menu-title-link {
   color: inherit;
 }

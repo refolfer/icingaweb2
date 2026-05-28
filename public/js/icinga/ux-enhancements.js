@@ -1893,7 +1893,7 @@
         root.innerHTML = ''
             + '<nav class="quick-menu-panel">'
             + '<ul class="nav-level-1">'
-            + '<li class="nav-item active quick-menu-nav-item">'
+            + '<li class="nav-item quick-menu-nav-item">'
             + '<a href="#" class="quick-menu-title-link" data-qm-title>'
             + '<i class="icon icon-info-circled" aria-hidden="true"></i>'
             + '<span class="quick-menu-title">' + escapeHtml(title) + '</span>'
@@ -2190,16 +2190,12 @@
     }
 
     function updateQuickNotebookVisibility() {
-        if (! isMainDashboardPage()) {
-            setQuickNotebookVisible(false);
-        } else {
-            updateQuickMenuNotebookToggleLabel();
-        }
+        updateQuickMenuNotebookToggleLabel();
     }
 
     function toggleQuickNotebookVisible() {
-        if (! isMainDashboardPage()) {
-            return;
+        if (! getQuickNotebook()) {
+            renderQuickNotebook();
         }
 
         setQuickNotebookVisible(! quickNotebookState.visible);
