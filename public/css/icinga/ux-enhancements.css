@@ -176,6 +176,14 @@ body.modal-open {
   outline: none;
 }
 
+.top-event-link.top-event-link-unresolved {
+  cursor: default;
+}
+
+.top-event-link.top-event-link-unresolved .top-event-title {
+  text-decoration: none;
+}
+
 .top-event-title {
   margin: 0;
   color: var(--to-text-strong);

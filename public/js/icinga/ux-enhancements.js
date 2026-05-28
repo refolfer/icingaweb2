@@ -853,9 +853,61 @@
         return match ? match[1] : '';
     }
 
+    function extractSingleHexIdFromText(text) {
+        var source = decodeHtmlEntities(text);
+        var matches = source.match(/\b[a-f0-9]{40}\b/ig) || [];
+        var unique = {};
+        var ids = [];
+        var i;
+
+        for (i = 0; i < matches.length; i++) {
+            if (unique[matches[i]]) {
+                continue;
+            }
+
+            unique[matches[i]] = true;
+            ids.push(matches[i]);
+        }
+
+        if (ids.length === 1) {
+            return ids[0];
+        }
+
+        return '';
+    }
+
     function isTopEventDetailsUrl(url) {
         var value = String(url || '');
         return /\/icingadb\/event\b/i.test(value) && /[?&]id=[a-f0-9]{40}\b/i.test(value);
+    }
+
+    function decodeHtmlEntities(value) {
+        var text = String(value || '');
+        return text
+            .replace(/&amp;/gi, '&')
+            .replace(/&quot;/gi, '"')
+            .replace(/&#039;/gi, '\'')
+            .replace(/&#x2F;/gi, '/')
+            .replace(/\\\//g, '/');
+    }
+
+    function extractEventDetailsUrlFromText(text) {
+        var source = decodeHtmlEntities(text);
+        var match = source.match(/((?:https?:)?\/\/[^"'<> \t\r\n]*\/icingadb\/event\?[^"'<> \t\r\n]*\bid=[a-f0-9]{40}\b[^"'<> \t\r\n]*)/i);
+        var candidate;
+
+        if (! match) {
+            match = source.match(/((?:\/|\.\/|\.\.\/)?(?:[^"'<> \t\r\n]*\/)?icingadb\/event\?[^"'<> \t\r\n]*\bid=[a-f0-9]{40}\b[^"'<> \t\r\n]*)/i);
+        }
+
+        if (match) {
+            candidate = normalizeTopEventUrl(match[1]);
+            if (candidate && isTopEventDetailsUrl(candidate)) {
+                return candidate;
+            }
+        }
+
+        return '';
     }
 
     function pickEventBlocks(doc) {
@@ -879,16 +931,47 @@
         var candidate = null;
         var anchors;
         var detailsAnchors;
+        var attributeNodes;
+        var attributeNames = ['href', 'data-href', 'data-url', 'data-action-url', 'onclick', 'id', 'data-id', 'data-event-id'];
         var attrNames = ['data-event-id', 'data-id', 'id', 'data-href', 'data-url', 'data-action-url'];
         var attrValue;
         var eventId;
+        var j;
         var i;
+
+        candidate = extractEventDetailsUrlFromText(block.outerHTML);
+        if (candidate) {
+            return candidate;
+        }
 
         detailsAnchors = block.querySelectorAll('a[href*="/icingadb/event"], a[href*="event?id="]');
         for (i = 0; i < detailsAnchors.length; i++) {
             candidate = normalizeTopEventUrl(detailsAnchors[i].getAttribute('href'));
             if (candidate && isTopEventDetailsUrl(candidate)) {
                 return candidate;
+            }
+        }
+
+        attributeNodes = block.querySelectorAll('*');
+        for (i = 0; i < attributeNodes.length; i++) {
+            for (j = 0; j < attributeNames.length; j++) {
+                attrValue = attributeNodes[i].getAttribute(attributeNames[j]);
+                if (! attrValue) {
+                    continue;
+                }
+
+                candidate = extractEventDetailsUrlFromText(attrValue);
+                if (candidate) {
+                    return candidate;
+                }
+
+                eventId = extractEventIdFromText(attrValue);
+                if (eventId) {
+                    candidate = getTopEventDetailsUrlById(eventId);
+                    if (candidate) {
+                        return candidate;
+                    }
+                }
             }
         }
 
@@ -929,6 +1012,14 @@
             }
         }
 
+        eventId = extractSingleHexIdFromText(block.outerHTML);
+        if (eventId) {
+            candidate = getTopEventDetailsUrlById(eventId);
+            if (candidate) {
+                return candidate;
+            }
+        }
+
         anchors = block.querySelectorAll('a[href]');
         for (i = 0; i < anchors.length; i++) {
             candidate = normalizeTopEventUrl(anchors[i].getAttribute('href'));
@@ -942,7 +1033,7 @@
             }
         }
 
-        return normalizeTopEventUrl(getTopEventsHistoryUrl());
+        return '';
     }
 
     function extractEvent(block) {
@@ -1131,14 +1222,20 @@
             });
             slots[i].removeAttribute('data-event-state');
             slots[i].removeAttribute('data-event-url');
+            linkEl.classList.remove('top-event-link-unresolved');
+            linkEl.removeAttribute('aria-disabled');
 
             if (item) {
                 titleEl.textContent = item.title;
                 metaEl.textContent = item.meta || '—';
-                url = normalizeTopEventUrl(item.url) || normalizeTopEventUrl(getTopEventsHistoryUrl());
-                if (url) {
+                url = normalizeTopEventUrl(item.url);
+                if (url && isTopEventDetailsUrl(url)) {
                     linkEl.setAttribute('href', url);
                     slots[i].setAttribute('data-event-url', url);
+                } else {
+                    linkEl.removeAttribute('href');
+                    linkEl.classList.add('top-event-link-unresolved');
+                    linkEl.setAttribute('aria-disabled', 'true');
                 }
                 if (item.state) {
                     stateClass = 'top-event-state-' + item.state;
