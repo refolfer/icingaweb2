@@ -14,6 +14,14 @@
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
     var TOP_PANELS_OFFSET_MAX = 360;
+    var TOP_EVENT_STATE_CLASSES = [
+        'top-event-state-ok',
+        'top-event-state-warning',
+        'top-event-state-critical',
+        'top-event-state-unknown',
+        'top-event-state-pending',
+        'top-event-state-handled'
+    ];
     var TACTICAL_COLORS = {
         ok: '#2aa86a',
         critical: '#d94b63',
@@ -823,6 +831,7 @@
         var title = normalizeText(titleEl ? titleEl.textContent : '');
         var text = normalizeText(block.textContent);
         var metaParts = [];
+        var state = extractEventState(block, text);
 
         if (! title.length && text.length) {
             title = text.split(/ [|-] /)[0];
@@ -847,7 +856,108 @@
 
         return {
             title: title.slice(0, 220),
-            meta: metaParts.join(' • ').slice(0, 220)
+            meta: metaParts.join(' • ').slice(0, 220),
+            state: state.state,
+            handled: state.handled
+        };
+    }
+
+    function detectStateFromClassTokens(tokens) {
+        var i;
+        var token;
+
+        for (i = 0; i < tokens.length; i++) {
+            token = tokens[i];
+            if (
+                token === 'state-critical'
+                || token === 'critical'
+                || token === 'severity-critical'
+                || token === 'state-down'
+                || token === 'down'
+                || token === 'state-unreachable'
+                || token === 'unreachable'
+            ) {
+                return 'critical';
+            }
+        }
+
+        for (i = 0; i < tokens.length; i++) {
+            token = tokens[i];
+            if (token === 'state-warning' || token === 'warning' || token === 'severity-warning') {
+                return 'warning';
+            }
+        }
+
+        for (i = 0; i < tokens.length; i++) {
+            token = tokens[i];
+            if (token === 'state-unknown' || token === 'unknown' || token === 'severity-unknown') {
+                return 'unknown';
+            }
+        }
+
+        for (i = 0; i < tokens.length; i++) {
+            token = tokens[i];
+            if (token === 'state-pending' || token === 'pending' || token === 'state-not-checked' || token === 'not-checked') {
+                return 'pending';
+            }
+        }
+
+        for (i = 0; i < tokens.length; i++) {
+            token = tokens[i];
+            if (token === 'state-ok' || token === 'ok' || token === 'state-up' || token === 'up' || token === 'severity-ok') {
+                return 'ok';
+            }
+        }
+
+        return '';
+    }
+
+    function extractEventState(block, text) {
+        var classes = [];
+        var classMap = {};
+        var handled = false;
+        var state = '';
+        var lowerText = String(text || '').toLowerCase();
+
+        Array.prototype.slice.call(
+            block.querySelectorAll('[class*="state-"], .state, .badge, .state-badge, [class*="severity-"], .handled')
+        ).concat([block]).forEach(function (node) {
+            String(node.className || '')
+                .toLowerCase()
+                .split(/\s+/)
+                .forEach(function (token) {
+                    if (! token.length || classMap[token]) {
+                        return;
+                    }
+
+                    classMap[token] = true;
+                    classes.push(token);
+                });
+        });
+
+        state = detectStateFromClassTokens(classes);
+        handled = classes.indexOf('handled') !== -1
+            || classes.indexOf('acknowledged') !== -1
+            || classes.indexOf('in-downtime') !== -1
+            || /\b(acknowledged|in downtime|handled)\b/i.test(lowerText);
+
+        if (! state.length) {
+            if (/\b(critical|down|unreachable)\b/i.test(lowerText)) {
+                state = 'critical';
+            } else if (/\bwarning\b/i.test(lowerText)) {
+                state = 'warning';
+            } else if (/\bunknown\b/i.test(lowerText)) {
+                state = 'unknown';
+            } else if (/\b(pending|not checked)\b/i.test(lowerText)) {
+                state = 'pending';
+            } else if (/\b(ok|up)\b/i.test(lowerText)) {
+                state = 'ok';
+            }
+        }
+
+        return {
+            state: state,
+            handled: handled
         };
     }
 
@@ -863,7 +973,7 @@
                 continue;
             }
 
-            var signature = event.title + '|' + event.meta;
+            var signature = event.title + '|' + event.meta + '|' + event.state + '|' + String(event.handled);
             if (signatures[signature]) {
                 continue;
             }
@@ -887,14 +997,29 @@
             var item = items[i] || null;
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
+            var stateClass;
 
             if (! titleEl || ! metaEl) {
                 continue;
             }
 
+            TOP_EVENT_STATE_CLASSES.forEach(function (className) {
+                slots[i].classList.remove(className);
+            });
+            slots[i].removeAttribute('data-event-state');
+
             if (item) {
                 titleEl.textContent = item.title;
                 metaEl.textContent = item.meta || '—';
+                if (item.state) {
+                    stateClass = 'top-event-state-' + item.state;
+                    slots[i].classList.add(stateClass);
+                    slots[i].setAttribute('data-event-state', item.state);
+                }
+
+                if (item.handled) {
+                    slots[i].classList.add('top-event-state-handled');
+                }
             } else {
                 titleEl.textContent = '—';
                 metaEl.textContent = '';
@@ -946,7 +1071,7 @@
                 }
 
                 var signature = items.map(function (item) {
-                    return item.title + '|' + item.meta;
+                    return item.title + '|' + item.meta + '|' + item.state + '|' + String(item.handled);
                 }).join('||');
 
                 if (forceRender || signature !== topEventsState.lastSignature) {

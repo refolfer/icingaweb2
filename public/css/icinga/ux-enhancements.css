@@ -98,11 +98,65 @@ body.modal-open {
 }
 
 .top-event-item {
+  --top-event-accent: transparent;
+  --top-event-tint: transparent;
   min-height: 0;
-  padding: 0.45em 0.55em;
+  position: relative;
+  padding: 0.45em 0.55em 0.45em 0.72em;
   border-radius: 0.45em;
   border: 1px solid var(--to-border);
-  background: var(--to-card-bg) !important;
+  background: linear-gradient(90deg, var(--top-event-tint), var(--to-card-bg) 68%) !important;
+}
+
+.top-event-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.26em;
+  border-radius: 0.45em 0 0 0.45em;
+  background: var(--top-event-accent);
+}
+
+.top-event-item.top-event-state-critical {
+  --top-event-accent: var(--to-critical);
+  --top-event-tint: rgba(217, 75, 99, 0.2);
+}
+
+.top-event-item.top-event-state-warning {
+  --top-event-accent: var(--to-warning);
+  --top-event-tint: rgba(216, 154, 34, 0.18);
+}
+
+.top-event-item.top-event-state-unknown {
+  --top-event-accent: var(--to-unknown);
+  --top-event-tint: rgba(117, 101, 217, 0.2);
+}
+
+.top-event-item.top-event-state-pending {
+  --top-event-accent: var(--to-pending);
+  --top-event-tint: rgba(47, 135, 211, 0.2);
+}
+
+.top-event-item.top-event-state-ok {
+  --top-event-accent: var(--to-ok);
+  --top-event-tint: rgba(42, 168, 106, 0.18);
+}
+
+.top-event-item.top-event-state-critical.top-event-state-handled {
+  --top-event-accent: var(--to-critical-handled);
+  --top-event-tint: rgba(241, 169, 182, 0.2);
+}
+
+.top-event-item.top-event-state-warning.top-event-state-handled {
+  --top-event-accent: var(--to-warning-handled);
+  --top-event-tint: rgba(237, 195, 123, 0.2);
+}
+
+.top-event-item.top-event-state-unknown.top-event-state-handled {
+  --top-event-accent: var(--to-unknown-handled);
+  --top-event-tint: rgba(171, 163, 238, 0.2);
 }
 
 .top-event-title {
