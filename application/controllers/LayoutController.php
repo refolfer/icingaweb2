@@ -8,6 +8,7 @@ namespace Icinga\Controllers;
 use Exception;
 use Icinga\Application\Config;
 use Icinga\Data\ConfigObject;
+use Icinga\User\Preferences;
 use Icinga\User\Preferences\PreferencesStore;
 use Icinga\Util\Json;
 use Icinga\Web\Controller\ActionController;
@@ -118,7 +119,10 @@ class LayoutController extends ActionController
     protected function saveQuickMenu(array $items, $note)
     {
         $user = $this->Auth()->getUser();
-        $preferences = $user->getPreferences();
+        $store = $this->createPreferencesStore();
+        $preferences = $store !== null
+            ? new Preferences($store->load())
+            : $user->getPreferences();
         $webPreferences = $preferences->get('icingaweb') ?: [];
 
         $webPreferences[static::QUICK_MENU_PREF_ITEMS] = Json::sanitize($items);
@@ -127,8 +131,7 @@ class LayoutController extends ActionController
 
         Session::getSession()->user->setPreferences($preferences);
 
-        if (($store = $this->createPreferencesStore()) !== null) {
-            $store->load();
+        if ($store !== null) {
             $store->save($preferences);
         }
     }
@@ -142,7 +145,18 @@ class LayoutController extends ActionController
     {
         $user = $this->Auth()->getUser();
         $preferences = $user->getPreferences();
+        $store = $this->createPreferencesStore();
         $items = [];
+
+        if ($store !== null) {
+            try {
+                $preferences = new Preferences($store->load());
+                Session::getSession()->user->setPreferences($preferences);
+            } catch (Exception $_) {
+                $preferences = $user->getPreferences();
+            }
+        }
+
         $rawItems = $preferences->getValue('icingaweb', static::QUICK_MENU_PREF_ITEMS, '[]');
         $note = $preferences->getValue('icingaweb', static::QUICK_MENU_PREF_NOTE, '');
 

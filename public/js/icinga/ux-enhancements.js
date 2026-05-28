@@ -57,6 +57,7 @@
         apiUrl: '',
         items: [],
         note: '',
+        sourceSignature: '',
         saveTimer: null,
         inFlight: false
     };
@@ -1813,6 +1814,27 @@
         }
     }
 
+    function getQuickMenuSourceSignature(root) {
+        if (! root) {
+            return '';
+        }
+
+        return [
+            root.dataset.itemsJson || '[]',
+            root.dataset.note || ''
+        ].join('\n');
+    }
+
+    function updateQuickMenuSourceData(root) {
+        if (! root) {
+            return;
+        }
+
+        root.dataset.itemsJson = JSON.stringify(quickMenuState.items);
+        root.dataset.note = quickMenuState.note;
+        quickMenuState.sourceSignature = getQuickMenuSourceSignature(root);
+    }
+
     function normalizeQuickMenuUrl(url) {
         var cleaned = String(url || '').trim();
         var parsed;
@@ -2066,8 +2088,10 @@
                 return response.json();
             })
             .then(function (result) {
+                var root = getQuickMenuRoot();
                 quickMenuState.items = normalizeQuickMenuItems(result.items || []);
                 quickMenuState.note = String(result.note || '');
+                updateQuickMenuSourceData(root);
                 renderQuickMenu();
                 refreshQuickNotebookContent();
                 renderQuickMenuStatus('saved');
@@ -2187,16 +2211,19 @@
 
     function initQuickMenu() {
         var root = getQuickMenuRoot();
+        var sourceSignature;
 
         if (! root) {
             return;
         }
 
         quickMenuState.apiUrl = root.dataset.apiUrl || '';
+        sourceSignature = getQuickMenuSourceSignature(root);
 
-        if (! quickMenuState.initialized) {
+        if (! quickMenuState.initialized || (! quickMenuState.inFlight && quickMenuState.sourceSignature !== sourceSignature)) {
             quickMenuState.items = normalizeQuickMenuItems(parseQuickMenuItems(root.dataset.itemsJson || '[]'));
             quickMenuState.note = String(root.dataset.note || '');
+            quickMenuState.sourceSignature = sourceSignature;
             quickMenuState.initialized = true;
         }
 
