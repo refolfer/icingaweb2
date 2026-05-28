@@ -62,8 +62,8 @@ class LayoutController extends ActionController
 
         $this->assertHttpMethod('POST');
 
-        $itemsJson = $this->params->get('items');
-        $note = $this->params->get('note');
+        $itemsJson = $this->getRequest()->getPost('items');
+        $note = $this->getRequest()->getPost('note');
         if ($itemsJson === null && $note === null) {
             $this->respondWithJson(['error' => 'Missing payload'], 400);
             return;
