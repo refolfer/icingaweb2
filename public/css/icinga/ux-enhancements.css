@@ -177,11 +177,19 @@ body.modal-open {
 }
 
 .top-event-link.top-event-link-unresolved {
-  cursor: default;
+  cursor: pointer;
 }
 
 .top-event-link.top-event-link-unresolved .top-event-title {
   text-decoration: none;
+}
+
+.top-event-preview {
+  margin: 0.35em 0 0;
+  color: var(--to-text-strong);
+  font-size: 0.8em;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .top-event-title {

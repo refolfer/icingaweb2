@@ -805,12 +805,54 @@
         return getBaseUrl() + '/icingadb/history';
     }
 
+    function getTopEventsRequestUrl() {
+        var url;
+
+        try {
+            url = new URL(getTopEventsHistoryUrl(), window.location.href);
+            url.searchParams.set('view', 'detailed');
+            return url.toString();
+        } catch (error) {
+            return getTopEventsHistoryUrl();
+        }
+    }
+
+    function getTopEventsJsonUrl() {
+        var url;
+
+        try {
+            url = new URL(getTopEventsHistoryUrl(), window.location.href);
+            url.searchParams.set('format', 'json');
+            url.searchParams.set('view', 'detailed');
+            url.searchParams.set('limit', '2');
+            url.searchParams.set('columns', 'id');
+            return url.toString();
+        } catch (error) {
+            return getTopEventsHistoryUrl();
+        }
+    }
+
+    function getTopEventsJsonFallbackUrl() {
+        var url;
+
+        try {
+            url = new URL(getTopEventsHistoryUrl(), window.location.href);
+            url.searchParams.set('format', 'json');
+            url.searchParams.set('view', 'detailed');
+            url.searchParams.set('limit', '2');
+            return url.toString();
+        } catch (error) {
+            return getTopEventsHistoryUrl();
+        }
+    }
+
     function normalizeText(value) {
         return String(value || '').replace(/\s+/g, ' ').trim();
     }
 
     function normalizeTopEventUrl(url) {
         var value = String(url || '').trim();
+        var parsed;
 
         if (! value.length || value === '#') {
             return '';
@@ -821,7 +863,14 @@
         }
 
         try {
-            return new URL(value, getTopEventsHistoryUrl()).toString();
+            parsed = new URL(value, window.location.href);
+
+            // Keep internal links relative so Icinga's AJAX navigation can intercept them
+            if (parsed.origin === window.location.origin) {
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+
+            return parsed.toString();
         } catch (error) {
             return '';
         }
@@ -839,15 +888,30 @@
     }
 
     function extractEventIdFromText(text) {
-        var source = String(text || '');
+        var source = decodeHtmlEntities(text);
+        var decoded = source;
         var match = source.match(/[?&]id=([a-f0-9]{40})\b/i);
 
-        if (! match) {
-            match = source.match(/\b(?:event-id|event_id|data-event-id)\b[^a-f0-9]{0,30}([a-f0-9]{40})\b/i);
+        try {
+            decoded = decodeURIComponent(source);
+        } catch (error) {
+            decoded = source;
         }
 
         if (! match) {
-            match = source.match(/\bid=["']?event[-_]?([a-f0-9]{40})\b/i);
+            match = decoded.match(/[?&]id=([a-f0-9]{40})\b/i);
+        }
+
+        if (! match) {
+            match = decoded.match(/(?:^|[\s"';&(])id\s*[:=]\s*["']?([a-f0-9]{40})\b/i);
+        }
+
+        if (! match) {
+            match = decoded.match(/\b(?:event-id|event_id|data-event-id|detail-filter|data-detail-filter)\b[^a-f0-9]{0,80}([a-f0-9]{40})\b/i);
+        }
+
+        if (! match) {
+            match = decoded.match(/\bid=["']?event[-_]?([a-f0-9]{40})\b/i);
         }
 
         return match ? match[1] : '';
@@ -895,6 +959,7 @@
         var source = decodeHtmlEntities(text);
         var match = source.match(/((?:https?:)?\/\/[^"'<> \t\r\n]*\/icingadb\/event\?[^"'<> \t\r\n]*\bid=[a-f0-9]{40}\b[^"'<> \t\r\n]*)/i);
         var candidate;
+        var eventId;
 
         if (! match) {
             match = source.match(/((?:\/|\.\/|\.\.\/)?(?:[^"'<> \t\r\n]*\/)?icingadb\/event\?[^"'<> \t\r\n]*\bid=[a-f0-9]{40}\b[^"'<> \t\r\n]*)/i);
@@ -907,6 +972,11 @@
             }
         }
 
+        eventId = extractEventIdFromText(source);
+        if (eventId) {
+            return getTopEventDetailsUrlById(eventId);
+        }
+
         return '';
     }
 
@@ -916,7 +986,7 @@
             return [];
         }
 
-        var selectors = ['tbody tr', '.list-item', 'article', '.event', 'li'];
+        var selectors = ['.action-list [data-action-item]', '[data-action-item]', 'tbody tr', '.list-item', 'article', '.event', 'li'];
         var blocks = [];
         selectors.forEach(function (selector) {
             if (! blocks.length) {
@@ -929,15 +999,58 @@
 
     function extractEventUrl(block, titleEl) {
         var candidate = null;
+        var actionItem;
         var anchors;
         var detailsAnchors;
         var attributeNodes;
-        var attributeNames = ['href', 'data-href', 'data-url', 'data-action-url', 'onclick', 'id', 'data-id', 'data-event-id'];
-        var attrNames = ['data-event-id', 'data-id', 'id', 'data-href', 'data-url', 'data-action-url'];
+        var attributeNames = [
+            'href',
+            'data-href',
+            'data-url',
+            'data-action-url',
+            'data-icinga-url',
+            'data-detail-filter',
+            'data-icinga-detail-filter',
+            'data-filter',
+            'onclick',
+            'id',
+            'data-id',
+            'data-event-id'
+        ];
+        var attrNames = attributeNames;
         var attrValue;
         var eventId;
+        var actionList;
+        var detailFilter;
         var j;
         var i;
+
+        actionItem = block.matches('[data-action-item]')
+            ? block
+            : (block.closest('[data-action-item]') || block.querySelector('[data-action-item]'));
+
+        if (actionItem) {
+            actionList = actionItem.closest('[data-icinga-detail-url]') || block.closest('[data-icinga-detail-url]');
+            detailFilter = actionItem.getAttribute('data-icinga-detail-filter');
+        } else {
+            actionList = block.closest('[data-icinga-detail-url]');
+            detailFilter = block.getAttribute('data-icinga-detail-filter');
+        }
+
+        if (actionList && detailFilter) {
+            candidate = normalizeTopEventUrl(actionList.getAttribute('data-icinga-detail-url') + '?' + detailFilter);
+            if (candidate && isTopEventDetailsUrl(candidate)) {
+                return candidate;
+            }
+
+            eventId = extractEventIdFromText(detailFilter);
+            if (eventId) {
+                candidate = getTopEventDetailsUrlById(eventId);
+                if (candidate) {
+                    return candidate;
+                }
+            }
+        }
 
         candidate = extractEventDetailsUrlFromText(block.outerHTML);
         if (candidate) {
@@ -1068,6 +1181,7 @@
         return {
             title: title.slice(0, 220),
             meta: metaParts.join(' • ').slice(0, 220),
+            preview: text.slice(0, 800),
             state: state.state,
             handled: state.handled,
             url: url
@@ -1185,7 +1299,7 @@
                 continue;
             }
 
-            var signature = event.title + '|' + event.meta + '|' + event.state + '|' + String(event.handled) + '|' + event.url;
+            var signature = event.title + '|' + event.meta + '|' + event.preview + '|' + event.state + '|' + String(event.handled) + '|' + event.url;
             if (signatures[signature]) {
                 continue;
             }
@@ -1201,6 +1315,84 @@
         return results;
     }
 
+    function collectEventIdsFromJson(value, ids) {
+        var keys;
+        var id;
+        var i;
+
+        if (! value || ids.length >= 2) {
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            for (i = 0; i < value.length && ids.length < 2; i++) {
+                collectEventIdsFromJson(value[i], ids);
+            }
+
+            return;
+        }
+
+        if (typeof value !== 'object') {
+            return;
+        }
+
+        keys = Object.keys(value);
+        for (i = 0; i < keys.length && ids.length < 2; i++) {
+            if (! /^(id|history[._-]?id|event[._-]?id)$/i.test(keys[i])) {
+                continue;
+            }
+
+            id = typeof value[keys[i]] === 'string' ? value[keys[i]] : '';
+            if (/^[a-f0-9]{40}$/i.test(id) && ids.indexOf(id) === -1) {
+                ids.push(id);
+            }
+        }
+
+        for (i = 0; i < keys.length && ids.length < 2; i++) {
+            if (/^(id|history[._-]?id|event[._-]?id)$/i.test(keys[i])) {
+                continue;
+            }
+
+            collectEventIdsFromJson(value[keys[i]], ids);
+        }
+    }
+
+    function parseLatestEventDetailUrlsFromJson(jsonText) {
+        var ids = [];
+        var data;
+
+        try {
+            data = JSON.parse(jsonText);
+        } catch (error) {
+            return [];
+        }
+
+        collectEventIdsFromJson(data, ids);
+
+        return ids.map(function (id) {
+            return getTopEventDetailsUrlById(id);
+        }).filter(Boolean);
+    }
+
+    function applyEventDetailUrlFallbacks(items, urls) {
+        if (! urls.length) {
+            return items;
+        }
+
+        return items.map(function (item, index) {
+            if (! item || isTopEventDetailsUrl(item.url)) {
+                return item;
+            }
+
+            if (! urls[index]) {
+                return item;
+            }
+
+            item.url = urls[index];
+            return item;
+        });
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var i;
@@ -1209,11 +1401,12 @@
             var item = items[i] || null;
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
+            var previewEl = slots[i].querySelector('.top-event-preview');
             var linkEl = slots[i].querySelector('.top-event-link');
             var stateClass;
             var url = normalizeTopEventUrl(getTopEventsHistoryUrl());
 
-            if (! titleEl || ! metaEl || ! linkEl) {
+            if (! titleEl || ! metaEl || ! previewEl || ! linkEl) {
                 continue;
             }
 
@@ -1224,18 +1417,21 @@
             slots[i].removeAttribute('data-event-url');
             linkEl.classList.remove('top-event-link-unresolved');
             linkEl.removeAttribute('aria-disabled');
+            linkEl.removeAttribute('aria-expanded');
+            linkEl.removeAttribute('role');
+            previewEl.textContent = '';
 
             if (item) {
                 titleEl.textContent = item.title;
                 metaEl.textContent = item.meta || '—';
+                previewEl.textContent = item.preview || item.meta || item.title;
                 url = normalizeTopEventUrl(item.url);
                 if (url && isTopEventDetailsUrl(url)) {
                     linkEl.setAttribute('href', url);
                     slots[i].setAttribute('data-event-url', url);
                 } else {
-                    linkEl.removeAttribute('href');
+                    linkEl.setAttribute('href', normalizeTopEventUrl(getTopEventsHistoryUrl()) || getTopEventsHistoryUrl());
                     linkEl.classList.add('top-event-link-unresolved');
-                    linkEl.setAttribute('aria-disabled', 'true');
                 }
                 if (item.state) {
                     stateClass = 'top-event-state-' + item.state;
@@ -1249,9 +1445,7 @@
             } else {
                 titleEl.textContent = '—';
                 metaEl.textContent = '';
-                if (url) {
-                    linkEl.setAttribute('href', url);
-                }
+                linkEl.setAttribute('href', url || getTopEventsHistoryUrl());
             }
         }
     }
@@ -1280,27 +1474,66 @@
 
         topEventsState.inFlight = true;
 
-        fetch(getTopEventsHistoryUrl(), {
-            method: 'GET',
-            credentials: 'same-origin',
-            cache: 'no-store'
-        })
-            .then(function (response) {
+        Promise.all([
+            fetch(getTopEventsRequestUrl(), {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store'
+            }).then(function (response) {
                 if (! response.ok) {
                     throw new Error('Request failed with status ' + response.status);
                 }
 
                 return response.text();
+            }),
+            fetch(getTopEventsJsonUrl(), {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    Accept: 'application/json'
+                }
+            }).then(function (response) {
+                if (! response.ok) {
+                    return '';
+                }
+
+                return response.text();
+            }).catch(function () {
+                return '';
+            }),
+            fetch(getTopEventsJsonFallbackUrl(), {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    Accept: 'application/json'
+                }
+            }).then(function (response) {
+                if (! response.ok) {
+                    return '';
+                }
+
+                return response.text();
+            }).catch(function () {
+                return '';
             })
-            .then(function (html) {
-                var items = parseLatestEventsFromHistoryHtml(html);
+        ])
+            .then(function (responses) {
+                var html = responses[0];
+                var detailUrls = parseLatestEventDetailUrlsFromJson(responses[1]);
+                if (! detailUrls.length) {
+                    detailUrls = parseLatestEventDetailUrlsFromJson(responses[2]);
+                }
+
+                var items = applyEventDetailUrlFallbacks(parseLatestEventsFromHistoryHtml(html), detailUrls);
 
                 if (! items.length) {
                     throw new Error('No parseable event entries found');
                 }
 
                 var signature = items.map(function (item) {
-                    return item.title + '|' + item.meta + '|' + item.state + '|' + String(item.handled) + '|' + item.url;
+                    return item.title + '|' + item.meta + '|' + item.preview + '|' + item.state + '|' + String(item.handled) + '|' + item.url;
                 }).join('||');
 
                 if (forceRender || signature !== topEventsState.lastSignature) {
@@ -1555,7 +1788,6 @@
         var action = event.target.closest('.search-history-action');
         var close = event.target.closest('[data-close-shortcuts]');
         var open = event.target.closest('[data-open-shortcuts]');
-
         if (action) {
             var input = getSearchInput();
             var query = action.getAttribute('data-search-query') || '';
