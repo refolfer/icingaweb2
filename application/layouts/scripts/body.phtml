@@ -114,12 +114,24 @@ if ($this->layout()->inlineLayout) {
             </header>
             <ul class="top-events-list">
                 <li class="top-event-item" data-top-event-item="0">
-                    <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
-                    <p class="top-event-meta"></p>
+                    <a
+                        class="top-event-link"
+                        href="<?= $this->href('icingadb/history') ?>"
+                        data-base-target="_main"
+                    >
+                        <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
+                        <p class="top-event-meta"></p>
+                    </a>
                 </li>
                 <li class="top-event-item" data-top-event-item="1">
-                    <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
-                    <p class="top-event-meta"></p>
+                    <a
+                        class="top-event-link"
+                        href="<?= $this->href('icingadb/history') ?>"
+                        data-base-target="_main"
+                    >
+                        <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
+                        <p class="top-event-meta"></p>
+                    </a>
                 </li>
             </ul>
         </section>

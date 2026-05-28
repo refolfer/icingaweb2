@@ -809,6 +809,24 @@
         return String(value || '').replace(/\s+/g, ' ').trim();
     }
 
+    function normalizeTopEventUrl(url) {
+        var value = String(url || '').trim();
+
+        if (! value.length || value === '#') {
+            return '';
+        }
+
+        if (/^javascript:/i.test(value)) {
+            return '';
+        }
+
+        try {
+            return new URL(value, getTopEventsHistoryUrl()).toString();
+        } catch (error) {
+            return '';
+        }
+    }
+
     function pickEventBlocks(doc) {
         var root = doc.querySelector('#col1 .content') || doc.querySelector('.content') || doc.body;
         if (! root) {
@@ -826,12 +844,36 @@
         return blocks.slice(0, 24);
     }
 
+    function extractEventUrl(block, titleEl) {
+        var candidate = null;
+        var anchors;
+        var i;
+
+        if (titleEl && titleEl.tagName && titleEl.tagName.toLowerCase() === 'a') {
+            candidate = normalizeTopEventUrl(titleEl.getAttribute('href'));
+            if (candidate) {
+                return candidate;
+            }
+        }
+
+        anchors = block.querySelectorAll('a[href]');
+        for (i = 0; i < anchors.length; i++) {
+            candidate = normalizeTopEventUrl(anchors[i].getAttribute('href'));
+            if (candidate) {
+                return candidate;
+            }
+        }
+
+        return normalizeTopEventUrl(getTopEventsHistoryUrl());
+    }
+
     function extractEvent(block) {
         var titleEl = block.querySelector('h1, h2, h3, h4, a, strong, .subject, .title');
         var title = normalizeText(titleEl ? titleEl.textContent : '');
         var text = normalizeText(block.textContent);
         var metaParts = [];
         var state = extractEventState(block, text);
+        var url = extractEventUrl(block, titleEl);
 
         if (! title.length && text.length) {
             title = text.split(/ [|-] /)[0];
@@ -858,7 +900,8 @@
             title: title.slice(0, 220),
             meta: metaParts.join(' • ').slice(0, 220),
             state: state.state,
-            handled: state.handled
+            handled: state.handled,
+            url: url
         };
     }
 
@@ -973,7 +1016,7 @@
                 continue;
             }
 
-            var signature = event.title + '|' + event.meta + '|' + event.state + '|' + String(event.handled);
+            var signature = event.title + '|' + event.meta + '|' + event.state + '|' + String(event.handled) + '|' + event.url;
             if (signatures[signature]) {
                 continue;
             }
@@ -997,9 +1040,11 @@
             var item = items[i] || null;
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
+            var linkEl = slots[i].querySelector('.top-event-link');
             var stateClass;
+            var url = normalizeTopEventUrl(getTopEventsHistoryUrl());
 
-            if (! titleEl || ! metaEl) {
+            if (! titleEl || ! metaEl || ! linkEl) {
                 continue;
             }
 
@@ -1007,10 +1052,16 @@
                 slots[i].classList.remove(className);
             });
             slots[i].removeAttribute('data-event-state');
+            slots[i].removeAttribute('data-event-url');
 
             if (item) {
                 titleEl.textContent = item.title;
                 metaEl.textContent = item.meta || '—';
+                url = normalizeTopEventUrl(item.url) || normalizeTopEventUrl(getTopEventsHistoryUrl());
+                if (url) {
+                    linkEl.setAttribute('href', url);
+                    slots[i].setAttribute('data-event-url', url);
+                }
                 if (item.state) {
                     stateClass = 'top-event-state-' + item.state;
                     slots[i].classList.add(stateClass);
@@ -1023,6 +1074,9 @@
             } else {
                 titleEl.textContent = '—';
                 metaEl.textContent = '';
+                if (url) {
+                    linkEl.setAttribute('href', url);
+                }
             }
         }
     }
@@ -1071,7 +1125,7 @@
                 }
 
                 var signature = items.map(function (item) {
-                    return item.title + '|' + item.meta + '|' + item.state + '|' + String(item.handled);
+                    return item.title + '|' + item.meta + '|' + item.state + '|' + String(item.handled) + '|' + item.url;
                 }).join('||');
 
                 if (forceRender || signature !== topEventsState.lastSignature) {
