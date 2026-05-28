@@ -128,6 +128,7 @@ class LayoutController extends ActionController
         Session::getSession()->user->setPreferences($preferences);
 
         if (($store = $this->createPreferencesStore()) !== null) {
+            $store->load();
             $store->save($preferences);
         }
     }
