@@ -1,6 +1,7 @@
 application/layouts/scripts/layout.phtml
 application/layouts/scripts/body.phtml
 application/layouts/scripts/parts/navigation.phtml
+application/controllers/LayoutController.php
 application/views/scripts/dashboard/index.phtml
 application/views/scripts/layout/menu.phtml
 application/views/scripts/search/index.phtml
