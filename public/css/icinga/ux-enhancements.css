@@ -771,6 +771,8 @@ body.modal-open {
   border-radius: 0.35em;
   background: var(--body-bg-color, #1f2730);
   box-shadow: 0 0.8em 1.9em rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
 }
 
 .quick-notebook-header {
@@ -784,6 +786,8 @@ body.modal-open {
   padding: 0.42em 0.65em;
   background: rgba(0, 0, 0, 0.25);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: move;
+  user-select: none;
 }
 
 .quick-notebook-header h3 {
@@ -793,6 +797,10 @@ body.modal-open {
 
 .quick-notebook-body {
   padding: 0.55em 0.65em 0.65em;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .quick-notebook-input,
@@ -801,10 +809,15 @@ body.modal-open {
   box-sizing: border-box;
 }
 
+.quick-notebook-input {
+  resize: none;
+}
+
 .quick-notebook-content {
-  min-height: 10em;
+  min-height: 0;
+  flex: 1 1 auto;
   margin-top: 0.45em;
-  resize: vertical;
+  resize: none;
 }
 
 .quick-notebook-actions {
