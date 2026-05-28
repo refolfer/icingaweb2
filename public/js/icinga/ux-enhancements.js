@@ -827,6 +827,37 @@
         }
     }
 
+    function getTopEventDetailsUrlById(eventId) {
+        var baseUrl = getBaseUrl();
+        var cleanId = String(eventId || '').trim();
+
+        if (! /^[a-f0-9]{40}$/i.test(cleanId)) {
+            return '';
+        }
+
+        return (baseUrl ? (baseUrl + '/') : '/') + 'icingadb/event?id=' + encodeURIComponent(cleanId);
+    }
+
+    function extractEventIdFromText(text) {
+        var source = String(text || '');
+        var match = source.match(/[?&]id=([a-f0-9]{40})\b/i);
+
+        if (! match) {
+            match = source.match(/\b(?:event-id|event_id|data-event-id)\b[^a-f0-9]{0,30}([a-f0-9]{40})\b/i);
+        }
+
+        if (! match) {
+            match = source.match(/\bid=["']?event[-_]?([a-f0-9]{40})\b/i);
+        }
+
+        return match ? match[1] : '';
+    }
+
+    function isTopEventDetailsUrl(url) {
+        var value = String(url || '');
+        return /\/icingadb\/event\b/i.test(value) && /[?&]id=[a-f0-9]{40}\b/i.test(value);
+    }
+
     function pickEventBlocks(doc) {
         var root = doc.querySelector('#col1 .content') || doc.querySelector('.content') || doc.body;
         if (! root) {
@@ -847,10 +878,52 @@
     function extractEventUrl(block, titleEl) {
         var candidate = null;
         var anchors;
+        var detailsAnchors;
+        var attrNames = ['data-event-id', 'data-id', 'id', 'data-href', 'data-url', 'data-action-url'];
+        var attrValue;
+        var eventId;
         var i;
+
+        detailsAnchors = block.querySelectorAll('a[href*="/icingadb/event"], a[href*="event?id="]');
+        for (i = 0; i < detailsAnchors.length; i++) {
+            candidate = normalizeTopEventUrl(detailsAnchors[i].getAttribute('href'));
+            if (candidate && isTopEventDetailsUrl(candidate)) {
+                return candidate;
+            }
+        }
 
         if (titleEl && titleEl.tagName && titleEl.tagName.toLowerCase() === 'a') {
             candidate = normalizeTopEventUrl(titleEl.getAttribute('href'));
+            if (candidate) {
+                if (isTopEventDetailsUrl(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+
+        for (i = 0; i < attrNames.length; i++) {
+            attrValue = block.getAttribute(attrNames[i]);
+            if (! attrValue) {
+                continue;
+            }
+
+            candidate = normalizeTopEventUrl(attrValue);
+            if (candidate && isTopEventDetailsUrl(candidate)) {
+                return candidate;
+            }
+
+            eventId = extractEventIdFromText(attrValue);
+            if (eventId) {
+                candidate = getTopEventDetailsUrlById(eventId);
+                if (candidate) {
+                    return candidate;
+                }
+            }
+        }
+
+        eventId = extractEventIdFromText(block.outerHTML);
+        if (eventId) {
+            candidate = getTopEventDetailsUrlById(eventId);
             if (candidate) {
                 return candidate;
             }
@@ -860,6 +933,11 @@
         for (i = 0; i < anchors.length; i++) {
             candidate = normalizeTopEventUrl(anchors[i].getAttribute('href'));
             if (candidate) {
+                if (isTopEventDetailsUrl(candidate)) {
+                    return candidate;
+                }
+
+                // Keep a non-details fallback only if details URL cannot be derived
                 return candidate;
             }
         }
