@@ -780,6 +780,10 @@ body.modal-open {
   flex-direction: column;
 }
 
+.quick-notebook-float[hidden] {
+  display: none !important;
+}
+
 .quick-notebook-header {
   position: sticky;
   top: 0;

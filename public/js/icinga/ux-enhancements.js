@@ -1976,7 +1976,7 @@
 
         title = root.dataset.title || 'Quick Menu';
         linksLabel = root.dataset.linksLabel || 'Links';
-        noteToggleLabel = root.dataset.noteLabel || 'Notebook';
+        noteToggleLabel = root.dataset.noteToggleLabel || 'Notebook';
         emptyLabel = root.dataset.emptyLabel || 'No quick links yet.';
         validItems = normalizeQuickMenuItems(quickMenuState.items);
         count = validItems.length;
@@ -2033,7 +2033,7 @@
             return;
         }
 
-        button.textContent = root.dataset.noteLabel || 'Notebook';
+        button.textContent = root.dataset.noteToggleLabel || 'Notebook';
         button.classList.toggle('active', quickNotebookState.visible);
     }
 
@@ -2240,6 +2240,7 @@
         var title;
         var placeholder;
         var addLabel;
+        var saveLabel;
         var clearLabel;
 
         if (! root) {
@@ -2257,6 +2258,7 @@
         title = root.dataset.noteLabel || 'Personal Notebook';
         placeholder = root.dataset.notePlaceholder || 'Type note content...';
         addLabel = root.dataset.noteAddLabel || 'Add Entry';
+        saveLabel = root.dataset.noteSaveLabel || 'Save Notebook';
         clearLabel = root.dataset.noteClearLabel || 'Clear Notebook';
 
         notebook.innerHTML = ''
@@ -2269,10 +2271,11 @@
             + '"></textarea>'
             + '<div class="quick-notebook-actions">'
             + '<button type="button" data-qn-add>' + escapeHtml(addLabel) + '</button>'
+            + '<button type="button" data-qn-save>' + escapeHtml(saveLabel) + '</button>'
             + '<button type="button" data-qn-clear>' + escapeHtml(clearLabel) + '</button>'
             + '<span class="quick-notebook-status" data-qn-status></span>'
             + '</div>'
-            + '<textarea class="quick-notebook-content" data-qn-content rows="10" readonly></textarea>'
+            + '<textarea class="quick-notebook-content" data-qn-content rows="10"></textarea>'
             + '</div>';
 
         {
@@ -2460,6 +2463,7 @@
         var removeRow = event.target.closest('[data-qm-remove]');
         var addLink = event.target.closest('[data-qm-add-link]');
         var qnAdd = event.target.closest('[data-qn-add]');
+        var qnSave = event.target.closest('[data-qn-save]');
         var qnClear = event.target.closest('[data-qn-clear]');
         if (action) {
             var input = getSearchInput();
@@ -2528,6 +2532,15 @@
             return;
         }
 
+        if (qnSave) {
+            var content = document.querySelector('[data-qn-content]');
+            event.preventDefault();
+            quickMenuState.note = content ? String(content.value || '') : quickMenuState.note;
+            updateQuickNotebookStatus('', false);
+            saveQuickMenuState();
+            return;
+        }
+
         if (qnClear) {
             event.preventDefault();
             quickMenuState.note = '';
@@ -2564,6 +2577,12 @@
         }
 
         if (event.target.matches('[data-qn-input]')) {
+            updateQuickNotebookStatus('', false);
+            return;
+        }
+
+        if (event.target.matches('[data-qn-content]')) {
+            quickMenuState.note = String(event.target.value || '');
             updateQuickNotebookStatus('', false);
         }
     }
