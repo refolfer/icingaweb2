@@ -1979,9 +1979,8 @@
         count = validItems.length;
 
         if (count) {
-            linksHtml = '<ul class="quick-menu-links-list">'
-                + validItems.map(function (entry, index) {
-                    return '<li class="quick-menu-link-item">'
+            linksHtml = validItems.map(function (entry, index) {
+                    return '<li class="nav-item quick-menu-link-item">'
                         + '<a href="' + escapeHtml(entry.url) + '" class="quick-menu-link">'
                         + escapeHtml(entry.label)
                         + '</a>'
@@ -1989,29 +1988,34 @@
                         + String(index)
                         + '" title="Remove">×</button>'
                         + '</li>';
-                }).join('')
-                + '</ul>';
+                }).join('');
         } else {
-            linksHtml = '<p class="quick-menu-empty">' + escapeHtml(emptyLabel) + '</p>';
+            linksHtml = '<li class="nav-item quick-menu-empty-item">'
+                + '<span class="quick-menu-empty">' + escapeHtml(emptyLabel) + '</span>'
+                + '</li>';
         }
 
         root.innerHTML = ''
-            + '<details class="quick-menu-panel" open>'
-            + '<summary class="quick-menu-summary">'
+            + '<nav class="quick-menu-panel">'
+            + '<ul class="nav-level-1">'
+            + '<li class="nav-item active quick-menu-nav-item">'
+            + '<a href="#" data-qm-toggle-note class="quick-menu-title-link">'
+            + '<i class="icon icon-info-circled" aria-hidden="true"></i>'
             + '<span class="quick-menu-title">' + escapeHtml(title) + '</span>'
-            + '<span class="quick-menu-count">' + String(count) + '</span>'
-            + '</summary>'
-            + '<div class="quick-menu-content">'
-            + '<p class="quick-menu-label">' + escapeHtml(linksLabel) + '</p>'
+            + '<span class="badge quick-menu-count">' + String(count) + '</span>'
+            + '</a>'
+            + '<ul class="nav-level-2 quick-menu-links-list">'
             + linksHtml
-            + '<div class="quick-menu-actions">'
-            + '<button type="button" data-qm-toggle-note class="quick-menu-note-toggle">'
+            + '<li class="nav-item quick-menu-notebook-item">'
+            + '<a href="#" data-qm-toggle-note class="quick-menu-note-toggle">'
             + escapeHtml(noteToggleLabel)
-            + '</button>'
-            + '<span class="quick-menu-status" data-qm-status></span>'
-            + '</div>'
-            + '</div>'
-            + '</details>';
+            + '</a>'
+            + '</li>'
+            + '<li class="nav-item quick-menu-status-item"><span class="quick-menu-status" data-qm-status></span></li>'
+            + '</ul>'
+            + '</li>'
+            + '</ul>'
+            + '</nav>';
     }
 
     function updateQuickMenuNotebookToggleLabel() {
