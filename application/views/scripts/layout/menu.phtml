@@ -2,9 +2,13 @@
 
 use Icinga\Web\Navigation\ConfigMenu;
 use Icinga\Web\Widget\SearchDashboard;
+use Icinga\Util\Json;
 
 $searchDashboard = new SearchDashboard();
 $searchDashboard->setUser($this->Auth()->getUser());
+$quickMenu = $this->quickMenu ?? ['items' => [], 'note' => ''];
+$quickMenuItemsJson = Json::sanitize($quickMenu['items'] ?? []);
+$quickMenuNote = (string) ($quickMenu['note'] ?? '');
 
 if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     <form action="<?= $this->href('search') ?>" method="get" role="search" class="search-control">
@@ -30,6 +34,24 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     </div>
 <?php endif; ?>
 <?= $menuRenderer->setCssClass('primary-nav')->setElementTag('nav')->setHeading(t('Navigation')); ?>
+<section
+    id="quick-menu-root"
+    class="quick-menu-root"
+    data-quick-menu
+    data-api-url="<?= $this->href('layout/quickmenu') ?>"
+    data-items-json="<?= $this->escape($quickMenuItemsJson) ?>"
+    data-note="<?= $this->escape($quickMenuNote) ?>"
+    data-title="<?= $this->escape($this->translate('Quick Menu')) ?>"
+    data-empty-label="<?= $this->escape($this->translate('No quick links yet. Right-click any link to add it.')) ?>"
+    data-links-label="<?= $this->escape($this->translate('Links')) ?>"
+    data-note-label="<?= $this->escape($this->translate('Personal Notebook')) ?>"
+    data-save-label="<?= $this->escape($this->translate('Save')) ?>"
+    data-add-row-label="<?= $this->escape($this->translate('Add Row')) ?>"
+    data-context-add-label="<?= $this->escape($this->translate('Add to Quick Menu')) ?>"
+    data-status-saved="<?= $this->escape($this->translate('Saved')) ?>"
+    data-status-saving="<?= $this->escape($this->translate('Saving...')) ?>"
+    data-status-error="<?= $this->escape($this->translate('Unable to save')) ?>"
+></section>
 <nav class="config-menu">
     <?= new ConfigMenu() ?>
 </nav>

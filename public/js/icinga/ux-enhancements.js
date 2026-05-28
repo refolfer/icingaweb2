@@ -52,6 +52,17 @@
         pollingTimer: null,
         inFlight: false
     };
+    var quickMenuState = {
+        initialized: false,
+        apiUrl: '',
+        items: [],
+        note: '',
+        saveTimer: null,
+        inFlight: false
+    };
+    var quickMenuContextState = {
+        anchor: null
+    };
 
     function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -1784,10 +1795,395 @@
         window.setTimeout(renderRecentSearches, 0);
     }
 
+    function getQuickMenuRoot() {
+        return document.querySelector('[data-quick-menu]');
+    }
+
+    function parseQuickMenuItems(raw) {
+        try {
+            var parsed = JSON.parse(raw || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function normalizeQuickMenuUrl(url) {
+        var cleaned = String(url || '').trim();
+        var parsed;
+
+        if (! cleaned.length) {
+            return '';
+        }
+
+        if (/^(javascript|data|vbscript):/i.test(cleaned)) {
+            return '';
+        }
+
+        try {
+            parsed = new URL(cleaned, window.location.href);
+        } catch (error) {
+            return '';
+        }
+
+        if (parsed.origin !== window.location.origin) {
+            return '';
+        }
+
+        return parsed.pathname + parsed.search + parsed.hash;
+    }
+
+    function normalizeQuickMenuItem(item) {
+        var label = String(item && item.label ? item.label : '').trim();
+        var url = normalizeQuickMenuUrl(item && item.url ? item.url : '');
+
+        if (! label.length || ! url.length) {
+            return null;
+        }
+
+        return {
+            label: label.slice(0, 120),
+            url: url
+        };
+    }
+
+    function normalizeQuickMenuItems(items) {
+        var unique = Object.create(null);
+        var normalized = [];
+        var i;
+        var item;
+
+        for (i = 0; i < items.length; i++) {
+            item = normalizeQuickMenuItem(items[i]);
+            if (! item) {
+                continue;
+            }
+
+            if (unique[item.url]) {
+                continue;
+            }
+
+            unique[item.url] = true;
+            normalized.push(item);
+
+            if (normalized.length >= 40) {
+                break;
+            }
+        }
+
+        return normalized;
+    }
+
+    function renderQuickMenuStatus(state) {
+        var status = document.querySelector('[data-qm-status]');
+        var root = getQuickMenuRoot();
+
+        if (! status || ! root) {
+            return;
+        }
+
+        if (state === 'saving') {
+            status.textContent = root.dataset.statusSaving || 'Saving...';
+            status.classList.add('is-busy');
+            status.classList.remove('is-error');
+            return;
+        }
+
+        if (state === 'saved') {
+            status.textContent = root.dataset.statusSaved || 'Saved';
+            status.classList.remove('is-busy', 'is-error');
+            return;
+        }
+
+        if (state === 'error') {
+            status.textContent = root.dataset.statusError || 'Unable to save';
+            status.classList.remove('is-busy');
+            status.classList.add('is-error');
+            return;
+        }
+
+        status.textContent = '';
+        status.classList.remove('is-busy', 'is-error');
+    }
+
+    function renderQuickMenu() {
+        var root = getQuickMenuRoot();
+        var title;
+        var linksLabel;
+        var noteLabel;
+        var addRowLabel;
+        var saveLabel;
+        var emptyLabel;
+        var validItems;
+        var linksHtml = '';
+        var editorHtml = '';
+        var i;
+        var item;
+        var count;
+
+        if (! root) {
+            return;
+        }
+
+        title = root.dataset.title || 'Quick Menu';
+        linksLabel = root.dataset.linksLabel || 'Links';
+        noteLabel = root.dataset.noteLabel || 'Personal Notebook';
+        addRowLabel = root.dataset.addRowLabel || 'Add Row';
+        saveLabel = root.dataset.saveLabel || 'Save';
+        emptyLabel = root.dataset.emptyLabel || 'No quick links yet.';
+        validItems = normalizeQuickMenuItems(quickMenuState.items);
+        count = validItems.length;
+
+        if (count) {
+            linksHtml = '<ul class="quick-menu-links-list">'
+                + validItems.map(function (entry) {
+                    return '<li><a href="' + escapeHtml(entry.url) + '" class="quick-menu-link">'
+                        + escapeHtml(entry.label)
+                        + '</a></li>';
+                }).join('')
+                + '</ul>';
+        } else {
+            linksHtml = '<p class="quick-menu-empty">' + escapeHtml(emptyLabel) + '</p>';
+        }
+
+        for (i = 0; i < quickMenuState.items.length; i++) {
+            item = quickMenuState.items[i];
+            editorHtml += ''
+                + '<div class="quick-menu-row" data-qm-row data-index="' + String(i) + '">'
+                + '<input type="text" class="quick-menu-input" data-qm-label value="' + escapeHtml(item.label) + '"'
+                + ' placeholder="Label">'
+                + '<input type="text" class="quick-menu-input" data-qm-url value="' + escapeHtml(item.url) + '"'
+                + ' placeholder="/path?filter=value">'
+                + '<button type="button" class="quick-menu-remove" data-qm-remove title="Remove">×</button>'
+                + '</div>';
+        }
+
+        root.innerHTML = ''
+            + '<details class="quick-menu-panel">'
+            + '<summary class="quick-menu-summary">'
+            + '<span class="quick-menu-title">' + escapeHtml(title) + '</span>'
+            + '<span class="quick-menu-count">' + String(count) + '</span>'
+            + '</summary>'
+            + '<div class="quick-menu-content">'
+            + '<p class="quick-menu-label">' + escapeHtml(linksLabel) + '</p>'
+            + linksHtml
+            + '<div class="quick-menu-editor" data-qm-editor>' + editorHtml + '</div>'
+            + '<div class="quick-menu-actions">'
+            + '<button type="button" data-qm-add-row>' + escapeHtml(addRowLabel) + '</button>'
+            + '<button type="button" data-qm-save class="spinner">' + escapeHtml(saveLabel) + '</button>'
+            + '<span class="quick-menu-status" data-qm-status></span>'
+            + '</div>'
+            + '<label class="quick-menu-label quick-menu-note-label">' + escapeHtml(noteLabel) + '</label>'
+            + '<textarea data-qm-note class="quick-menu-note" rows="6"></textarea>'
+            + '</div>'
+            + '</details>';
+
+        {
+            var note = root.querySelector('[data-qm-note]');
+            if (note) {
+                note.value = quickMenuState.note;
+            }
+        }
+    }
+
+    function syncQuickMenuStateFromEditor() {
+        var rows = document.querySelectorAll('[data-qm-row]');
+        var items = [];
+
+        rows.forEach(function (row) {
+            var label = row.querySelector('[data-qm-label]');
+            var url = row.querySelector('[data-qm-url]');
+            var normalized = normalizeQuickMenuItem({
+                label: label ? label.value : '',
+                url: url ? url.value : ''
+            });
+
+            if (normalized) {
+                items.push(normalized);
+            }
+        });
+
+        quickMenuState.items = normalizeQuickMenuItems(items);
+    }
+
+    function saveQuickMenuState() {
+        var payload;
+        var body;
+
+        if (! quickMenuState.apiUrl || quickMenuState.inFlight) {
+            return;
+        }
+
+        quickMenuState.inFlight = true;
+        renderQuickMenuStatus('saving');
+
+        payload = {
+            items: quickMenuState.items,
+            note: quickMenuState.note
+        };
+
+        body = new URLSearchParams();
+        body.set('items', JSON.stringify(payload.items));
+        body.set('note', payload.note);
+
+        fetch(quickMenuState.apiUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+            },
+            body: body.toString()
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Request failed');
+                }
+
+                return response.json();
+            })
+            .then(function (result) {
+                quickMenuState.items = normalizeQuickMenuItems(result.items || []);
+                quickMenuState.note = String(result.note || '');
+                renderQuickMenu();
+                renderQuickMenuStatus('saved');
+            })
+            .catch(function () {
+                renderQuickMenuStatus('error');
+            })
+            .then(function () {
+                quickMenuState.inFlight = false;
+            }, function () {
+                quickMenuState.inFlight = false;
+            });
+    }
+
+    function scheduleQuickMenuSave(delay) {
+        if (quickMenuState.saveTimer !== null) {
+            window.clearTimeout(quickMenuState.saveTimer);
+            quickMenuState.saveTimer = null;
+        }
+
+        quickMenuState.saveTimer = window.setTimeout(function () {
+            quickMenuState.saveTimer = null;
+            saveQuickMenuState();
+        }, typeof delay === 'number' ? delay : 250);
+    }
+
+    function addQuickMenuItem(item) {
+        var normalized = normalizeQuickMenuItem(item);
+        if (! normalized) {
+            return;
+        }
+
+        quickMenuState.items = normalizeQuickMenuItems([normalized].concat(quickMenuState.items));
+        renderQuickMenu();
+        scheduleQuickMenuSave(0);
+    }
+
+    function resolveContextMenuAnchor(target) {
+        var anchor = target && target.closest ? target.closest('a[href]') : null;
+        var href;
+
+        if (! anchor || anchor.closest('[data-quick-menu-context]')) {
+            return null;
+        }
+
+        href = normalizeQuickMenuUrl(anchor.getAttribute('href') || anchor.href || '');
+        if (! href.length) {
+            return null;
+        }
+
+        return anchor;
+    }
+
+    function getQuickMenuContextMenu() {
+        var existing = document.querySelector('[data-quick-menu-context]');
+        var root;
+        var addLabel;
+
+        if (existing) {
+            return existing;
+        }
+
+        root = getQuickMenuRoot();
+        addLabel = root ? (root.dataset.contextAddLabel || 'Add To Quick Menu') : 'Add To Quick Menu';
+
+        existing = document.createElement('div');
+        existing.className = 'quick-menu-context';
+        existing.setAttribute('data-quick-menu-context', '');
+        existing.hidden = true;
+        existing.innerHTML = ''
+            + '<button type="button" data-qm-add-link>' + escapeHtml(addLabel) + '</button>';
+        document.body.appendChild(existing);
+
+        return existing;
+    }
+
+    function hideQuickMenuContextMenu() {
+        var menu = document.querySelector('[data-quick-menu-context]');
+        if (! menu) {
+            return;
+        }
+
+        menu.hidden = true;
+        quickMenuContextState.anchor = null;
+    }
+
+    function showQuickMenuContextMenu(x, y, anchor) {
+        var menu = getQuickMenuContextMenu();
+        var maxLeft;
+        var maxTop;
+
+        quickMenuContextState.anchor = anchor;
+
+        menu.hidden = false;
+        menu.style.left = '0px';
+        menu.style.top = '0px';
+
+        maxLeft = Math.max(0, window.innerWidth - menu.offsetWidth - 8);
+        maxTop = Math.max(0, window.innerHeight - menu.offsetHeight - 8);
+        menu.style.left = String(Math.min(x, maxLeft)) + 'px';
+        menu.style.top = String(Math.min(y, maxTop)) + 'px';
+    }
+
+    function onContextMenu(event) {
+        var anchor = resolveContextMenuAnchor(event.target);
+
+        if (! anchor) {
+            hideQuickMenuContextMenu();
+            return;
+        }
+
+        event.preventDefault();
+        showQuickMenuContextMenu(event.clientX, event.clientY, anchor);
+    }
+
+    function initQuickMenu() {
+        var root = getQuickMenuRoot();
+
+        if (! root) {
+            return;
+        }
+
+        quickMenuState.apiUrl = root.dataset.apiUrl || '';
+
+        if (! quickMenuState.initialized) {
+            quickMenuState.items = normalizeQuickMenuItems(parseQuickMenuItems(root.dataset.itemsJson || '[]'));
+            quickMenuState.note = String(root.dataset.note || '');
+            quickMenuState.initialized = true;
+        }
+
+        renderQuickMenu();
+    }
+
     function onClick(event) {
         var action = event.target.closest('.search-history-action');
         var close = event.target.closest('[data-close-shortcuts]');
         var open = event.target.closest('[data-open-shortcuts]');
+        var addRow = event.target.closest('[data-qm-add-row]');
+        var removeRow = event.target.closest('[data-qm-remove]');
+        var saveQuickMenu = event.target.closest('[data-qm-save]');
+        var addLink = event.target.closest('[data-qm-add-link]');
         if (action) {
             var input = getSearchInput();
             var query = action.getAttribute('data-search-query') || '';
@@ -1813,11 +2209,72 @@
         if (close) {
             event.preventDefault();
             closeShortcutsDialog();
+            return;
+        }
+
+        if (addRow) {
+            event.preventDefault();
+            quickMenuState.items.push({
+                label: '',
+                url: ''
+            });
+            renderQuickMenu();
+            return;
+        }
+
+        if (removeRow) {
+            var row = removeRow.closest('[data-qm-row]');
+            var idx = row ? parseInt(row.getAttribute('data-index') || '-1', 10) : -1;
+            if (idx >= 0 && idx < quickMenuState.items.length) {
+                quickMenuState.items.splice(idx, 1);
+                renderQuickMenu();
+                renderQuickMenuStatus('');
+            }
+
+            return;
+        }
+
+        if (saveQuickMenu) {
+            event.preventDefault();
+            syncQuickMenuStateFromEditor();
+            var note = document.querySelector('[data-qm-note]');
+            quickMenuState.note = note ? String(note.value || '') : quickMenuState.note;
+            saveQuickMenuState();
+            return;
+        }
+
+        if (addLink) {
+            event.preventDefault();
+            if (quickMenuContextState.anchor) {
+                addQuickMenuItem({
+                    label: quickMenuContextState.anchor.textContent || quickMenuContextState.anchor.title || 'Link',
+                    url: quickMenuContextState.anchor.getAttribute('href') || quickMenuContextState.anchor.href || ''
+                });
+            }
+
+            hideQuickMenuContextMenu();
+            return;
+        }
+
+        if (! event.target.closest('[data-quick-menu-context]')) {
+            hideQuickMenuContextMenu();
+        }
+    }
+
+    function onInput(event) {
+        if (event.target.matches('[data-qm-label], [data-qm-url]')) {
+            renderQuickMenuStatus('');
+            return;
+        }
+
+        if (event.target.matches('[data-qm-note]')) {
+            quickMenuState.note = String(event.target.value || '');
+            renderQuickMenuStatus('');
         }
     }
 
     function escapeHtml(value) {
-        return value
+        return String(value)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -1827,10 +2284,19 @@
 
     document.addEventListener('submit', onSubmit, true);
     document.addEventListener('click', onClick);
+    document.addEventListener('input', onInput);
+    document.addEventListener('contextmenu', onContextMenu);
     document.addEventListener('keydown', handleGlobalShortcuts);
     document.addEventListener('keydown', trapDialogFocus);
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            hideQuickMenuContextMenu();
+        }
+    });
+    document.addEventListener('scroll', hideQuickMenuContextMenu, true);
     document.addEventListener('DOMContentLoaded', function () {
         renderRecentSearches();
+        initQuickMenu();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
@@ -1840,11 +2306,13 @@
     if (typeof window.jQuery !== 'undefined') {
         window.jQuery(document).on('rendered', '#menu', function () {
             renderRecentSearches();
+            initQuickMenu();
             refreshTacticalOverview(false);
             refreshTopEvents(false);
         });
     }
 
     renderRecentSearches();
+    initQuickMenu();
     refreshTacticalOverview(true);
 })();
