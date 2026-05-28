@@ -606,8 +606,28 @@ body.modal-open {
   background-color: transparent;
 }
 
+#layout:not(.minimal-layout) #menu .nav-level-1 > .quick-menu-nav-item.hover > .nav-level-2,
+#layout:not(.minimal-layout).sidebar-collapsed #menu .nav-level-1 > .quick-menu-nav-item.hover > .nav-level-2 {
+  position: static !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 #layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item::after {
-  display: none;
+  display: none !important;
+  content: none !important;
+}
+
+#layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item > a.quick-menu-title-link::after,
+#layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item > .nav-level-2::after,
+#layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item > .nav-level-2 > .nav-item::after {
+  display: none !important;
+  content: none !important;
 }
 
 #layout:not(.sidebar-collapsed) #menu .quick-menu-nav-item > a.quick-menu-title-link {
@@ -693,6 +713,13 @@ body.modal-open {
 }
 
 .quick-notebook-float {
+  --quick-note-bg: #111827;
+  --quick-note-panel: #1c2635;
+  --quick-note-panel-strong: #263449;
+  --quick-note-text: #f4f8ff;
+  --quick-note-muted: #b9c8dc;
+  --quick-note-border: rgba(148, 178, 214, 0.38);
+  --quick-note-focus: #4bb7ff;
   position: fixed;
   right: 1rem;
   bottom: 1rem;
@@ -704,9 +731,10 @@ body.modal-open {
   resize: both;
   overflow: auto;
   z-index: 30000;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--quick-note-text);
+  border: 1px solid var(--quick-note-border);
   border-radius: 0.35em;
-  background: var(--body-bg-color, #1f2730);
+  background: var(--quick-note-bg);
   box-shadow: 0 0.8em 1.9em rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
@@ -725,8 +753,9 @@ body.modal-open {
   justify-content: space-between;
   margin: 0;
   padding: 0.42em 0.65em;
-  background: rgba(0, 0, 0, 0.25);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--quick-note-text);
+  background: var(--quick-note-panel-strong);
+  border-bottom: 1px solid var(--quick-note-border);
   cursor: move;
   user-select: none;
 }
@@ -748,6 +777,24 @@ body.modal-open {
 .quick-notebook-content {
   width: 100%;
   box-sizing: border-box;
+  color: var(--quick-note-text);
+  background: var(--quick-note-panel);
+  border: 1px solid var(--quick-note-border);
+  border-radius: 0.25em;
+  caret-color: var(--quick-note-focus);
+}
+
+.quick-notebook-input::placeholder,
+.quick-notebook-content::placeholder {
+  color: var(--quick-note-muted);
+  opacity: 1;
+}
+
+.quick-notebook-input:focus,
+.quick-notebook-content:focus {
+  border-color: var(--quick-note-focus);
+  box-shadow: 0 0 0 0.15em rgba(75, 183, 255, 0.18);
+  outline: none;
 }
 
 .quick-notebook-input {
@@ -769,21 +816,23 @@ body.modal-open {
 }
 
 .quick-notebook-actions button {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
+  border: 1px solid var(--quick-note-border);
+  background: var(--quick-note-panel-strong);
+  color: var(--quick-note-text);
   border-radius: 0.2em;
   min-height: 2em;
   padding: 0.18em 0.5em;
 }
 
-.quick-notebook-actions button:hover {
-  background: rgba(255, 255, 255, 0.13);
+.quick-notebook-actions button:hover,
+.quick-notebook-actions button:focus-visible {
+  background: #314761;
+  border-color: var(--quick-note-focus);
 }
 
 .quick-notebook-status {
   font-size: 0.82em;
-  opacity: 0.86;
+  color: var(--quick-note-muted);
 }
 
 .quick-notebook-status.is-error {
