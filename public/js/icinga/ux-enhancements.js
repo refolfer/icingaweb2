@@ -10,6 +10,8 @@
     var TOP_WIDGET_MIN_HEIGHT = 120;
     var TOP_WIDGET_MAX_HEIGHT = 340;
     var TOP_EVENTS_REFRESH_MS = 15000;
+    var TOP_EVENTS_ERROR_BACKOFF_MS = 120000;
+    var TOP_EVENTS_ERROR_BACKOFF_MAX_MS = 600000;
     var TACTICAL_REFRESH_MS = 10000;
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -45,7 +47,9 @@
     var topEventsState = {
         lastSignature: '',
         pollingTimer: null,
-        inFlight: false
+        inFlight: false,
+        consecutiveErrors: 0,
+        retryAt: 0
     };
     var tacticalState = {
         lastSignature: '',
@@ -834,35 +838,6 @@
         }
     }
 
-    function getTopEventsJsonUrl() {
-        var url;
-
-        try {
-            url = new URL(getTopEventsHistoryUrl(), window.location.href);
-            url.searchParams.set('format', 'json');
-            url.searchParams.set('view', 'detailed');
-            url.searchParams.set('limit', '2');
-            url.searchParams.set('columns', 'id');
-            return url.toString();
-        } catch (error) {
-            return getTopEventsHistoryUrl();
-        }
-    }
-
-    function getTopEventsJsonFallbackUrl() {
-        var url;
-
-        try {
-            url = new URL(getTopEventsHistoryUrl(), window.location.href);
-            url.searchParams.set('format', 'json');
-            url.searchParams.set('view', 'detailed');
-            url.searchParams.set('limit', '2');
-            return url.toString();
-        } catch (error) {
-            return getTopEventsHistoryUrl();
-        }
-    }
-
     function normalizeText(value) {
         return String(value || '').replace(/\s+/g, ' ').trim();
     }
@@ -1332,84 +1307,6 @@
         return results;
     }
 
-    function collectEventIdsFromJson(value, ids) {
-        var keys;
-        var id;
-        var i;
-
-        if (! value || ids.length >= 2) {
-            return;
-        }
-
-        if (Array.isArray(value)) {
-            for (i = 0; i < value.length && ids.length < 2; i++) {
-                collectEventIdsFromJson(value[i], ids);
-            }
-
-            return;
-        }
-
-        if (typeof value !== 'object') {
-            return;
-        }
-
-        keys = Object.keys(value);
-        for (i = 0; i < keys.length && ids.length < 2; i++) {
-            if (! /^(id|history[._-]?id|event[._-]?id)$/i.test(keys[i])) {
-                continue;
-            }
-
-            id = typeof value[keys[i]] === 'string' ? value[keys[i]] : '';
-            if (/^[a-f0-9]{40}$/i.test(id) && ids.indexOf(id) === -1) {
-                ids.push(id);
-            }
-        }
-
-        for (i = 0; i < keys.length && ids.length < 2; i++) {
-            if (/^(id|history[._-]?id|event[._-]?id)$/i.test(keys[i])) {
-                continue;
-            }
-
-            collectEventIdsFromJson(value[keys[i]], ids);
-        }
-    }
-
-    function parseLatestEventDetailUrlsFromJson(jsonText) {
-        var ids = [];
-        var data;
-
-        try {
-            data = JSON.parse(jsonText);
-        } catch (error) {
-            return [];
-        }
-
-        collectEventIdsFromJson(data, ids);
-
-        return ids.map(function (id) {
-            return getTopEventDetailsUrlById(id);
-        }).filter(Boolean);
-    }
-
-    function applyEventDetailUrlFallbacks(items, urls) {
-        if (! urls.length) {
-            return items;
-        }
-
-        return items.map(function (item, index) {
-            if (! item || isTopEventDetailsUrl(item.url)) {
-                return item;
-            }
-
-            if (! urls[index]) {
-                return item;
-            }
-
-            item.url = urls[index];
-            return item;
-        });
-    }
-
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var i;
@@ -1481,6 +1378,8 @@
     }
 
     function refreshTopEvents(forceRender) {
+        var now = Date.now();
+
         if (topEventsState.inFlight) {
             return;
         }
@@ -1489,61 +1388,26 @@
             return;
         }
 
+        if (! forceRender && topEventsState.retryAt > now) {
+            return;
+        }
+
         topEventsState.inFlight = true;
 
-        Promise.all([
-            fetch(getTopEventsRequestUrl(), {
-                method: 'GET',
-                credentials: 'same-origin',
-                cache: 'no-store'
-            }).then(function (response) {
+        fetch(getTopEventsRequestUrl(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store'
+        })
+            .then(function (response) {
                 if (! response.ok) {
                     throw new Error('Request failed with status ' + response.status);
                 }
 
                 return response.text();
-            }),
-            fetch(getTopEventsJsonUrl(), {
-                method: 'GET',
-                credentials: 'same-origin',
-                cache: 'no-store',
-                headers: {
-                    Accept: 'application/json'
-                }
-            }).then(function (response) {
-                if (! response.ok) {
-                    return '';
-                }
-
-                return response.text();
-            }).catch(function () {
-                return '';
-            }),
-            fetch(getTopEventsJsonFallbackUrl(), {
-                method: 'GET',
-                credentials: 'same-origin',
-                cache: 'no-store',
-                headers: {
-                    Accept: 'application/json'
-                }
-            }).then(function (response) {
-                if (! response.ok) {
-                    return '';
-                }
-
-                return response.text();
-            }).catch(function () {
-                return '';
             })
-        ])
-            .then(function (responses) {
-                var html = responses[0];
-                var detailUrls = parseLatestEventDetailUrlsFromJson(responses[1]);
-                if (! detailUrls.length) {
-                    detailUrls = parseLatestEventDetailUrlsFromJson(responses[2]);
-                }
-
-                var items = applyEventDetailUrlFallbacks(parseLatestEventsFromHistoryHtml(html), detailUrls);
+            .then(function (html) {
+                var items = parseLatestEventsFromHistoryHtml(html);
 
                 if (! items.length) {
                     throw new Error('No parseable event entries found');
@@ -1557,8 +1421,17 @@
                     renderTopEvents(items);
                     topEventsState.lastSignature = signature;
                 }
+
+                topEventsState.consecutiveErrors = 0;
+                topEventsState.retryAt = 0;
             })
             .catch(function () {
+                topEventsState.consecutiveErrors += 1;
+                topEventsState.retryAt = Date.now() + Math.min(
+                    TOP_EVENTS_ERROR_BACKOFF_MAX_MS,
+                    TOP_EVENTS_ERROR_BACKOFF_MS * topEventsState.consecutiveErrors
+                );
+
                 if (! topEventsState.lastSignature.length || forceRender) {
                     renderTopEventsError();
                 }
