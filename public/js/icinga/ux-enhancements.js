@@ -71,6 +71,7 @@
     var quickNotebookState = {
         initialized: false,
         visible: false,
+        dirty: false,
         drag: null
     };
 
@@ -1927,6 +1928,7 @@
     function saveQuickMenuState() {
         var payload;
         var body;
+        var savedNote;
 
         if (! quickMenuState.apiUrl || quickMenuState.inFlight) {
             return;
@@ -1939,6 +1941,7 @@
             items: quickMenuState.items,
             note: quickMenuState.note
         };
+        savedNote = payload.note;
 
         body = new URLSearchParams();
         body.set('items', JSON.stringify(payload.items));
@@ -1962,10 +1965,13 @@
             .then(function (result) {
                 var root = getQuickMenuRoot();
                 quickMenuState.items = normalizeQuickMenuItems(result.items || []);
-                quickMenuState.note = String(result.note || '');
+                if (! quickNotebookState.dirty || quickMenuState.note === savedNote) {
+                    quickMenuState.note = String(result.note || '');
+                    quickNotebookState.dirty = false;
+                    refreshQuickNotebookContent(true);
+                }
                 updateQuickMenuSourceData(root);
                 renderQuickMenu();
-                refreshQuickNotebookContent();
                 renderQuickMenuStatus('saved');
                 updateQuickNotebookStatus('Saved', false);
             })
@@ -2094,7 +2100,9 @@
 
         if (! quickMenuState.initialized || (! quickMenuState.inFlight && quickMenuState.sourceSignature !== sourceSignature)) {
             quickMenuState.items = normalizeQuickMenuItems(parseQuickMenuItems(root.dataset.itemsJson || '[]'));
-            quickMenuState.note = String(root.dataset.note || '');
+            if (! quickNotebookState.dirty) {
+                quickMenuState.note = String(root.dataset.note || '');
+            }
             quickMenuState.sourceSignature = sourceSignature;
             quickMenuState.initialized = true;
         }
@@ -2203,6 +2211,9 @@
             notebook.className = 'quick-notebook-float';
             notebook.hidden = true;
             document.body.appendChild(notebook);
+        } else {
+            applyQuickNotebookTheme(notebook);
+            return;
         }
 
         applyQuickNotebookTheme(notebook);
@@ -2248,8 +2259,12 @@
         status.classList.toggle('is-error', Boolean(isError));
     }
 
-    function refreshQuickNotebookContent() {
+    function refreshQuickNotebookContent(force) {
         var content = document.querySelector('[data-qn-content]');
+        if (quickNotebookState.dirty && force !== true) {
+            return;
+        }
+
         if (content) {
             content.value = quickMenuState.note;
         }
@@ -2386,8 +2401,9 @@
         quickMenuState.note = quickMenuState.note.trim().length
             ? (quickMenuState.note.replace(/\s*$/, '') + '\n\n' + entry)
             : entry;
+        quickNotebookState.dirty = true;
 
-        refreshQuickNotebookContent();
+        refreshQuickNotebookContent(true);
         return true;
     }
 
@@ -2490,6 +2506,7 @@
             var content = document.querySelector('[data-qn-content]');
             event.preventDefault();
             quickMenuState.note = content ? String(content.value || '') : quickMenuState.note;
+            quickNotebookState.dirty = true;
             updateQuickNotebookStatus('', false);
             saveQuickMenuState();
             return;
@@ -2498,7 +2515,8 @@
         if (qnClear) {
             event.preventDefault();
             quickMenuState.note = '';
-            refreshQuickNotebookContent();
+            quickNotebookState.dirty = true;
+            refreshQuickNotebookContent(true);
             updateQuickNotebookStatus('', false);
             saveQuickMenuState();
             return;
@@ -2530,6 +2548,7 @@
 
         if (event.target.matches('[data-qn-content]')) {
             quickMenuState.note = String(event.target.value || '');
+            quickNotebookState.dirty = true;
             updateQuickNotebookStatus('', false);
         }
     }
