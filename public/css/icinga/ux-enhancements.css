@@ -720,6 +720,7 @@ body.modal-open {
   --quick-note-muted: #b9c8dc;
   --quick-note-border: rgba(148, 178, 214, 0.38);
   --quick-note-focus: #4bb7ff;
+  --quick-note-button-hover: #314761;
   position: fixed;
   right: 1rem;
   bottom: 1rem;
@@ -738,6 +739,18 @@ body.modal-open {
   box-shadow: 0 0.8em 1.9em rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
+}
+
+.quick-notebook-float.quick-notebook-light {
+  --quick-note-bg: #f7fbff;
+  --quick-note-panel: #ffffff;
+  --quick-note-panel-strong: #e8f1fb;
+  --quick-note-text: #172033;
+  --quick-note-muted: #5f7087;
+  --quick-note-border: rgba(88, 116, 154, 0.35);
+  --quick-note-focus: #0076b6;
+  --quick-note-button-hover: #dcecff;
+  box-shadow: 0 0.8em 1.9em rgba(31, 54, 78, 0.22);
 }
 
 .quick-notebook-float[hidden] {
@@ -826,7 +839,7 @@ body.modal-open {
 
 .quick-notebook-actions button:hover,
 .quick-notebook-actions button:focus-visible {
-  background: #314761;
+  background: var(--quick-note-button-hover);
   border-color: var(--quick-note-focus);
 }
 

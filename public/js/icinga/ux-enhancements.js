@@ -2106,6 +2106,84 @@
         return document.getElementById('quick-notebook-float');
     }
 
+    function parseCssColor(value) {
+        var text = String(value || '').trim();
+        var hex;
+        var match;
+
+        if (! text.length || text === 'transparent') {
+            return null;
+        }
+
+        if (text.charAt(0) === '#') {
+            hex = text.slice(1);
+            if (hex.length === 3) {
+                hex = hex.replace(/(.)/g, '$1$1');
+            }
+
+            if (/^[a-f0-9]{6}$/i.test(hex)) {
+                return {
+                    r: parseInt(hex.slice(0, 2), 16),
+                    g: parseInt(hex.slice(2, 4), 16),
+                    b: parseInt(hex.slice(4, 6), 16)
+                };
+            }
+        }
+
+        match = text.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+        if (! match) {
+            return null;
+        }
+
+        return {
+            r: parseFloat(match[1]),
+            g: parseFloat(match[2]),
+            b: parseFloat(match[3])
+        };
+    }
+
+    function getCurrentThemeBackgroundColor() {
+        var rootStyles = window.getComputedStyle(document.documentElement);
+        var bodyStyles = window.getComputedStyle(document.body);
+        var candidates = [
+            rootStyles.getPropertyValue('--body-bg-color'),
+            bodyStyles.getPropertyValue('--body-bg-color'),
+            bodyStyles.backgroundColor,
+            rootStyles.backgroundColor
+        ];
+        var i;
+        var color;
+
+        for (i = 0; i < candidates.length; i++) {
+            color = parseCssColor(candidates[i]);
+            if (color) {
+                return color;
+            }
+        }
+
+        return null;
+    }
+
+    function isLightTheme() {
+        var color = getCurrentThemeBackgroundColor();
+        var luminance;
+
+        if (! color) {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        }
+
+        luminance = (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
+        return luminance > 0.62;
+    }
+
+    function applyQuickNotebookTheme(notebook) {
+        if (! notebook) {
+            return;
+        }
+
+        notebook.classList.toggle('quick-notebook-light', isLightTheme());
+    }
+
     function renderQuickNotebook() {
         var root = getQuickMenuRoot();
         var notebook = getQuickNotebook();
@@ -2126,6 +2204,8 @@
             notebook.hidden = true;
             document.body.appendChild(notebook);
         }
+
+        applyQuickNotebookTheme(notebook);
 
         title = root.dataset.noteLabel || 'Personal Notebook';
         placeholder = root.dataset.notePlaceholder || 'Type note content...';
@@ -2181,6 +2261,7 @@
             return;
         }
 
+        applyQuickNotebookTheme(notebook);
         notebook.hidden = ! visible;
         quickNotebookState.visible = visible;
         if (visible) {
