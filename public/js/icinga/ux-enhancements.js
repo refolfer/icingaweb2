@@ -1712,37 +1712,30 @@
 
     function getQuickNotebookDraftKey() {
         var root = getQuickMenuRoot();
-        var scope = root && root.dataset.apiUrl ? root.dataset.apiUrl : window.location.pathname;
+        var apiScope = root && root.dataset.apiUrl ? root.dataset.apiUrl : window.location.pathname;
+        var userScope = root && root.dataset.userScope ? root.dataset.userScope : 'anonymous';
+        var scope = encodeURIComponent(String(apiScope)) + ':' + encodeURIComponent(String(userScope));
 
         return QUICK_NOTE_DRAFT_KEY + ':' + scope;
     }
 
-    function getQuickNotebookDraftKeys() {
-        return [getQuickNotebookDraftKey(), QUICK_NOTE_DRAFT_KEY];
-    }
-
     function readQuickNotebookDraft() {
-        var keys = getQuickNotebookDraftKeys();
+        var key = getQuickNotebookDraftKey();
         var value = null;
-        var i;
 
         try {
-            for (i = 0; i < keys.length; i++) {
-                value = window.sessionStorage.getItem(keys[i]);
-                if (value !== null) {
-                    return value;
-                }
+            value = window.sessionStorage.getItem(key);
+            if (value !== null) {
+                return value;
             }
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
         }
 
         try {
-            for (i = 0; i < keys.length; i++) {
-                value = window.localStorage.getItem(keys[i]);
-                if (value !== null) {
-                    return value;
-                }
+            value = window.localStorage.getItem(key);
+            if (value !== null) {
+                return value;
             }
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
@@ -1752,43 +1745,35 @@
     }
 
     function writeQuickNotebookDraft(note) {
-        var keys = getQuickNotebookDraftKeys();
+        var key = getQuickNotebookDraftKey();
         var value = String(note || '');
-        var i;
 
         try {
-            for (i = 0; i < keys.length; i++) {
-                window.sessionStorage.setItem(keys[i], value);
-            }
+            window.sessionStorage.setItem(key, value);
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
         }
 
         try {
-            for (i = 0; i < keys.length; i++) {
-                window.localStorage.setItem(keys[i], value);
-            }
+            window.localStorage.setItem(key, value);
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
         }
     }
 
     function clearQuickNotebookDraft() {
-        var keys = getQuickNotebookDraftKeys();
-        var i;
+        var key = getQuickNotebookDraftKey();
 
         try {
-            for (i = 0; i < keys.length; i++) {
-                window.sessionStorage.removeItem(keys[i]);
-            }
+            window.sessionStorage.removeItem(key);
+            window.sessionStorage.removeItem(QUICK_NOTE_DRAFT_KEY);
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
         }
 
         try {
-            for (i = 0; i < keys.length; i++) {
-                window.localStorage.removeItem(keys[i]);
-            }
+            window.localStorage.removeItem(key);
+            window.localStorage.removeItem(QUICK_NOTE_DRAFT_KEY);
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
         }

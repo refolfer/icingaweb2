@@ -9,6 +9,8 @@ $searchDashboard->setUser($this->Auth()->getUser());
 $quickMenu = $this->quickMenu ?? ['items' => [], 'note' => ''];
 $quickMenuItemsJson = Json::sanitize($quickMenu['items'] ?? []);
 $quickMenuNote = (string) ($quickMenu['note'] ?? '');
+$quickMenuUser = $this->Auth()->getUser();
+$quickMenuUserScope = $quickMenuUser ? (string) $quickMenuUser->getUsername() : 'anonymous';
 
 if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     <form action="<?= $this->href('search') ?>" method="get" role="search" class="search-control">
@@ -38,6 +40,7 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     class="quick-menu-root"
     data-quick-menu
     data-api-url="<?= $this->href('layout/quickmenu') ?>"
+    data-user-scope="<?= $this->escape($quickMenuUserScope) ?>"
     data-items-json="<?= $this->escape($quickMenuItemsJson) ?>"
     data-note="<?= $this->escape($quickMenuNote) ?>"
     data-title="<?= $this->escape($this->translate('Quick Menu')) ?>"
