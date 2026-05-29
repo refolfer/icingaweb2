@@ -1717,27 +1717,93 @@
         return QUICK_NOTE_DRAFT_KEY + ':' + scope;
     }
 
+    function getQuickNotebookDraftKeys() {
+        return [getQuickNotebookDraftKey(), QUICK_NOTE_DRAFT_KEY];
+    }
+
     function readQuickNotebookDraft() {
+        var keys = getQuickNotebookDraftKeys();
+        var value = null;
+        var i;
+
         try {
-            return window.sessionStorage.getItem(getQuickNotebookDraftKey());
+            for (i = 0; i < keys.length; i++) {
+                value = window.sessionStorage.getItem(keys[i]);
+                if (value !== null) {
+                    return value;
+                }
+            }
         } catch (error) {
-            return null;
+            // Ignore storage errors caused by private mode or browser restrictions
         }
+
+        try {
+            for (i = 0; i < keys.length; i++) {
+                value = window.localStorage.getItem(keys[i]);
+                if (value !== null) {
+                    return value;
+                }
+            }
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+
+        return null;
     }
 
     function writeQuickNotebookDraft(note) {
+        var keys = getQuickNotebookDraftKeys();
+        var value = String(note || '');
+        var i;
+
         try {
-            window.sessionStorage.setItem(getQuickNotebookDraftKey(), String(note || ''));
+            for (i = 0; i < keys.length; i++) {
+                window.sessionStorage.setItem(keys[i], value);
+            }
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+
+        try {
+            for (i = 0; i < keys.length; i++) {
+                window.localStorage.setItem(keys[i], value);
+            }
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
         }
     }
 
     function clearQuickNotebookDraft() {
+        var keys = getQuickNotebookDraftKeys();
+        var i;
+
         try {
-            window.sessionStorage.removeItem(getQuickNotebookDraftKey());
+            for (i = 0; i < keys.length; i++) {
+                window.sessionStorage.removeItem(keys[i]);
+            }
         } catch (error) {
             // Ignore storage errors caused by private mode or browser restrictions
+        }
+
+        try {
+            for (i = 0; i < keys.length; i++) {
+                window.localStorage.removeItem(keys[i]);
+            }
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function persistQuickNotebookDraftFromDom() {
+        var content = document.querySelector('[data-qn-content]');
+
+        if (! content) {
+            return;
+        }
+
+        quickMenuState.note = String(content.value || '');
+        if (quickNotebookState.dirty || quickMenuState.note.length) {
+            writeQuickNotebookDraft(quickMenuState.note);
         }
     }
 
@@ -2130,11 +2196,11 @@
         }
 
         quickMenuState.apiUrl = root.dataset.apiUrl || '';
+        draftNote = readQuickNotebookDraft();
         sourceSignature = getQuickMenuSourceSignature(root);
 
         if (! quickMenuState.initialized || (! quickMenuState.inFlight && quickMenuState.sourceSignature !== sourceSignature)) {
             quickMenuState.items = normalizeQuickMenuItems(parseQuickMenuItems(root.dataset.itemsJson || '[]'));
-            draftNote = readQuickNotebookDraft();
             if (draftNote !== null) {
                 quickMenuState.note = draftNote;
                 quickNotebookState.dirty = true;
@@ -2143,6 +2209,10 @@
             }
             quickMenuState.sourceSignature = sourceSignature;
             quickMenuState.initialized = true;
+        }
+
+        if (draftNote !== null && quickNotebookState.initialized) {
+            refreshQuickNotebookContent(true);
         }
 
         renderQuickMenu();
@@ -2624,6 +2694,8 @@
     document.addEventListener('keydown', trapDialogFocus);
     document.addEventListener('keydown', onGlobalEscape, true);
     document.addEventListener('scroll', hideQuickMenuContextMenu, true);
+    window.addEventListener('pagehide', persistQuickNotebookDraftFromDom);
+    window.addEventListener('beforeunload', persistQuickNotebookDraftFromDom);
     window.addEventListener('resize', function () {
         if (quickNotebookState.visible && quickNotebookState.initialized) {
             clampQuickNotebookPosition();
