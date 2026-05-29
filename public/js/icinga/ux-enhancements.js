@@ -5,6 +5,7 @@
     'use strict';
 
     var SEARCH_HISTORY_KEY = 'menu-search-history';
+    var QUICK_NOTE_DRAFT_KEY = 'quick-menu-note-draft';
     var NAV_SEQUENCE_TIMEOUT = 1200;
     var TOP_WIDGET_HEIGHT_KEY = 'top-widget-height';
     var TOP_WIDGET_MIN_HEIGHT = 120;
@@ -1709,6 +1710,37 @@
         quickMenuState.sourceSignature = getQuickMenuSourceSignature(root);
     }
 
+    function getQuickNotebookDraftKey() {
+        var root = getQuickMenuRoot();
+        var scope = root && root.dataset.apiUrl ? root.dataset.apiUrl : window.location.pathname;
+
+        return QUICK_NOTE_DRAFT_KEY + ':' + scope;
+    }
+
+    function readQuickNotebookDraft() {
+        try {
+            return window.sessionStorage.getItem(getQuickNotebookDraftKey());
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function writeQuickNotebookDraft(note) {
+        try {
+            window.sessionStorage.setItem(getQuickNotebookDraftKey(), String(note || ''));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function clearQuickNotebookDraft() {
+        try {
+            window.sessionStorage.removeItem(getQuickNotebookDraftKey());
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
     function normalizeQuickMenuUrl(url) {
         var cleaned = String(url || '').trim();
         var parsed;
@@ -1968,6 +2000,7 @@
                 if (! quickNotebookState.dirty || quickMenuState.note === savedNote) {
                     quickMenuState.note = String(result.note || '');
                     quickNotebookState.dirty = false;
+                    clearQuickNotebookDraft();
                     refreshQuickNotebookContent(true);
                 }
                 updateQuickMenuSourceData(root);
@@ -2090,6 +2123,7 @@
     function initQuickMenu() {
         var root = getQuickMenuRoot();
         var sourceSignature;
+        var draftNote;
 
         if (! root) {
             return;
@@ -2100,7 +2134,11 @@
 
         if (! quickMenuState.initialized || (! quickMenuState.inFlight && quickMenuState.sourceSignature !== sourceSignature)) {
             quickMenuState.items = normalizeQuickMenuItems(parseQuickMenuItems(root.dataset.itemsJson || '[]'));
-            if (! quickNotebookState.dirty) {
+            draftNote = readQuickNotebookDraft();
+            if (draftNote !== null) {
+                quickMenuState.note = draftNote;
+                quickNotebookState.dirty = true;
+            } else if (! quickNotebookState.dirty) {
                 quickMenuState.note = String(root.dataset.note || '');
             }
             quickMenuState.sourceSignature = sourceSignature;
@@ -2402,6 +2440,7 @@
             ? (quickMenuState.note.replace(/\s*$/, '') + '\n\n' + entry)
             : entry;
         quickNotebookState.dirty = true;
+        writeQuickNotebookDraft(quickMenuState.note);
 
         refreshQuickNotebookContent(true);
         return true;
@@ -2507,6 +2546,7 @@
             event.preventDefault();
             quickMenuState.note = content ? String(content.value || '') : quickMenuState.note;
             quickNotebookState.dirty = true;
+            writeQuickNotebookDraft(quickMenuState.note);
             updateQuickNotebookStatus('', false);
             saveQuickMenuState();
             return;
@@ -2516,6 +2556,7 @@
             event.preventDefault();
             quickMenuState.note = '';
             quickNotebookState.dirty = true;
+            writeQuickNotebookDraft(quickMenuState.note);
             refreshQuickNotebookContent(true);
             updateQuickNotebookStatus('', false);
             saveQuickMenuState();
@@ -2549,6 +2590,7 @@
         if (event.target.matches('[data-qn-content]')) {
             quickMenuState.note = String(event.target.value || '');
             quickNotebookState.dirty = true;
+            writeQuickNotebookDraft(quickMenuState.note);
             updateQuickNotebookStatus('', false);
         }
     }
