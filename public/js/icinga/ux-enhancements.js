@@ -2113,6 +2113,8 @@
         var existing = document.querySelector('[data-quick-menu-context]');
         var root;
         var addLabel;
+        var tabLabel;
+        var windowLabel;
 
         if (existing) {
             return existing;
@@ -2120,12 +2122,16 @@
 
         root = getQuickMenuRoot();
         addLabel = root ? (root.dataset.contextAddLabel || 'Add To Quick Menu') : 'Add To Quick Menu';
+        tabLabel = root ? (root.dataset.contextOpenTabLabel || 'Open In New Tab') : 'Open In New Tab';
+        windowLabel = root ? (root.dataset.contextOpenWindowLabel || 'Open In New Window') : 'Open In New Window';
 
         existing = document.createElement('div');
         existing.className = 'quick-menu-context';
         existing.setAttribute('data-quick-menu-context', '');
         existing.hidden = true;
         existing.innerHTML = ''
+            + '<button type="button" data-qm-open-tab>' + escapeHtml(tabLabel) + '</button>'
+            + '<button type="button" data-qm-open-window>' + escapeHtml(windowLabel) + '</button>'
             + '<button type="button" data-qm-add-link>' + escapeHtml(addLabel) + '</button>';
         document.body.appendChild(existing);
 
@@ -2157,6 +2163,33 @@
         maxTop = Math.max(0, window.innerHeight - menu.offsetHeight - 8);
         menu.style.left = String(Math.min(x, maxLeft)) + 'px';
         menu.style.top = String(Math.min(y, maxTop)) + 'px';
+    }
+
+    function openQuickMenuContextAnchor(target) {
+        var anchor = quickMenuContextState.anchor;
+        var href = anchor ? normalizeQuickMenuUrl(anchor.getAttribute('href') || anchor.href || '') : '';
+        var features;
+
+        if (! href.length) {
+            hideQuickMenuContextMenu();
+            return;
+        }
+
+        if (target === 'window') {
+            features = [
+                'noopener',
+                'noreferrer',
+                'width=1200',
+                'height=800',
+                'left=' + String(Math.max(0, Math.round((window.screen.width - 1200) / 2))),
+                'top=' + String(Math.max(0, Math.round((window.screen.height - 800) / 2)))
+            ].join(',');
+            window.open(href, '_blank', features);
+        } else {
+            window.open(href, '_blank', 'noopener,noreferrer');
+        }
+
+        hideQuickMenuContextMenu();
     }
 
     function onContextMenu(event) {
@@ -2522,6 +2555,8 @@
         var toggleNotebook = event.target.closest('[data-qm-toggle-note]');
         var removeRow = event.target.closest('[data-qm-remove]');
         var addLink = event.target.closest('[data-qm-add-link]');
+        var openTab = event.target.closest('[data-qm-open-tab]');
+        var openWindow = event.target.closest('[data-qm-open-window]');
         var qnAdd = event.target.closest('[data-qn-add]');
         var qnSave = event.target.closest('[data-qn-save]');
         var qnClear = event.target.closest('[data-qn-clear]');
@@ -2615,6 +2650,18 @@
             refreshQuickNotebookContent(true);
             updateQuickNotebookStatus('', false);
             saveQuickMenuState();
+            return;
+        }
+
+        if (openTab) {
+            event.preventDefault();
+            openQuickMenuContextAnchor('tab');
+            return;
+        }
+
+        if (openWindow) {
+            event.preventDefault();
+            openQuickMenuContextAnchor('window');
             return;
         }
 

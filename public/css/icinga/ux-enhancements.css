@@ -698,6 +698,8 @@ body.modal-open {
 }
 
 .quick-menu-context button {
+  display: block;
+  width: 100%;
   border: none;
   border-radius: 0.25em;
   background: transparent;
