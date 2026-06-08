@@ -2130,9 +2130,9 @@
         existing.setAttribute('data-quick-menu-context', '');
         existing.hidden = true;
         existing.innerHTML = ''
+            + '<button type="button" data-qm-add-link>' + escapeHtml(addLabel) + '</button>'
             + '<button type="button" data-qm-open-tab>' + escapeHtml(tabLabel) + '</button>'
-            + '<button type="button" data-qm-open-window>' + escapeHtml(windowLabel) + '</button>'
-            + '<button type="button" data-qm-add-link>' + escapeHtml(addLabel) + '</button>';
+            + '<button type="button" data-qm-open-window>' + escapeHtml(windowLabel) + '</button>';
         document.body.appendChild(existing);
 
         return existing;

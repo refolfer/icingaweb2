@@ -21,7 +21,10 @@ use Icinga\Web\Session;
 class LayoutController extends ActionController
 {
     const QUICK_MENU_PREF_ITEMS = 'quick_menu_items_json';
+    const QUICK_MENU_PREF_ITEMS_CHUNK_PREFIX = 'quick_menu_items_json_';
+    const QUICK_MENU_PREF_CHUNK_LENGTH = 200;
     const QUICK_MENU_PREF_NOTE = 'quick_menu_note';
+    const QUICK_MENU_PREF_NOTE_CHUNK_PREFIX = 'quick_menu_note_';
     const QUICK_MENU_MAX_ITEMS = 40;
     const QUICK_MENU_MAX_LABEL_LENGTH = 120;
     const QUICK_MENU_MAX_URL_LENGTH = 2048;
@@ -125,8 +128,13 @@ class LayoutController extends ActionController
             : $user->getPreferences();
         $webPreferences = $preferences->get('icingaweb') ?: [];
 
-        $webPreferences[static::QUICK_MENU_PREF_ITEMS] = Json::sanitize($items);
-        $webPreferences[static::QUICK_MENU_PREF_NOTE] = $this->sanitizeQuickMenuNote($note);
+        $this->setChunkedQuickMenuItems($webPreferences, $items);
+        $this->setChunkedPreference(
+            $webPreferences,
+            static::QUICK_MENU_PREF_NOTE,
+            static::QUICK_MENU_PREF_NOTE_CHUNK_PREFIX,
+            $this->sanitizeQuickMenuNote($note)
+        );
         $preferences->icingaweb = $webPreferences;
 
         Session::getSession()->user->setPreferences($preferences);
@@ -157,8 +165,13 @@ class LayoutController extends ActionController
             }
         }
 
-        $rawItems = $preferences->getValue('icingaweb', static::QUICK_MENU_PREF_ITEMS, '[]');
-        $note = $preferences->getValue('icingaweb', static::QUICK_MENU_PREF_NOTE, '');
+        $rawItems = $this->getChunkedQuickMenuItems($preferences->get('icingaweb') ?: []);
+        $note = $this->getChunkedPreference(
+            $preferences->get('icingaweb') ?: [],
+            static::QUICK_MENU_PREF_NOTE,
+            static::QUICK_MENU_PREF_NOTE_CHUNK_PREFIX,
+            ''
+        );
 
         try {
             $decoded = Json::decode((string) $rawItems, true);
@@ -173,6 +186,94 @@ class LayoutController extends ActionController
             'items' => $this->sanitizeQuickMenuItems($items),
             'note' => $this->sanitizeQuickMenuNote($note)
         ];
+    }
+
+    /**
+     * Store quick menu items across multiple preference values to avoid DB varchar limits
+     *
+     * @param array $webPreferences
+     * @param array $items
+     */
+    protected function setChunkedQuickMenuItems(array &$webPreferences, array $items)
+    {
+        $this->setChunkedPreference(
+            $webPreferences,
+            static::QUICK_MENU_PREF_ITEMS,
+            static::QUICK_MENU_PREF_ITEMS_CHUNK_PREFIX,
+            Json::sanitize($items)
+        );
+    }
+
+    /**
+     * Store long preference values across multiple DB-safe chunks
+     *
+     * @param array  $webPreferences
+     * @param string $legacyKey
+     * @param string $chunkPrefix
+     * @param string $value
+     */
+    protected function setChunkedPreference(array &$webPreferences, $legacyKey, $chunkPrefix, $value)
+    {
+        $chunks = str_split((string) $value, static::QUICK_MENU_PREF_CHUNK_LENGTH);
+        $index = 0;
+
+        unset($webPreferences[$legacyKey]);
+
+        foreach (array_keys($webPreferences) as $key) {
+            if (strpos($key, $chunkPrefix) === 0) {
+                unset($webPreferences[$key]);
+            }
+        }
+
+        foreach ($chunks as $chunk) {
+            $webPreferences[$chunkPrefix . sprintf('%03d', $index)] = $chunk;
+            ++$index;
+        }
+    }
+
+    /**
+     * Read quick menu item JSON from chunked preferences with legacy single-value fallback
+     *
+     * @param array $webPreferences
+     *
+     * @return string
+     */
+    protected function getChunkedQuickMenuItems(array $webPreferences)
+    {
+        return $this->getChunkedPreference(
+            $webPreferences,
+            static::QUICK_MENU_PREF_ITEMS,
+            static::QUICK_MENU_PREF_ITEMS_CHUNK_PREFIX,
+            '[]'
+        );
+    }
+
+    /**
+     * Read a long preference value from chunks with legacy single-value fallback
+     *
+     * @param array  $webPreferences
+     * @param string $legacyKey
+     * @param string $chunkPrefix
+     * @param string $default
+     *
+     * @return string
+     */
+    protected function getChunkedPreference(array $webPreferences, $legacyKey, $chunkPrefix, $default)
+    {
+        $chunks = [];
+
+        foreach ($webPreferences as $key => $value) {
+            if (strpos($key, $chunkPrefix) === 0) {
+                $chunks[$key] = (string) $value;
+            }
+        }
+
+        if (! empty($chunks)) {
+            ksort($chunks);
+            return implode('', $chunks);
+        }
+
+        return (string) ($webPreferences[$legacyKey] ?? $default);
     }
 
     /**
