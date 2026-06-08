@@ -21,3 +21,4 @@ library/vendor/dompdf/lib/fonts/log.htm
 # Exclude files from composer install
 vendor/
 composer.lock
+Agents.md
