@@ -53,6 +53,7 @@
     var incidentDrawerState = {
         url: '',
         abortController: null,
+        timelineAbortController: null,
         object: null
     };
 
@@ -1853,6 +1854,119 @@
         });
     }
 
+    function setIncidentTimelineState(state, items) {
+        var container = document.querySelector('[data-incident-timeline]');
+        var title = document.querySelector('[data-incident-timeline-title]');
+        var list = document.querySelector('[data-incident-timeline-list]');
+        var entries = items || [];
+
+        if (! container || ! list) {
+            return;
+        }
+
+        container.hidden = state === 'hidden';
+        if (title) {
+            title.textContent = getIncidentDrawerLabel('timeline-label', 'Recent history');
+        }
+
+        if (state === 'loading') {
+            list.innerHTML = '<li class="incident-drawer-timeline-muted">'
+                + escapeHtml(getIncidentDrawerLabel('timeline-loading-label', 'Loading history...'))
+                + '</li>';
+            return;
+        }
+
+        if (! entries.length) {
+            list.innerHTML = '<li class="incident-drawer-timeline-muted">'
+                + escapeHtml(getIncidentDrawerLabel('timeline-empty-label', 'No recent history found.'))
+                + '</li>';
+            return;
+        }
+
+        list.innerHTML = entries.map(function (entry) {
+            return '<li><a href="'
+                + escapeHtml(entry.url || '#')
+                + '" data-base-target="_main">'
+                + escapeHtml(entry.text)
+                + '</a></li>';
+        }).join('');
+    }
+
+    function extractHistoryTimelineItems(html, historyUrl) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var nodes = doc.querySelectorAll(
+            '[data-action-item], .action-list li, .item-list li, .state-row, tr, article, .history-event'
+        );
+        var items = [];
+        var seen = {};
+        var i;
+
+        for (i = 0; i < nodes.length && items.length < 5; i++) {
+            var node = nodes[i];
+            var text = normalizeText(node.textContent || '');
+            var link = node.querySelector('a[href]');
+            var url = link ? normalizeIncidentUrl(link.getAttribute('href') || link.href || '') : historyUrl;
+
+            if (! text.length || text.length < 12 || seen[text]) {
+                continue;
+            }
+
+            seen[text] = true;
+            items.push({
+                text: text.length > 180 ? text.slice(0, 180).replace(/\s+\S*$/, '') + '...' : text,
+                url: url
+            });
+        }
+
+        return items;
+    }
+
+    function loadIncidentTimeline(object) {
+        var urls = buildIcingadbContextUrls(object);
+        var historyUrl = urls.history || '';
+
+        if (incidentDrawerState.timelineAbortController) {
+            incidentDrawerState.timelineAbortController.abort();
+            incidentDrawerState.timelineAbortController = null;
+        }
+
+        if (! object || ! historyUrl.length || typeof window.fetch !== 'function') {
+            setIncidentTimelineState('hidden');
+            return;
+        }
+
+        incidentDrawerState.timelineAbortController = typeof AbortController === 'function'
+            ? new AbortController()
+            : null;
+
+        setIncidentTimelineState('loading');
+
+        window.fetch(historyUrl, {
+            credentials: 'same-origin',
+            signal: incidentDrawerState.timelineAbortController
+                ? incidentDrawerState.timelineAbortController.signal
+                : undefined
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Unable to load history');
+                }
+
+                return response.text();
+            })
+            .then(function (html) {
+                setIncidentTimelineState('ready', extractHistoryTimelineItems(html, historyUrl));
+            })
+            .catch(function (error) {
+                if (error && error.name === 'AbortError') {
+                    return;
+                }
+
+                setIncidentTimelineState('hidden');
+            });
+    }
+
     function extractIncidentDetailsFromDocument(doc) {
         var content = doc.querySelector('#col1 .content, main .content, .content, body');
         var text;
@@ -1913,6 +2027,7 @@
                 if (parsed.object) {
                     setIncidentQuickActions(parsed.object);
                     setIncidentObjectContext(parsed.object);
+                    loadIncidentTimeline(parsed.object);
                 }
 
                 if (parsed.details.length) {
@@ -1981,6 +2096,11 @@
         document.body.classList.add('modal-open');
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
+        if (object) {
+            loadIncidentTimeline(object);
+        } else {
+            setIncidentTimelineState('hidden');
+        }
         setIncidentDrawerBody(previewText || getIncidentDrawerLabel('loading-label', 'Loading incident details...'), true);
         loadIncidentDrawerDetails(url);
 
@@ -2001,6 +2121,11 @@
         if (incidentDrawerState.abortController) {
             incidentDrawerState.abortController.abort();
             incidentDrawerState.abortController = null;
+        }
+
+        if (incidentDrawerState.timelineAbortController) {
+            incidentDrawerState.timelineAbortController.abort();
+            incidentDrawerState.timelineAbortController = null;
         }
 
         drawer.hidden = true;

@@ -322,6 +322,9 @@ if ($this->layout()->inlineLayout) {
     data-history-label="<?= $this->escape($this->translate('History')) ?>"
     data-comments-label="<?= $this->escape($this->translate('Comments')) ?>"
     data-downtimes-label="<?= $this->escape($this->translate('Downtimes')) ?>"
+    data-timeline-label="<?= $this->escape($this->translate('Recent history')) ?>"
+    data-timeline-loading-label="<?= $this->escape($this->translate('Loading history...')) ?>"
+    data-timeline-empty-label="<?= $this->escape($this->translate('No recent history found.')) ?>"
 >
     <div class="incident-drawer-backdrop" data-close-incident-drawer></div>
     <aside
@@ -375,6 +378,10 @@ if ($this->layout()->inlineLayout) {
                     <?= $this->translate('Downtimes') ?>
                 </a>
             </div>
+        </section>
+        <section class="incident-drawer-timeline" data-incident-timeline hidden>
+            <h3 data-incident-timeline-title><?= $this->translate('Recent history') ?></h3>
+            <ol data-incident-timeline-list></ol>
         </section>
         <div class="incident-drawer-body" data-incident-body></div>
         <footer class="incident-drawer-actions">
