@@ -5,6 +5,8 @@
     'use strict';
 
     var SEARCH_HISTORY_KEY = 'menu-search-history';
+    var RECENT_INCIDENTS_KEY = 'recent-incidents';
+    var UX_DENSITY_KEY = 'ux-density-mode';
     var QUICK_NOTE_DRAFT_KEY = 'quick-menu-note-draft';
     var NAV_SEQUENCE_TIMEOUT = 1200;
     var TOP_WIDGET_HEIGHT_KEY = 'top-widget-height';
@@ -14,6 +16,9 @@
     var TOP_EVENTS_ERROR_BACKOFF_MS = 120000;
     var TOP_EVENTS_ERROR_BACKOFF_MAX_MS = 600000;
     var TACTICAL_REFRESH_MS = 10000;
+    var COMMAND_PALETTE_RESULT_LIMIT = 12;
+    var RECENT_INCIDENTS_LIMIT = 10;
+    var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
     var TOP_PANELS_OFFSET_MAX = 360;
@@ -40,6 +45,15 @@
     var goState = {
         pending: false,
         timer: null
+    };
+    var commandPaletteState = {
+        commands: [],
+        activeIndex: 0
+    };
+    var incidentDrawerState = {
+        url: '',
+        abortController: null,
+        object: null
     };
 
     var lastFocusedElement = null;
@@ -121,6 +135,48 @@
         }
     }
 
+    function readRecentIncidents() {
+        var incidents = [];
+
+        try {
+            incidents = JSON.parse(window.sessionStorage.getItem(RECENT_INCIDENTS_KEY) || '[]');
+        } catch (error) {
+            incidents = [];
+        }
+
+        return Array.isArray(incidents) ? incidents : [];
+    }
+
+    function writeRecentIncidents(incidents) {
+        try {
+            window.sessionStorage.setItem(RECENT_INCIDENTS_KEY, JSON.stringify(incidents));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function rememberRecentIncident(incident) {
+        var url = String(incident.url || '').trim();
+        var title = String(incident.title || '').trim();
+        var incidents;
+
+        if (! url.length || ! title.length) {
+            return;
+        }
+
+        incidents = readRecentIncidents().filter(function (entry) {
+            return entry && entry.url !== url;
+        });
+
+        incidents.unshift({
+            title: title,
+            meta: String(incident.meta || '').trim(),
+            url: url
+        });
+
+        writeRecentIncidents(incidents.slice(0, RECENT_INCIDENTS_LIMIT));
+    }
+
     function rememberSearchQuery(query) {
         var value = (query || '').trim();
         var history;
@@ -135,6 +191,42 @@
 
         history.unshift(value);
         writeSearchHistory(history.slice(0, 8));
+    }
+
+    function normalizeDensityMode(mode) {
+        return UX_DENSITY_MODES.indexOf(mode) === -1 ? 'comfortable' : mode;
+    }
+
+    function readDensityMode() {
+        var mode = '';
+
+        try {
+            mode = window.localStorage.getItem(UX_DENSITY_KEY) || '';
+        } catch (error) {
+            mode = '';
+        }
+
+        return normalizeDensityMode(mode);
+    }
+
+    function applyDensityMode(mode) {
+        var normalized = normalizeDensityMode(mode);
+
+        UX_DENSITY_MODES.forEach(function (densityMode) {
+            document.body.classList.toggle('ux-density-' + densityMode, densityMode === normalized);
+        });
+
+        return normalized;
+    }
+
+    function setDensityMode(mode) {
+        var normalized = applyDensityMode(mode);
+
+        try {
+            window.localStorage.setItem(UX_DENSITY_KEY, normalized);
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
     }
 
     function renderRecentSearches() {
@@ -1461,6 +1553,508 @@
         }, TOP_EVENTS_REFRESH_MS);
     }
 
+    function getIncidentDrawer() {
+        return document.getElementById('incident-drawer');
+    }
+
+    function isIncidentDrawerOpen() {
+        var drawer = getIncidentDrawer();
+
+        return !! drawer && ! drawer.hidden;
+    }
+
+    function getIncidentDrawerLabel(name, fallback) {
+        var drawer = getIncidentDrawer();
+        var key = name.replace(/-([a-z])/g, function (_, letter) {
+            return letter.toUpperCase();
+        });
+
+        if (drawer && drawer.dataset[key]) {
+            return drawer.dataset[key];
+        }
+
+        return fallback;
+    }
+
+    function setIncidentDrawerBody(text, loading) {
+        var body = document.querySelector('[data-incident-body]');
+
+        if (! body) {
+            return;
+        }
+
+        body.classList.toggle('loading', !! loading);
+        body.textContent = text;
+    }
+
+    function normalizeIncidentUrl(url) {
+        var value = String(url || '').trim();
+        var baseUrl = getBaseUrl();
+
+        if (! value.length || value === '#') {
+            return '';
+        }
+
+        if (/^https?:\/\//i.test(value)) {
+            return value;
+        }
+
+        if (value.indexOf(baseUrl + '/') === 0) {
+            return value;
+        }
+
+        return baseUrl + '/' + value.replace(/^\/+/, '');
+    }
+
+    function getUrlSearchParams(url) {
+        var queryIndex = url.indexOf('?');
+
+        if (queryIndex === -1) {
+            return new URLSearchParams();
+        }
+
+        return new URLSearchParams(url.slice(queryIndex + 1));
+    }
+
+    function getIcingadbObjectFromUrl(url) {
+        var normalized = normalizeIncidentUrl(url);
+        var baseUrl = getBaseUrl();
+        var path = normalized;
+        var params;
+        var hostName;
+        var serviceName;
+
+        if (! normalized.length) {
+            return null;
+        }
+
+        if (/^https?:\/\//i.test(normalized)) {
+            try {
+                path = new URL(normalized, window.location.href).pathname
+                    + new URL(normalized, window.location.href).search;
+            } catch (error) {
+                path = normalized;
+            }
+        }
+
+        if (baseUrl.length && path.indexOf(baseUrl + '/') === 0) {
+            path = path.slice(baseUrl.length + 1);
+        } else {
+            path = path.replace(/^\/+/, '');
+        }
+
+        params = getUrlSearchParams(path);
+        hostName = params.get('host.name') || params.get('host') || '';
+        serviceName = params.get('name') || params.get('service.name') || '';
+
+        if (path.indexOf('icingadb/service') === 0 && hostName.length && serviceName.length) {
+            return {
+                type: 'service',
+                hostName: hostName,
+                serviceName: serviceName
+            };
+        }
+
+        hostName = params.get('name') || params.get('host.name') || '';
+        if (path.indexOf('icingadb/host') === 0 && hostName.length) {
+            return {
+                type: 'host',
+                hostName: hostName,
+                serviceName: ''
+            };
+        }
+
+        return null;
+    }
+
+    function findIcingadbObjectInDocument(doc) {
+        var anchors = doc.querySelectorAll('a[href*="icingadb/service"], a[href*="icingadb/host"]');
+        var i;
+        var object;
+
+        for (i = 0; i < anchors.length; i++) {
+            object = getIcingadbObjectFromUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
+            if (object && object.type === 'service') {
+                return object;
+            }
+        }
+
+        for (i = 0; i < anchors.length; i++) {
+            object = getIcingadbObjectFromUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
+            if (object) {
+                return object;
+            }
+        }
+
+        return null;
+    }
+
+    function buildIcingadbActionUrl(object, action) {
+        var params;
+        var path;
+
+        if (! object || ! action) {
+            return '';
+        }
+
+        params = new URLSearchParams();
+
+        if (object.type === 'service') {
+            path = 'icingadb/service/' + action;
+            params.set('name', object.serviceName);
+            params.set('host.name', object.hostName);
+        } else {
+            path = 'icingadb/host/' + action;
+            params.set('name', object.hostName);
+        }
+
+        return getBaseUrl() + '/' + path + '?' + params.toString();
+    }
+
+    function buildIcingadbObjectUrl(object) {
+        var params;
+        var path;
+
+        if (! object) {
+            return '';
+        }
+
+        params = new URLSearchParams();
+        if (object.type === 'service') {
+            path = 'icingadb/service';
+            params.set('name', object.serviceName);
+            params.set('host.name', object.hostName);
+        } else {
+            path = 'icingadb/host';
+            params.set('name', object.hostName);
+        }
+
+        return getBaseUrl() + '/' + path + '?' + params.toString();
+    }
+
+    function buildIcingadbContextUrls(object) {
+        var params;
+        var baseUrl = getBaseUrl();
+
+        if (! object) {
+            return {};
+        }
+
+        if (object.type === 'service') {
+            params = new URLSearchParams();
+            params.set('name', object.serviceName);
+            params.set('host.name', object.hostName);
+
+            return {
+                object: buildIcingadbObjectUrl(object),
+                history: baseUrl + '/icingadb/service/history?' + params.toString(),
+                comments: baseUrl + '/icingadb/comments?'
+                    + new URLSearchParams({
+                        'service.name': object.serviceName,
+                        'host.name': object.hostName
+                    }).toString(),
+                downtimes: baseUrl + '/icingadb/downtimes?'
+                    + new URLSearchParams({
+                        'service.name': object.serviceName,
+                        'host.name': object.hostName
+                    }).toString()
+            };
+        }
+
+        params = new URLSearchParams();
+        params.set('name', object.hostName);
+
+        return {
+            object: buildIcingadbObjectUrl(object),
+            history: baseUrl + '/icingadb/host/history?' + params.toString(),
+            comments: baseUrl + '/icingadb/comments?'
+                + new URLSearchParams({ 'host.name': object.hostName }).toString(),
+            downtimes: baseUrl + '/icingadb/downtimes?'
+                + new URLSearchParams({ 'host.name': object.hostName }).toString()
+        };
+    }
+
+    function getIcingadbObjectDisplayName(object) {
+        if (! object) {
+            return '';
+        }
+
+        if (object.type === 'service') {
+            return object.serviceName + ' on ' + object.hostName;
+        }
+
+        return object.hostName;
+    }
+
+    function setIncidentQuickActions(object) {
+        var container = document.querySelector('[data-incident-actions]');
+        var actions = {
+            'acknowledge': getIncidentDrawerLabel('acknowledge-label', 'Acknowledge'),
+            'check-now': getIncidentDrawerLabel('recheck-label', 'Recheck now'),
+            'schedule-downtime': getIncidentDrawerLabel('downtime-label', 'Schedule downtime'),
+            'add-comment': getIncidentDrawerLabel('comment-label', 'Add comment')
+        };
+
+        if (! container) {
+            return;
+        }
+
+        incidentDrawerState.object = object || null;
+        container.hidden = ! object;
+
+        Object.keys(actions).forEach(function (action) {
+            var link = container.querySelector('[data-incident-action="' + action + '"]');
+            var url;
+
+            if (! link) {
+                return;
+            }
+
+            link.textContent = actions[action];
+            url = object ? buildIcingadbActionUrl(object, action) : '';
+            link.href = url || '#';
+            link.hidden = ! url.length;
+        });
+    }
+
+    function setIncidentObjectContext(object) {
+        var container = document.querySelector('[data-incident-context]');
+        var title = document.querySelector('[data-incident-context-title]');
+        var labels = {
+            object: getIncidentDrawerLabel('object-label', 'Open object'),
+            history: getIncidentDrawerLabel('history-label', 'History'),
+            comments: getIncidentDrawerLabel('comments-label', 'Comments'),
+            downtimes: getIncidentDrawerLabel('downtimes-label', 'Downtimes')
+        };
+        var urls = buildIcingadbContextUrls(object);
+
+        if (! container) {
+            return;
+        }
+
+        container.hidden = ! object;
+        if (title) {
+            title.textContent = object
+                ? getIncidentDrawerLabel('context-label', 'Object context') + ': ' + getIcingadbObjectDisplayName(object)
+                : getIncidentDrawerLabel('context-label', 'Object context');
+        }
+
+        Object.keys(labels).forEach(function (name) {
+            var link = container.querySelector('[data-incident-context-link="' + name + '"]');
+            var url = urls[name] || '';
+
+            if (! link) {
+                return;
+            }
+
+            link.textContent = labels[name];
+            link.href = url || '#';
+            link.hidden = ! url.length;
+        });
+    }
+
+    function extractIncidentDetailsFromDocument(doc) {
+        var content = doc.querySelector('#col1 .content, main .content, .content, body');
+        var text;
+
+        if (! content) {
+            return '';
+        }
+
+        content.querySelectorAll('script, style, form, nav, .controls, .tabs').forEach(function (node) {
+            node.parentNode.removeChild(node);
+        });
+
+        text = normalizeText(content.textContent || '');
+        return text.length > 1200 ? text.slice(0, 1200).replace(/\s+\S*$/, '') + '...' : text;
+    }
+
+    function parseIncidentHtml(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+
+        return {
+            details: extractIncidentDetailsFromDocument(doc),
+            object: findIcingadbObjectInDocument(doc)
+        };
+    }
+
+    function loadIncidentDrawerDetails(url) {
+        if (! url.length || typeof window.fetch !== 'function') {
+            return;
+        }
+
+        if (incidentDrawerState.abortController) {
+            incidentDrawerState.abortController.abort();
+        }
+
+        incidentDrawerState.abortController = typeof AbortController === 'function'
+            ? new AbortController()
+            : null;
+
+        window.fetch(url, {
+            credentials: 'same-origin',
+            signal: incidentDrawerState.abortController ? incidentDrawerState.abortController.signal : undefined
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Unable to load incident');
+                }
+
+                return response.text();
+            })
+            .then(function (html) {
+                var parsed = parseIncidentHtml(html);
+
+                if (url !== incidentDrawerState.url) {
+                    return;
+                }
+
+                if (parsed.object) {
+                    setIncidentQuickActions(parsed.object);
+                    setIncidentObjectContext(parsed.object);
+                }
+
+                if (parsed.details.length) {
+                    setIncidentDrawerBody(parsed.details, false);
+                }
+            })
+            .catch(function (error) {
+                if (error && error.name === 'AbortError') {
+                    return;
+                }
+
+                if (url === incidentDrawerState.url) {
+                    setIncidentDrawerBody(getIncidentDrawerLabel('unavailable-label', 'Incident details are unavailable.'), false);
+                }
+            });
+    }
+
+    function openIncidentDrawerFromLink(link) {
+        var drawer = getIncidentDrawer();
+        var title = drawer ? drawer.querySelector('#incident-drawer-title') : null;
+        var meta = drawer ? drawer.querySelector('[data-incident-meta]') : null;
+        var open = drawer ? drawer.querySelector('[data-incident-open]') : null;
+        var copy = drawer ? drawer.querySelector('[data-copy-incident-link]') : null;
+        var item = link ? link.closest('.top-event-item') : null;
+        var titleText = item ? normalizeText((item.querySelector('.top-event-title') || {}).textContent || '') : '';
+        var metaText = item ? normalizeText((item.querySelector('.top-event-meta') || {}).textContent || '') : '';
+        var previewText = item ? normalizeText((item.querySelector('.top-event-preview') || {}).textContent || '') : '';
+        var url = normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : '');
+        var hasRenderedState = item && /top-event-state-/.test(item.className || '');
+        var object = getIcingadbObjectFromUrl(url);
+
+        if (! drawer || ! link || ! item || ! titleText.length || (! hasRenderedState && url.indexOf('/icingadb/history') !== -1)) {
+            return false;
+        }
+
+        incidentDrawerState.url = url;
+        lastFocusedElement = document.activeElement;
+        rememberRecentIncident({
+            title: titleText,
+            meta: metaText,
+            url: url
+        });
+
+        if (title) {
+            title.textContent = titleText;
+        }
+
+        if (meta) {
+            meta.textContent = metaText;
+            meta.hidden = ! metaText.length;
+        }
+
+        if (open) {
+            open.href = url || '#';
+            open.textContent = getIncidentDrawerLabel('open-label', 'Open full details');
+            open.hidden = ! url.length;
+        }
+
+        if (copy) {
+            copy.textContent = getIncidentDrawerLabel('copy-label', 'Copy link');
+            copy.hidden = ! url.length;
+        }
+
+        drawer.hidden = false;
+        drawer.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        setIncidentQuickActions(object);
+        setIncidentObjectContext(object);
+        setIncidentDrawerBody(previewText || getIncidentDrawerLabel('loading-label', 'Loading incident details...'), true);
+        loadIncidentDrawerDetails(url);
+
+        if (open && ! open.hidden) {
+            open.focus();
+        }
+
+        return true;
+    }
+
+    function closeIncidentDrawer() {
+        var drawer = getIncidentDrawer();
+
+        if (! drawer || drawer.hidden) {
+            return;
+        }
+
+        if (incidentDrawerState.abortController) {
+            incidentDrawerState.abortController.abort();
+            incidentDrawerState.abortController = null;
+        }
+
+        drawer.hidden = true;
+        drawer.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function copyTextToClipboard(text) {
+        var textarea;
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            return navigator.clipboard.writeText(text);
+        }
+
+        textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-1000px';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+            document.execCommand('copy');
+        } finally {
+            document.body.removeChild(textarea);
+        }
+
+        return Promise.resolve();
+    }
+
+    function copyIncidentLink(button) {
+        var url = incidentDrawerState.url;
+
+        if (! url.length || ! button) {
+            return;
+        }
+
+        copyTextToClipboard(url).then(function () {
+            button.textContent = getIncidentDrawerLabel('copied-label', 'Copied');
+            window.setTimeout(function () {
+                if (! isIncidentDrawerOpen()) {
+                    return;
+                }
+
+                button.textContent = getIncidentDrawerLabel('copy-label', 'Copy link');
+            }, 1200);
+        });
+    }
+
     function focusSearchField() {
         var input = getSearchInput();
 
@@ -1541,6 +2135,549 @@
         window.location.href = cleanPath.length ? (baseUrl + '/' + cleanPath) : (baseUrl + '/');
     }
 
+    function getCommandPalette() {
+        return document.getElementById('command-palette-modal');
+    }
+
+    function getCommandPaletteInput() {
+        return document.getElementById('command-palette-input');
+    }
+
+    function getCommandPaletteResults() {
+        return document.getElementById('command-palette-results');
+    }
+
+    function isCommandPaletteOpen() {
+        var modal = getCommandPalette();
+
+        return !! modal && ! modal.hidden;
+    }
+
+    function getCommandPaletteLabel(name, fallback) {
+        var modal = getCommandPalette();
+        var key = name.replace(/-([a-z])/g, function (_, letter) {
+            return letter.toUpperCase();
+        });
+
+        if (modal && modal.dataset[key]) {
+            return modal.dataset[key];
+        }
+
+        return fallback;
+    }
+
+    function makeCommand(type, label, category, description, value, element) {
+        return {
+            type: type,
+            label: label,
+            category: category,
+            description: description || '',
+            value: value || '',
+            element: element || null
+        };
+    }
+
+    function getStaticCommands() {
+        var navigation = getCommandPaletteLabel('navigation-label', 'Navigation');
+        var actions = getCommandPaletteLabel('actions-label', 'Actions');
+
+        return [
+            makeCommand('navigate', 'Dashboard', navigation, 'Open dashboard overview', 'dashboard'),
+            makeCommand('navigate', 'Tactical Overview', navigation, 'Open tactical monitoring overview', 'icingadb/tactical'),
+            makeCommand('navigate', 'Event History', navigation, 'Open latest monitoring events', 'icingadb/history'),
+            makeCommand('navigate', 'Search', navigation, 'Open global search page', 'search'),
+            makeCommand('navigate', 'My Account', navigation, 'Open account preferences', 'account'),
+            makeCommand('navigate', 'Configuration', navigation, 'Open configuration area', 'config'),
+            makeCommand('shortcut', 'Keyboard Shortcuts', actions, 'Show available keyboard shortcuts', 'shortcuts'),
+            makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
+            makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
+            makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
+            makeCommand('navigate', 'Log Out', actions, 'End current session', 'authentication/logout')
+        ];
+    }
+
+    function getAnchorCommandLabel(anchor) {
+        var text = normalizeText(anchor.textContent || anchor.getAttribute('aria-label') || anchor.title || '');
+
+        return text.replace(/\s+/g, ' ').trim();
+    }
+
+    function isUsableCommandAnchor(anchor) {
+        var href = anchor.getAttribute('href') || '';
+
+        if (! href || href === '#' || href.indexOf('javascript:') === 0) {
+            return false;
+        }
+
+        if (anchor.closest('.keyboard-shortcuts-modal, .command-palette-modal, .quick-menu-context')) {
+            return false;
+        }
+
+        if (anchor.matches('[data-qm-title]')) {
+            return false;
+        }
+
+        return Boolean(getAnchorCommandLabel(anchor).length);
+    }
+
+    function collectNavigationCommands() {
+        var navigation = getCommandPaletteLabel('navigation-label', 'Navigation');
+        var currentPage = getCommandPaletteLabel('current-page-label', 'Current Page');
+        var commands = [];
+        var seen = {};
+
+        document.querySelectorAll('#menu a[href], .config-menu a[href], #main .controls a[href]').forEach(function (anchor) {
+            var label;
+            var href;
+            var key;
+            var category;
+
+            if (! isUsableCommandAnchor(anchor)) {
+                return;
+            }
+
+            label = getAnchorCommandLabel(anchor);
+            href = anchor.getAttribute('href') || anchor.href || '';
+            key = label.toLowerCase() + '|' + href;
+
+            if (seen[key]) {
+                return;
+            }
+
+            seen[key] = true;
+            category = anchor.closest('#main') ? currentPage : navigation;
+            commands.push(makeCommand('anchor', label, category, href, href, anchor));
+        });
+
+        return commands;
+    }
+
+    function getRecentIncidentCommands() {
+        return readRecentIncidents().filter(function (incident) {
+            return incident && incident.title && incident.url;
+        }).map(function (incident) {
+            return makeCommand(
+                'incident',
+                incident.title,
+                'Recent Incidents',
+                incident.meta || 'Open incident details',
+                incident.url
+            );
+        });
+    }
+
+    function parseOperatorAction(query) {
+        var text = normalizeText(query).toLowerCase();
+        var match = text.match(/^(ack|acknowledge|recheck|check|downtime|comment)\s+(.+)$/);
+        var actionMap = {
+            ack: 'acknowledge',
+            acknowledge: 'acknowledge',
+            recheck: 'check-now',
+            check: 'check-now',
+            downtime: 'schedule-downtime',
+            comment: 'add-comment'
+        };
+
+        if (! match) {
+            return {
+                action: '',
+                expression: query
+            };
+        }
+
+        return {
+            action: actionMap[match[1]] || '',
+            expression: query.replace(/^\s*\S+\s+/, '')
+        };
+    }
+
+    function parseObjectExpression(expression) {
+        var text = normalizeText(expression);
+        var match;
+
+        if (! text.length) {
+            return null;
+        }
+
+        match = text.match(/^host\s*[:=]\s*(.+)$/i);
+        if (match && match[1].trim().length) {
+            return {
+                type: 'host',
+                hostName: match[1].trim(),
+                serviceName: ''
+            };
+        }
+
+        match = text.match(/^service\s*[:=]\s*(.+)$/i);
+        if (match) {
+            text = match[1].trim();
+        }
+
+        match = text.match(/^(.+?)\s+on\s+(.+)$/i);
+        if (match && match[1].trim().length && match[2].trim().length) {
+            return {
+                type: 'service',
+                hostName: match[2].trim(),
+                serviceName: match[1].trim()
+            };
+        }
+
+        match = text.match(/^(.+?)!(.+)$/);
+        if (match && match[1].trim().length && match[2].trim().length) {
+            return {
+                type: 'service',
+                hostName: match[1].trim(),
+                serviceName: match[2].trim()
+            };
+        }
+
+        if (/^host\s+/i.test(text)) {
+            text = text.replace(/^host\s+/i, '').trim();
+        }
+
+        if (text.length && text.indexOf(' ') === -1 && text.indexOf(':') === -1) {
+            return {
+                type: 'host',
+                hostName: text,
+                serviceName: ''
+            };
+        }
+
+        return null;
+    }
+
+    function getObjectCommandLabel(object, action) {
+        var name;
+        var labels = {
+            'acknowledge': 'Acknowledge',
+            'check-now': 'Recheck now',
+            'schedule-downtime': 'Schedule downtime',
+            'add-comment': 'Add comment'
+        };
+
+        if (! object) {
+            return '';
+        }
+
+        name = object.type === 'service'
+            ? object.serviceName + ' on ' + object.hostName
+            : object.hostName;
+
+        if (action) {
+            return (labels[action] || action) + ': ' + name;
+        }
+
+        return 'Open ' + (object.type === 'service' ? 'service ' : 'host ') + name;
+    }
+
+    function getOperatorObjectCommands(query) {
+        var parsed = parseOperatorAction(query);
+        var object = parseObjectExpression(parsed.expression);
+        var category = 'Objects';
+        var url;
+
+        if (! object) {
+            return [];
+        }
+
+        url = parsed.action
+            ? buildIcingadbActionUrl(object, parsed.action)
+            : buildIcingadbObjectUrl(object);
+
+        if (! url.length) {
+            return [];
+        }
+
+        return [
+            makeCommand(
+                'navigateAbsolute',
+                getObjectCommandLabel(object, parsed.action),
+                category,
+                object.type === 'service' ? 'IcingaDB service object' : 'IcingaDB host object',
+                url
+            )
+        ];
+    }
+
+    function getCurrentObjectCommands() {
+        var object = getIcingadbObjectFromUrl(window.location.href);
+        var category = 'Current Object';
+        var actions = [
+            ['Open object', buildIcingadbObjectUrl(object), 'Open the current IcingaDB object'],
+            ['History', buildIcingadbContextUrls(object).history, 'Open object history'],
+            ['Comments', buildIcingadbContextUrls(object).comments, 'Open object comments'],
+            ['Downtimes', buildIcingadbContextUrls(object).downtimes, 'Open object downtimes'],
+            ['Acknowledge', buildIcingadbActionUrl(object, 'acknowledge'), 'Open acknowledge form'],
+            ['Recheck now', buildIcingadbActionUrl(object, 'check-now'), 'Open immediate recheck form'],
+            ['Schedule downtime', buildIcingadbActionUrl(object, 'schedule-downtime'), 'Open downtime form'],
+            ['Add comment', buildIcingadbActionUrl(object, 'add-comment'), 'Open comment form']
+        ];
+
+        if (! object) {
+            return [];
+        }
+
+        return actions.filter(function (entry) {
+            return entry[1] && entry[1].length;
+        }).map(function (entry) {
+            return makeCommand(
+                'navigateAbsolute',
+                entry[0] + ': ' + getIcingadbObjectDisplayName(object),
+                category,
+                entry[2],
+                entry[1]
+            );
+        });
+    }
+
+    function commandMatches(command, query) {
+        var haystack;
+
+        if (! query.length) {
+            return true;
+        }
+
+        haystack = normalizeText([
+            command.label,
+            command.category,
+            command.description,
+            command.value
+        ].join(' ')).toLowerCase();
+
+        return haystack.indexOf(query) !== -1;
+    }
+
+    function scoreCommand(command, query) {
+        var label = normalizeText(command.label).toLowerCase();
+        var value = normalizeText(command.value).toLowerCase();
+
+        if (! query.length) {
+            return command.type === 'anchor' ? 40 : 10;
+        }
+
+        if (label === query) {
+            return 0;
+        }
+
+        if (label.indexOf(query) === 0) {
+            return 1;
+        }
+
+        if (value.indexOf(query) === 0) {
+            return 2;
+        }
+
+        if (label.indexOf(query) !== -1) {
+            return 3;
+        }
+
+        return 8;
+    }
+
+    function buildCommandPaletteCommands(query) {
+        var normalizedQuery = normalizeText(query || '').toLowerCase();
+        var commands = getStaticCommands()
+            .concat(getCurrentObjectCommands())
+            .concat(getOperatorObjectCommands(query))
+            .concat(getRecentIncidentCommands())
+            .concat(collectNavigationCommands());
+        var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
+
+        commands = commands.filter(function (command) {
+            return commandMatches(command, normalizedQuery);
+        }).sort(function (a, b) {
+            var scoreDiff = scoreCommand(a, normalizedQuery) - scoreCommand(b, normalizedQuery);
+
+            if (scoreDiff !== 0) {
+                return scoreDiff;
+            }
+
+            return a.label.localeCompare(b.label);
+        });
+
+        if (normalizedQuery.length) {
+            commands.unshift(makeCommand(
+                'search',
+                searchLabel + ' "' + query.trim() + '"',
+                getCommandPaletteLabel('actions-label', 'Actions'),
+                'Run global search',
+                query.trim()
+            ));
+        }
+
+        return commands.slice(0, COMMAND_PALETTE_RESULT_LIMIT);
+    }
+
+    function setCommandPaletteActive(index) {
+        var results = getCommandPaletteResults();
+        var buttons;
+
+        if (! results || ! commandPaletteState.commands.length) {
+            commandPaletteState.activeIndex = 0;
+            return;
+        }
+
+        commandPaletteState.activeIndex = clamp(index, 0, commandPaletteState.commands.length - 1);
+        buttons = results.querySelectorAll('[data-command-index]');
+        buttons.forEach(function (button, buttonIndex) {
+            var active = buttonIndex === commandPaletteState.activeIndex;
+
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function renderCommandPaletteResults() {
+        var input = getCommandPaletteInput();
+        var results = getCommandPaletteResults();
+        var empty = document.querySelector('[data-command-palette-empty]');
+        var query = input ? input.value : '';
+
+        if (! results) {
+            return;
+        }
+
+        commandPaletteState.commands = buildCommandPaletteCommands(query);
+        results.innerHTML = commandPaletteState.commands.map(function (command, index) {
+            return '<li role="presentation">'
+                + '<button type="button" role="option" data-command-index="' + String(index) + '">'
+                + '<span class="command-palette-command-main">'
+                + '<strong>' + escapeHtml(command.label) + '</strong>'
+                + '<small>' + escapeHtml(command.category) + '</small>'
+                + '</span>'
+                + '<span class="command-palette-command-desc">' + escapeHtml(command.description) + '</span>'
+                + '</button>'
+                + '</li>';
+        }).join('');
+
+        if (empty) {
+            empty.textContent = getCommandPaletteLabel('empty-label', 'No command found');
+            empty.hidden = commandPaletteState.commands.length > 0;
+        }
+
+        setCommandPaletteActive(0);
+    }
+
+    function openCommandPalette(prefill) {
+        var modal = getCommandPalette();
+        var input = getCommandPaletteInput();
+
+        if (! modal || ! input) {
+            return;
+        }
+
+        lastFocusedElement = document.activeElement;
+
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        input.placeholder = getCommandPaletteLabel('placeholder', 'Type a command, page, host or service');
+        input.value = prefill || '';
+        renderCommandPaletteResults();
+        input.focus();
+        input.select();
+    }
+
+    function closeCommandPalette() {
+        var modal = getCommandPalette();
+
+        if (! modal || modal.hidden) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function runCommandPaletteCommand(command) {
+        if (! command) {
+            return;
+        }
+
+        closeCommandPalette();
+
+        if (command.type === 'search') {
+            navigateTo('search?q=' + encodeURIComponent(command.value));
+            return;
+        }
+
+        if (command.type === 'shortcut') {
+            openShortcutsDialog();
+            return;
+        }
+
+        if (command.type === 'density') {
+            setDensityMode(command.value);
+            return;
+        }
+
+        if (command.type === 'anchor' && command.element) {
+            command.element.click();
+            return;
+        }
+
+        if (command.type === 'incident') {
+            window.location.href = command.value;
+            return;
+        }
+
+        if (command.type === 'navigateAbsolute') {
+            window.location.href = command.value;
+            return;
+        }
+
+        if (command.type === 'navigate') {
+            navigateTo(command.value);
+        }
+    }
+
+    function handleCommandPaletteKeydown(event) {
+        if (! isCommandPaletteOpen()) {
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeCommandPalette();
+            return;
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setCommandPaletteActive(commandPaletteState.activeIndex + 1);
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setCommandPaletteActive(commandPaletteState.activeIndex - 1);
+            return;
+        }
+
+        if (event.key === 'Home') {
+            event.preventDefault();
+            setCommandPaletteActive(0);
+            return;
+        }
+
+        if (event.key === 'End') {
+            event.preventDefault();
+            setCommandPaletteActive(commandPaletteState.commands.length - 1);
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            runCommandPaletteCommand(commandPaletteState.commands[commandPaletteState.activeIndex]);
+        }
+    }
+
     function activateShortcutTarget(target) {
         if (target === 's') {
             if (! focusSearchField()) {
@@ -1586,7 +2723,22 @@
     function handleGlobalShortcuts(event) {
         var key = event.key || '';
 
+        if ((event.ctrlKey || event.metaKey) && ! event.altKey && key.toLowerCase() === 'k') {
+            event.preventDefault();
+            openCommandPalette();
+            return;
+        }
+
         if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+
+        if (isCommandPaletteOpen()) {
+            if (key === 'Escape') {
+                event.preventDefault();
+                closeCommandPalette();
+            }
+
             return;
         }
 
@@ -1632,11 +2784,17 @@
         var first;
         var last;
 
-        if (event.key !== 'Tab' || ! isShortcutsDialogOpen()) {
+        if (event.key !== 'Tab' || (! isShortcutsDialogOpen() && ! isCommandPaletteOpen() && ! isIncidentDrawerOpen())) {
             return;
         }
 
-        modal = document.getElementById('keyboard-shortcuts-modal');
+        if (isCommandPaletteOpen()) {
+            modal = getCommandPalette();
+        } else if (isIncidentDrawerOpen()) {
+            modal = getIncidentDrawer();
+        } else {
+            modal = document.getElementById('keyboard-shortcuts-modal');
+        }
         if (! modal) {
             return;
         }
@@ -2550,6 +3708,11 @@
     function onClick(event) {
         var action = event.target.closest('.search-history-action');
         var close = event.target.closest('[data-close-shortcuts]');
+        var closeCommandPaletteButton = event.target.closest('[data-close-command-palette]');
+        var commandPaletteCommand = event.target.closest('[data-command-index]');
+        var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
+        var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
+        var incidentLink = event.target.closest('.top-event-link');
         var open = event.target.closest('[data-open-shortcuts]');
         var quickMenuTitle = event.target.closest('[data-qm-title]');
         var toggleNotebook = event.target.closest('[data-qm-toggle-note]');
@@ -2574,6 +3737,39 @@
             }
 
             return;
+        }
+
+        if (closeCommandPaletteButton) {
+            event.preventDefault();
+            closeCommandPalette();
+            return;
+        }
+
+        if (commandPaletteCommand) {
+            event.preventDefault();
+            runCommandPaletteCommand(commandPaletteState.commands[
+                parseInt(commandPaletteCommand.getAttribute('data-command-index') || '0', 10)
+            ]);
+            return;
+        }
+
+        if (closeIncidentDrawerButton) {
+            event.preventDefault();
+            closeIncidentDrawer();
+            return;
+        }
+
+        if (copyIncidentLinkButton) {
+            event.preventDefault();
+            copyIncidentLink(copyIncidentLinkButton);
+            return;
+        }
+
+        if (incidentLink && ! event.ctrlKey && ! event.metaKey && ! event.shiftKey) {
+            if (openIncidentDrawerFromLink(incidentLink)) {
+                event.preventDefault();
+                return;
+            }
         }
 
         if (open) {
@@ -2684,6 +3880,11 @@
     }
 
     function onInput(event) {
+        if (event.target.matches('#command-palette-input')) {
+            renderCommandPaletteResults();
+            return;
+        }
+
         if (event.target.matches('[data-qn-input]')) {
             updateQuickNotebookStatus('', false);
             return;
@@ -2711,6 +3912,16 @@
             return;
         }
 
+        if (isCommandPaletteOpen()) {
+            closeCommandPalette();
+            return;
+        }
+
+        if (isIncidentDrawerOpen()) {
+            closeIncidentDrawer();
+            return;
+        }
+
         hideQuickMenuContextMenu();
         if (quickNotebookState.visible) {
             setQuickNotebookVisible(false);
@@ -2723,9 +3934,11 @@
     document.addEventListener('input', onInput);
     document.addEventListener('contextmenu', onContextMenu);
     document.addEventListener('keydown', handleGlobalShortcuts);
+    document.addEventListener('keydown', handleCommandPaletteKeydown);
     document.addEventListener('keydown', trapDialogFocus);
     document.addEventListener('keydown', onGlobalEscape, true);
     document.addEventListener('scroll', hideQuickMenuContextMenu, true);
+    applyDensityMode(readDensityMode());
     window.addEventListener('pagehide', persistQuickNotebookDraftFromDom);
     window.addEventListener('beforeunload', persistQuickNotebookDraftFromDom);
     window.addEventListener('resize', function () {

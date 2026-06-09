@@ -218,6 +218,14 @@ if ($this->layout()->inlineLayout) {
         </p>
         <ul class="keyboard-shortcuts-list">
             <li>
+                <kbd>Ctrl</kbd> <kbd>K</kbd>
+                <span><?= $this->translate('Open command palette') ?></span>
+            </li>
+            <li>
+                <kbd>Cmd</kbd> <kbd>K</kbd>
+                <span><?= $this->translate('Open command palette') ?></span>
+            </li>
+            <li>
                 <kbd>/</kbd>
                 <span><?= $this->translate('Focus global search') ?></span>
             </li>
@@ -247,4 +255,135 @@ if ($this->layout()->inlineLayout) {
             </li>
         </ul>
     </section>
+</div>
+<div
+    id="command-palette-modal"
+    class="command-palette-modal"
+    hidden
+    aria-hidden="true"
+    data-placeholder="<?= $this->escape($this->translate('Type a command, page, host or service')) ?>"
+    data-empty-label="<?= $this->escape($this->translate('No command found')) ?>"
+    data-search-label="<?= $this->escape($this->translate('Search for')) ?>"
+    data-navigation-label="<?= $this->escape($this->translate('Navigation')) ?>"
+    data-actions-label="<?= $this->escape($this->translate('Actions')) ?>"
+    data-current-page-label="<?= $this->escape($this->translate('Current Page')) ?>"
+>
+    <div class="command-palette-backdrop" data-close-command-palette></div>
+    <section
+        class="command-palette-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="command-palette-title"
+    >
+        <header class="command-palette-header">
+            <h2 id="command-palette-title"><?= $this->translate('Command Palette') ?></h2>
+            <button
+                type="button"
+                class="command-palette-close"
+                data-close-command-palette
+                aria-label="<?= $this->translate('Close') ?>"
+            >
+                <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+            </button>
+        </header>
+        <div class="command-palette-search">
+            <i class="icon fa-search fa" aria-hidden="true"></i>
+            <input
+                type="text"
+                id="command-palette-input"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                aria-controls="command-palette-results"
+                aria-autocomplete="list"
+            >
+        </div>
+        <div class="command-palette-empty" data-command-palette-empty hidden></div>
+        <ul id="command-palette-results" class="command-palette-results" role="listbox"></ul>
+    </section>
+</div>
+<div
+    id="incident-drawer"
+    class="incident-drawer"
+    hidden
+    aria-hidden="true"
+    data-loading-label="<?= $this->escape($this->translate('Loading incident details...')) ?>"
+    data-unavailable-label="<?= $this->escape($this->translate('Incident details are unavailable.')) ?>"
+    data-open-label="<?= $this->escape($this->translate('Open full details')) ?>"
+    data-copy-label="<?= $this->escape($this->translate('Copy link')) ?>"
+    data-copied-label="<?= $this->escape($this->translate('Copied')) ?>"
+    data-acknowledge-label="<?= $this->escape($this->translate('Acknowledge')) ?>"
+    data-recheck-label="<?= $this->escape($this->translate('Recheck now')) ?>"
+    data-downtime-label="<?= $this->escape($this->translate('Schedule downtime')) ?>"
+    data-comment-label="<?= $this->escape($this->translate('Add comment')) ?>"
+    data-context-label="<?= $this->escape($this->translate('Object context')) ?>"
+    data-object-label="<?= $this->escape($this->translate('Open object')) ?>"
+    data-history-label="<?= $this->escape($this->translate('History')) ?>"
+    data-comments-label="<?= $this->escape($this->translate('Comments')) ?>"
+    data-downtimes-label="<?= $this->escape($this->translate('Downtimes')) ?>"
+>
+    <div class="incident-drawer-backdrop" data-close-incident-drawer></div>
+    <aside
+        class="incident-drawer-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="incident-drawer-title"
+    >
+        <header class="incident-drawer-header">
+            <div>
+                <p class="incident-drawer-eyebrow"><?= $this->translate('Incident') ?></p>
+                <h2 id="incident-drawer-title"></h2>
+            </div>
+            <button
+                type="button"
+                class="incident-drawer-close"
+                data-close-incident-drawer
+                aria-label="<?= $this->translate('Close') ?>"
+            >
+                <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+            </button>
+        </header>
+        <p class="incident-drawer-meta" data-incident-meta></p>
+        <div class="incident-drawer-quick-actions" data-incident-actions hidden>
+            <a href="#" data-incident-action="acknowledge" data-base-target="_main">
+                <?= $this->translate('Acknowledge') ?>
+            </a>
+            <a href="#" data-incident-action="check-now" data-base-target="_main">
+                <?= $this->translate('Recheck now') ?>
+            </a>
+            <a href="#" data-incident-action="schedule-downtime" data-base-target="_main">
+                <?= $this->translate('Schedule downtime') ?>
+            </a>
+            <a href="#" data-incident-action="add-comment" data-base-target="_main">
+                <?= $this->translate('Add comment') ?>
+            </a>
+        </div>
+        <section class="incident-drawer-context" data-incident-context hidden>
+            <h3 data-incident-context-title><?= $this->translate('Object context') ?></h3>
+            <div class="incident-drawer-context-links">
+                <a href="#" data-incident-context-link="object" data-base-target="_main">
+                    <?= $this->translate('Open object') ?>
+                </a>
+                <a href="#" data-incident-context-link="history" data-base-target="_main">
+                    <?= $this->translate('History') ?>
+                </a>
+                <a href="#" data-incident-context-link="comments" data-base-target="_main">
+                    <?= $this->translate('Comments') ?>
+                </a>
+                <a href="#" data-incident-context-link="downtimes" data-base-target="_main">
+                    <?= $this->translate('Downtimes') ?>
+                </a>
+            </div>
+        </section>
+        <div class="incident-drawer-body" data-incident-body></div>
+        <footer class="incident-drawer-actions">
+            <a href="#" data-incident-open data-base-target="_main">
+                <?= $this->translate('Open full details') ?>
+            </a>
+            <button type="button" data-copy-incident-link>
+                <?= $this->translate('Copy link') ?>
+            </button>
+        </footer>
+    </aside>
 </div>
