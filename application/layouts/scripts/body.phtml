@@ -194,6 +194,53 @@ if ($this->layout()->inlineLayout) {
                     </button>
                 </div>
             </section>
+            <section
+                class="operator-decision-matrix"
+                data-operator-decision-matrix
+                data-empty-label="<?= $this->escape($this->translate('No matching events')) ?>"
+                data-open-label="<?= $this->escape($this->translate('Open')) ?>"
+            >
+                <article class="operator-decision-lane lane-now" data-operator-decision-lane="now">
+                    <header>
+                        <span><?= $this->translate('Act now') ?></span>
+                        <strong data-operator-decision-count="now">0</strong>
+                    </header>
+                    <p data-operator-decision-title="now"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="now">
+                        <?= $this->translate('Open') ?>
+                    </button>
+                </article>
+                <article class="operator-decision-lane lane-watch" data-operator-decision-lane="watch">
+                    <header>
+                        <span><?= $this->translate('Watch') ?></span>
+                        <strong data-operator-decision-count="watch">0</strong>
+                    </header>
+                    <p data-operator-decision-title="watch"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="watch">
+                        <?= $this->translate('Open') ?>
+                    </button>
+                </article>
+                <article class="operator-decision-lane lane-parked" data-operator-decision-lane="parked">
+                    <header>
+                        <span><?= $this->translate('Parked') ?></span>
+                        <strong data-operator-decision-count="parked">0</strong>
+                    </header>
+                    <p data-operator-decision-title="parked"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="parked">
+                        <?= $this->translate('Open') ?>
+                    </button>
+                </article>
+                <article class="operator-decision-lane lane-handled" data-operator-decision-lane="handled">
+                    <header>
+                        <span><?= $this->translate('Handled') ?></span>
+                        <strong data-operator-decision-count="handled">0</strong>
+                    </header>
+                    <p data-operator-decision-title="handled"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="handled">
+                        <?= $this->translate('Open') ?>
+                    </button>
+                </article>
+            </section>
             <ul class="top-events-list">
                 <li class="top-event-item" data-top-event-item="0">
                     <a

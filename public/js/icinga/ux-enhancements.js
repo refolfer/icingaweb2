@@ -2079,7 +2079,118 @@
         }
 
         runTriageDeskAction(action, normalizeIncidentUrl(next.url));
+        renderOperatorBoards();
+    }
+
+    function getOperatorDecisionMatrix() {
+        return document.querySelector('[data-operator-decision-matrix]');
+    }
+
+    function getOperatorDecisionLabel(key, fallback) {
+        var matrix = getOperatorDecisionMatrix();
+
+        if (matrix && matrix.dataset && matrix.dataset[key]) {
+            return matrix.dataset[key];
+        }
+
+        return fallback;
+    }
+
+    function createOperatorDecisionSnapshot() {
+        var lanes = {
+            now: [],
+            watch: [],
+            parked: [],
+            handled: []
+        };
+
+        topEventsState.items.forEach(function (item) {
+            if (! item || ! item.url) {
+                return;
+            }
+
+            if (item.handled || isIncidentSeen(item.url)) {
+                lanes.handled.push(item);
+                return;
+            }
+
+            if (isIncidentSnoozed(item.url)) {
+                lanes.parked.push(item);
+                return;
+            }
+
+            if (item.state === 'critical' || item.state === 'warning') {
+                lanes.now.push(item);
+                return;
+            }
+
+            if (item.state === 'unknown' || item.state === 'pending') {
+                lanes.watch.push(item);
+            }
+        });
+
+        return lanes;
+    }
+
+    function getOperatorDecisionLaneTitle(item) {
+        if (! item) {
+            return getOperatorDecisionLabel('emptyLabel', 'No matching events');
+        }
+
+        return normalizeText(item.title || item.meta || item.preview || 'Untitled event');
+    }
+
+    function renderOperatorDecisionMatrix() {
+        var matrix = getOperatorDecisionMatrix();
+        var lanes;
+
+        if (! matrix) {
+            return;
+        }
+
+        lanes = createOperatorDecisionSnapshot();
+        Object.keys(lanes).forEach(function (lane) {
+            var events = lanes[lane];
+            var first = events[0] || null;
+            var count = matrix.querySelector('[data-operator-decision-count="' + lane + '"]');
+            var title = matrix.querySelector('[data-operator-decision-title="' + lane + '"]');
+            var card = matrix.querySelector('[data-operator-decision-lane="' + lane + '"]');
+            var button = matrix.querySelector('[data-operator-decision-action="' + lane + '"]');
+
+            if (count) {
+                count.textContent = String(events.length);
+            }
+
+            if (title) {
+                title.textContent = getOperatorDecisionLaneTitle(first);
+            }
+
+            if (card) {
+                card.classList.toggle('has-events', events.length > 0);
+            }
+
+            if (button) {
+                button.disabled = ! first;
+                button.textContent = getOperatorDecisionLabel('openLabel', 'Open');
+            }
+        });
+    }
+
+    function runOperatorDecisionAction(lane) {
+        var lanes = createOperatorDecisionSnapshot();
+        var item = lanes[lane] && lanes[lane][0] ? lanes[lane][0] : null;
+
+        if (! item) {
+            return;
+        }
+
+        recordOperatorActivity('Decision', 'Opened ' + lane + ' decision lane', getOperatorDecisionLaneTitle(item), item.url);
+        window.location.href = normalizeIncidentUrl(item.url);
+    }
+
+    function renderOperatorBoards() {
         renderOperatorFocusBoard();
+        renderOperatorDecisionMatrix();
     }
 
     function buildTriageDigestText() {
@@ -2202,7 +2313,7 @@
         rerenderCachedTopEvents();
         refreshTopEvents(true);
         renderTriageDesk();
-        renderOperatorFocusBoard();
+        renderOperatorBoards();
         recordOperatorActivity('Triage', 'Reset triage queue', 'Cleared local seen and snoozed markers', '');
         showOperatorToast('Triage queue reset');
     }
@@ -2239,7 +2350,7 @@
                 showOperatorToast(isIncidentPinned(url) ? 'Triage event pinned' : 'Triage event unpinned');
             }
             renderTriageDesk();
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             return;
         }
 
@@ -2248,7 +2359,7 @@
             rerenderCachedTopEvents();
             refreshTopEvents(true);
             renderTriageDesk();
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Triage', 'Snoozed triage event', event ? normalizeText(event.title || event.meta || '') : '', url);
             showOperatorToast('Triage event snoozed');
             return;
@@ -2259,7 +2370,7 @@
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
             renderTriageDesk();
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Triage', 'Marked triage event seen', event ? normalizeText(event.title || event.meta || '') : '', url);
             showOperatorToast('Triage event marked seen');
         }
@@ -2297,6 +2408,7 @@
         var noteUrls = Object.keys(notes).filter(function (url) {
             return String(notes[url] || '').trim().length;
         });
+        var decision = createOperatorDecisionSnapshot();
         var activity = readOperatorActivity().slice(0, 12);
         var lines = [
             'Operator handoff',
@@ -2313,6 +2425,14 @@
 
         lines.push('');
         lines.push(buildTriageDigestText());
+
+        lines.push('');
+        lines.push('Decision matrix:');
+        lines.push('- Act now: ' + String(decision.now.length));
+        lines.push('- Watch: ' + String(decision.watch.length));
+        lines.push('- Parked: ' + String(decision.parked.length));
+        lines.push('- Handled locally: ' + String(decision.handled.length));
+
         appendHandoffIncidentList(lines, 'Pinned incidents', pinned.slice(0, PINNED_INCIDENTS_LIMIT));
         appendHandoffIncidentList(lines, 'Recent incidents', recent.slice(0, RECENT_INCIDENTS_LIMIT));
 
@@ -2520,7 +2640,7 @@
         var i;
 
         updateTopEventsSummary(triageStats);
-        renderOperatorFocusBoard();
+        renderOperatorBoards();
 
         if (triageMode) {
             visibleItems = visibleItems.filter(isTriageEvent);
@@ -3541,7 +3661,7 @@
             snapshot.url
         );
         updatePinIncidentButton();
-        renderOperatorFocusBoard();
+        renderOperatorBoards();
     }
 
     function snoozeCurrentIncident() {
@@ -3554,7 +3674,7 @@
         updateSnoozeIncidentButton();
         rerenderCachedTopEvents();
         refreshTopEvents(true);
-        renderOperatorFocusBoard();
+        renderOperatorBoards();
         closeIncidentDrawer();
     }
 
@@ -3870,6 +3990,30 @@
         ];
     }
 
+    function getOperatorDecisionCommands() {
+        var lanes = createOperatorDecisionSnapshot();
+        var labels = {
+            now: 'Open act now decision',
+            watch: 'Open watch decision',
+            parked: 'Open parked decision',
+            handled: 'Open handled decision'
+        };
+
+        return Object.keys(labels).filter(function (lane) {
+            return lanes[lane] && lanes[lane].length;
+        }).map(function (lane) {
+            var item = lanes[lane][0];
+
+            return makeCommand(
+                'operatorDecisionLane',
+                labels[lane],
+                'Decision Matrix',
+                getOperatorDecisionLaneTitle(item),
+                lane
+            );
+        });
+    }
+
     function getTriageQueueCommands() {
         var events = getActiveTriageEvents();
         var focus = getOperatorFocusSnapshot().next;
@@ -4145,6 +4289,7 @@
             .concat(getSnoozedIncidentCommands())
             .concat(getTriageResetCommands())
             .concat(getTriageQueueCommands())
+            .concat(getOperatorDecisionCommands())
             .concat(getOperatorActivityCommands())
             .concat(getRecentIncidentCommands())
             .concat(collectNavigationCommands());
@@ -4321,9 +4466,14 @@
             return;
         }
 
+        if (command.type === 'operatorDecisionLane') {
+            runOperatorDecisionAction(command.value);
+            return;
+        }
+
         if (command.type === 'clearPinnedIncidents') {
             writePinnedIncidents([]);
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Incident', 'Cleared pinned incidents', '', '');
             showOperatorToast('Pinned incidents cleared');
             renderCommandPaletteResults();
@@ -4334,7 +4484,7 @@
             writeSeenIncidents([]);
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Incident', 'Cleared seen incidents', '', '');
             showOperatorToast('Seen incidents cleared');
             renderCommandPaletteResults();
@@ -4345,7 +4495,7 @@
             writeSnoozedIncidents({});
             rerenderCachedTopEvents();
             refreshTopEvents(true);
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Incident', 'Cleared snoozed incidents', '', '');
             showOperatorToast('Snoozed incidents cleared');
             renderCommandPaletteResults();
@@ -4376,7 +4526,7 @@
             snoozeIncident(command.value);
             rerenderCachedTopEvents();
             refreshTopEvents(true);
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Triage', 'Snoozed next triage event', '', command.value);
             showOperatorToast('Next triage event snoozed');
             return;
@@ -4394,7 +4544,7 @@
                 );
                 showOperatorToast(isIncidentPinned(command.value) ? 'Next triage event pinned' : 'Next triage event unpinned');
             }
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             return;
         }
 
@@ -4402,7 +4552,7 @@
             markIncidentSeen(command.value);
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
-            renderOperatorFocusBoard();
+            renderOperatorBoards();
             recordOperatorActivity('Triage', 'Marked next triage event seen', '', command.value);
             showOperatorToast('Next triage event marked seen');
             return;
@@ -5510,6 +5660,7 @@
         var triageDeskCopyButton = event.target.closest('[data-triage-desk-copy]');
         var triageDeskResetButton = event.target.closest('[data-triage-desk-reset]');
         var operatorFocusActionButton = event.target.closest('[data-operator-focus-action]');
+        var operatorDecisionActionButton = event.target.closest('[data-operator-decision-action]');
         var openOperatorHandoffButton = event.target.closest('[data-open-operator-handoff]');
         var closeOperatorHandoffButton = event.target.closest('[data-close-operator-handoff]');
         var operatorHandoffCopyButton = event.target.closest('[data-operator-handoff-copy]');
@@ -5610,6 +5761,12 @@
         if (operatorFocusActionButton) {
             event.preventDefault();
             runOperatorFocusAction(operatorFocusActionButton.getAttribute('data-operator-focus-action') || '');
+            return;
+        }
+
+        if (operatorDecisionActionButton) {
+            event.preventDefault();
+            runOperatorDecisionAction(operatorDecisionActionButton.getAttribute('data-operator-decision-action') || '');
             return;
         }
 

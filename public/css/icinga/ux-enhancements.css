@@ -290,6 +290,98 @@ body.modal-open {
   opacity: 0.45;
 }
 
+.operator-decision-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(10em, 1fr));
+  gap: 0.5em;
+  margin: 0 0 0.55em;
+}
+
+.operator-decision-lane {
+  min-width: 0;
+  padding: 0.52em;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-top: 0.24em solid var(--to-text-muted);
+  border-radius: 0.4em;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.operator-decision-lane.lane-now {
+  border-top-color: var(--to-critical);
+}
+
+.operator-decision-lane.lane-watch {
+  border-top-color: var(--to-warning);
+}
+
+.operator-decision-lane.lane-parked {
+  border-top-color: var(--to-pending);
+}
+
+.operator-decision-lane.lane-handled {
+  border-top-color: var(--to-ok);
+}
+
+.operator-decision-lane.has-events {
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.operator-decision-lane header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.operator-decision-lane header span {
+  overflow: hidden;
+  color: var(--to-text-muted);
+  font-size: 0.76em;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.operator-decision-lane header strong {
+  color: var(--to-text-strong);
+  font-size: 1.15em;
+  line-height: 1;
+}
+
+.operator-decision-lane p {
+  overflow: hidden;
+  min-height: 2.5em;
+  margin: 0.35em 0 0.45em;
+  color: var(--to-text-strong);
+  font-size: 0.84em;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.operator-decision-lane button {
+  min-height: 1.85em;
+  padding: 0.18em 0.5em;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.32em;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  font-size: 0.82em;
+}
+
+.operator-decision-lane button:hover,
+.operator-decision-lane button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.operator-decision-lane button[disabled] {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .triage-desk-modal {
   position: fixed;
   inset: 0;
