@@ -104,13 +104,25 @@ if ($this->layout()->inlineLayout) {
             id="top-events-panel"
             class="top-events-panel"
             data-history-url="<?= $this->href('icingadb/history') ?>"
+            data-triage-on-label="<?= $this->escape($this->translate('Triage on')) ?>"
+            data-triage-off-label="<?= $this->escape($this->translate('Triage')) ?>"
             aria-live="polite"
         >
             <header class="top-events-header">
                 <h2><?= $this->translate('Latest Events') ?></h2>
-                <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
-                    <?= $this->translate('History > Event Overview') ?>
-                </a>
+                <div class="top-events-actions">
+                    <button
+                        type="button"
+                        class="top-events-triage-toggle"
+                        data-triage-mode-toggle
+                        aria-pressed="false"
+                    >
+                        <?= $this->translate('Triage') ?>
+                    </button>
+                    <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
+                        <?= $this->translate('History > Event Overview') ?>
+                    </a>
+                </div>
             </header>
             <ul class="top-events-list">
                 <li class="top-event-item" data-top-event-item="0">
@@ -316,6 +328,8 @@ if ($this->layout()->inlineLayout) {
     data-copied-label="<?= $this->escape($this->translate('Copied')) ?>"
     data-pin-label="<?= $this->escape($this->translate('Pin')) ?>"
     data-unpin-label="<?= $this->escape($this->translate('Unpin')) ?>"
+    data-snooze-label="<?= $this->escape($this->translate('Snooze 15m')) ?>"
+    data-snoozed-label="<?= $this->escape($this->translate('Snoozed')) ?>"
     data-acknowledge-label="<?= $this->escape($this->translate('Acknowledge')) ?>"
     data-recheck-label="<?= $this->escape($this->translate('Recheck now')) ?>"
     data-downtime-label="<?= $this->escape($this->translate('Schedule downtime')) ?>"
@@ -417,6 +431,9 @@ if ($this->layout()->inlineLayout) {
             </button>
             <button type="button" data-pin-incident>
                 <?= $this->translate('Pin') ?>
+            </button>
+            <button type="button" data-snooze-incident>
+                <?= $this->translate('Snooze 15m') ?>
             </button>
         </footer>
     </aside>

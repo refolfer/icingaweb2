@@ -7,6 +7,9 @@
     var SEARCH_HISTORY_KEY = 'menu-search-history';
     var RECENT_INCIDENTS_KEY = 'recent-incidents';
     var PINNED_INCIDENTS_KEY = 'pinned-incidents';
+    var SEEN_INCIDENTS_KEY = 'seen-incidents';
+    var SNOOZED_INCIDENTS_KEY = 'snoozed-incidents';
+    var TRIAGE_MODE_KEY = 'top-events-triage-mode';
     var INCIDENT_NOTES_KEY = 'incident-notes';
     var UX_DENSITY_KEY = 'ux-density-mode';
     var QUICK_NOTE_DRAFT_KEY = 'quick-menu-note-draft';
@@ -17,10 +20,13 @@
     var TOP_EVENTS_REFRESH_MS = 15000;
     var TOP_EVENTS_ERROR_BACKOFF_MS = 120000;
     var TOP_EVENTS_ERROR_BACKOFF_MAX_MS = 600000;
+    var TOP_EVENTS_BUFFER_LIMIT = 8;
     var TACTICAL_REFRESH_MS = 10000;
     var COMMAND_PALETTE_RESULT_LIMIT = 12;
     var RECENT_INCIDENTS_LIMIT = 10;
     var PINNED_INCIDENTS_LIMIT = 20;
+    var SEEN_INCIDENTS_LIMIT = 200;
+    var INCIDENT_SNOOZE_MS = 15 * 60 * 1000;
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -65,6 +71,7 @@
     var topPanelsWidthResizeState = null;
     var topEventsState = {
         lastSignature: '',
+        items: [],
         pollingTimer: null,
         inFlight: false,
         consecutiveErrors: 0,
@@ -229,6 +236,142 @@
         }
 
         writePinnedIncidents(incidents.slice(0, PINNED_INCIDENTS_LIMIT));
+    }
+
+    function readSeenIncidents() {
+        var incidents = [];
+
+        try {
+            incidents = JSON.parse(window.localStorage.getItem(SEEN_INCIDENTS_KEY) || '[]');
+        } catch (error) {
+            incidents = [];
+        }
+
+        return Array.isArray(incidents) ? incidents : [];
+    }
+
+    function writeSeenIncidents(incidents) {
+        try {
+            window.localStorage.setItem(SEEN_INCIDENTS_KEY, JSON.stringify(incidents));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function isIncidentSeen(url) {
+        var normalized = normalizeIncidentUrl(url);
+
+        if (! normalized.length) {
+            return false;
+        }
+
+        return readSeenIncidents().indexOf(normalized) !== -1;
+    }
+
+    function markIncidentSeen(url) {
+        var normalized = normalizeIncidentUrl(url);
+        var incidents;
+
+        if (! normalized.length) {
+            return;
+        }
+
+        incidents = readSeenIncidents().filter(function (entry) {
+            return entry !== normalized;
+        });
+
+        incidents.unshift(normalized);
+        writeSeenIncidents(incidents.slice(0, SEEN_INCIDENTS_LIMIT));
+    }
+
+    function refreshSeenTopEventStates() {
+        document.querySelectorAll('[data-top-event-item]').forEach(function (item) {
+            var url = item.getAttribute('data-event-url') || '';
+
+            item.classList.toggle('top-event-seen', isIncidentSeen(url));
+        });
+    }
+
+    function readSnoozedIncidents() {
+        var snoozed = {};
+        var changed = false;
+        var now = Date.now();
+
+        try {
+            snoozed = JSON.parse(window.localStorage.getItem(SNOOZED_INCIDENTS_KEY) || '{}');
+        } catch (error) {
+            snoozed = {};
+        }
+
+        if (! snoozed || typeof snoozed !== 'object' || Array.isArray(snoozed)) {
+            return {};
+        }
+
+        Object.keys(snoozed).forEach(function (url) {
+            if (Number(snoozed[url] || 0) <= now) {
+                delete snoozed[url];
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            writeSnoozedIncidents(snoozed);
+        }
+
+        return snoozed;
+    }
+
+    function writeSnoozedIncidents(snoozed) {
+        try {
+            window.localStorage.setItem(SNOOZED_INCIDENTS_KEY, JSON.stringify(snoozed));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function isIncidentSnoozed(url) {
+        var normalized = normalizeIncidentUrl(url);
+        var snoozed;
+
+        if (! normalized.length) {
+            return false;
+        }
+
+        snoozed = readSnoozedIncidents();
+        return Number(snoozed[normalized] || 0) > Date.now();
+    }
+
+    function snoozeIncident(url) {
+        var normalized = normalizeIncidentUrl(url);
+        var snoozed;
+
+        if (! normalized.length) {
+            return;
+        }
+
+        snoozed = readSnoozedIncidents();
+        snoozed[normalized] = Date.now() + INCIDENT_SNOOZE_MS;
+        writeSnoozedIncidents(snoozed);
+    }
+
+    function readTriageMode() {
+        try {
+            return window.localStorage.getItem(TRIAGE_MODE_KEY) === '1';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function writeTriageMode(enabled) {
+        try {
+            window.localStorage.setItem(TRIAGE_MODE_KEY, enabled ? '1' : '0');
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function isTriageModeEnabled() {
+        return readTriageMode();
     }
 
     function readIncidentNotes() {
@@ -695,6 +838,47 @@
 
     function getTopEventsPanel() {
         return document.getElementById('top-events-panel');
+    }
+
+    function getTriageModeToggle() {
+        return document.querySelector('[data-triage-mode-toggle]');
+    }
+
+    function getTopEventsPanelLabel(key, fallback) {
+        var panel = getTopEventsPanel();
+
+        if (panel && panel.dataset && panel.dataset[key]) {
+            return panel.dataset[key];
+        }
+
+        return fallback;
+    }
+
+    function updateTriageModeToggle() {
+        var enabled = isTriageModeEnabled();
+        var panel = getTopEventsPanel();
+        var toggle = getTriageModeToggle();
+
+        if (panel) {
+            panel.classList.toggle('triage-mode', enabled);
+        }
+
+        if (! toggle) {
+            return;
+        }
+
+        toggle.textContent = enabled
+            ? getTopEventsPanelLabel('triageOnLabel', 'Triage on')
+            : getTopEventsPanelLabel('triageOffLabel', 'Triage');
+        toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        toggle.classList.toggle('active', enabled);
+    }
+
+    function setTriageMode(enabled) {
+        writeTriageMode(enabled);
+        updateTriageModeToggle();
+        rerenderCachedTopEvents();
+        refreshTopEvents(true);
     }
 
     function getTacticalResizer() {
@@ -1490,7 +1674,7 @@
             signatures[signature] = true;
             results.push(event);
 
-            if (results.length >= 2) {
+            if (results.length >= TOP_EVENTS_BUFFER_LIMIT) {
                 break;
             }
         }
@@ -1498,12 +1682,44 @@
         return results;
     }
 
+    function isTriageEvent(item) {
+        var triageStates = {
+            critical: true,
+            warning: true,
+            unknown: true,
+            pending: true
+        };
+
+        if (! item || ! item.url || item.handled || isIncidentSeen(item.url)) {
+            return false;
+        }
+
+        return Boolean(triageStates[item.state]);
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
+        var triageMode = isTriageModeEnabled();
+        var visibleItems = items.filter(function (item) {
+            return ! item || ! item.url || ! isIncidentSnoozed(item.url);
+        });
         var i;
 
+        if (triageMode) {
+            visibleItems = visibleItems.filter(isTriageEvent);
+            if (! visibleItems.length && items.length) {
+                visibleItems = [{
+                    title: 'No active triage events',
+                    meta: 'Seen, handled and snoozed entries are hidden',
+                    preview: 'Disable triage mode to review the full latest event feed',
+                    url: getTopEventsHistoryUrl(),
+                    state: ''
+                }];
+            }
+        }
+
         for (i = 0; i < slots.length; i++) {
-            var item = items[i] || null;
+            var item = visibleItems[i] || null;
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
             var previewEl = slots[i].querySelector('.top-event-preview');
@@ -1518,6 +1734,7 @@
             TOP_EVENT_STATE_CLASSES.forEach(function (className) {
                 slots[i].classList.remove(className);
             });
+            slots[i].classList.remove('top-event-seen');
             slots[i].removeAttribute('data-event-state');
             slots[i].removeAttribute('data-event-url');
             linkEl.classList.remove('top-event-link-unresolved');
@@ -1534,6 +1751,7 @@
                 if (url && isTopEventDetailsUrl(url)) {
                     linkEl.setAttribute('href', url);
                     slots[i].setAttribute('data-event-url', url);
+                    slots[i].classList.toggle('top-event-seen', isIncidentSeen(url));
                 } else {
                     linkEl.setAttribute('href', normalizeTopEventUrl(getTopEventsHistoryUrl()) || getTopEventsHistoryUrl());
                     linkEl.classList.add('top-event-link-unresolved');
@@ -1566,6 +1784,12 @@
                 meta: ''
             }
         ]);
+    }
+
+    function rerenderCachedTopEvents() {
+        if (topEventsState.items.length) {
+            renderTopEvents(topEventsState.items);
+        }
     }
 
     function refreshTopEvents(forceRender) {
@@ -1607,10 +1831,18 @@
                 var signature = items.map(function (item) {
                     return item.title + '|' + item.meta + '|' + item.preview + '|' + item.state + '|' + String(item.handled) + '|' + item.url;
                 }).join('||');
+                var renderSignature = signature
+                    + '||triage='
+                    + (isTriageModeEnabled() ? '1' : '0')
+                    + '||seen='
+                    + readSeenIncidents().join('|')
+                    + '||snoozed='
+                    + Object.keys(readSnoozedIncidents()).sort().join('|');
 
-                if (forceRender || signature !== topEventsState.lastSignature) {
+                topEventsState.items = items;
+                if (forceRender || renderSignature !== topEventsState.lastSignature) {
                     renderTopEvents(items);
-                    topEventsState.lastSignature = signature;
+                    topEventsState.lastSignature = renderSignature;
                 }
 
                 topEventsState.consecutiveErrors = 0;
@@ -2231,6 +2463,12 @@
 
         incidentDrawerState.url = url;
         lastFocusedElement = document.activeElement;
+        markIncidentSeen(url);
+        item.classList.add('top-event-seen');
+        refreshSeenTopEventStates();
+        if (isTriageModeEnabled()) {
+            rerenderCachedTopEvents();
+        }
         rememberRecentIncident({
             title: titleText,
             meta: metaText,
@@ -2261,6 +2499,7 @@
         drawer.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
         updatePinIncidentButton();
+        updateSnoozeIncidentButton();
         loadIncidentNote();
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
@@ -2444,12 +2683,39 @@
         button.classList.toggle('active', pinned);
     }
 
+    function updateSnoozeIncidentButton() {
+        var button = document.querySelector('[data-snooze-incident]');
+        var snoozed = incidentDrawerState.url.length && isIncidentSnoozed(incidentDrawerState.url);
+
+        if (! button) {
+            return;
+        }
+
+        button.hidden = ! incidentDrawerState.url.length;
+        button.textContent = snoozed
+            ? getIncidentDrawerLabel('snoozed-label', 'Snoozed')
+            : getIncidentDrawerLabel('snooze-label', 'Snooze 15m');
+        button.classList.toggle('active', snoozed);
+    }
+
     function togglePinnedIncident() {
         var snapshot = getCurrentIncidentSnapshot();
         var pinned = isIncidentPinned(snapshot.url);
 
         setIncidentPinned(snapshot, ! pinned);
         updatePinIncidentButton();
+    }
+
+    function snoozeCurrentIncident() {
+        if (! incidentDrawerState.url.length) {
+            return;
+        }
+
+        snoozeIncident(incidentDrawerState.url);
+        updateSnoozeIncidentButton();
+        rerenderCachedTopEvents();
+        refreshTopEvents(true);
+        closeIncidentDrawer();
     }
 
     function focusSearchField() {
@@ -2586,6 +2852,13 @@
             makeCommand('navigate', 'My Account', navigation, 'Open account preferences', 'account'),
             makeCommand('navigate', 'Configuration', navigation, 'Open configuration area', 'config'),
             makeCommand('shortcut', 'Keyboard Shortcuts', actions, 'Show available keyboard shortcuts', 'shortcuts'),
+            makeCommand(
+                'triageMode',
+                isTriageModeEnabled() ? 'Disable Triage Mode' : 'Enable Triage Mode',
+                actions,
+                'Filter latest events to unresolved unseen problems',
+                isTriageModeEnabled() ? 'off' : 'on'
+            ),
             makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
             makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
             makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
@@ -2688,6 +2961,38 @@
         }
 
         return commands;
+    }
+
+    function getSeenIncidentCommands() {
+        if (! readSeenIncidents().length) {
+            return [];
+        }
+
+        return [
+            makeCommand(
+                'clearSeenIncidents',
+                'Clear seen incidents',
+                'Seen Incidents',
+                'Reset local seen markers in the top event feed',
+                ''
+            )
+        ];
+    }
+
+    function getSnoozedIncidentCommands() {
+        if (! Object.keys(readSnoozedIncidents()).length) {
+            return [];
+        }
+
+        return [
+            makeCommand(
+                'clearSnoozedIncidents',
+                'Clear snoozed incidents',
+                'Snoozed Incidents',
+                'Show locally snoozed top feed incidents again',
+                ''
+            )
+        ];
     }
 
     function parseOperatorAction(query) {
@@ -2904,6 +3209,8 @@
             .concat(getCurrentObjectCommands())
             .concat(getOperatorObjectCommands(query))
             .concat(getPinnedIncidentCommands())
+            .concat(getSeenIncidentCommands())
+            .concat(getSnoozedIncidentCommands())
             .concat(getRecentIncidentCommands())
             .concat(collectNavigationCommands());
         var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
@@ -3042,6 +3349,11 @@
             return;
         }
 
+        if (command.type === 'triageMode') {
+            setTriageMode(command.value === 'on');
+            return;
+        }
+
         if (command.type === 'anchor' && command.element) {
             command.element.click();
             return;
@@ -3054,6 +3366,22 @@
 
         if (command.type === 'clearPinnedIncidents') {
             writePinnedIncidents([]);
+            renderCommandPaletteResults();
+            return;
+        }
+
+        if (command.type === 'clearSeenIncidents') {
+            writeSeenIncidents([]);
+            refreshSeenTopEventStates();
+            rerenderCachedTopEvents();
+            renderCommandPaletteResults();
+            return;
+        }
+
+        if (command.type === 'clearSnoozedIncidents') {
+            writeSnoozedIncidents({});
+            rerenderCachedTopEvents();
+            refreshTopEvents(true);
             renderCommandPaletteResults();
             return;
         }
@@ -4141,10 +4469,12 @@
         var close = event.target.closest('[data-close-shortcuts]');
         var closeCommandPaletteButton = event.target.closest('[data-close-command-palette]');
         var commandPaletteCommand = event.target.closest('[data-command-index]');
+        var triageModeToggle = event.target.closest('[data-triage-mode-toggle]');
         var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
         var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
         var pinIncidentButton = event.target.closest('[data-pin-incident]');
+        var snoozeIncidentButton = event.target.closest('[data-snooze-incident]');
         var clearIncidentNoteButton = event.target.closest('[data-clear-incident-note]');
         var incidentLink = event.target.closest('.top-event-link');
         var open = event.target.closest('[data-open-shortcuts]');
@@ -4187,6 +4517,12 @@
             return;
         }
 
+        if (triageModeToggle) {
+            event.preventDefault();
+            setTriageMode(! isTriageModeEnabled());
+            return;
+        }
+
         if (closeIncidentDrawerButton) {
             event.preventDefault();
             closeIncidentDrawer();
@@ -4208,6 +4544,12 @@
         if (pinIncidentButton) {
             event.preventDefault();
             togglePinnedIncident();
+            return;
+        }
+
+        if (snoozeIncidentButton) {
+            event.preventDefault();
+            snoozeCurrentIncident();
             return;
         }
 
@@ -4396,6 +4738,7 @@
     document.addEventListener('keydown', onGlobalEscape, true);
     document.addEventListener('scroll', hideQuickMenuContextMenu, true);
     applyDensityMode(readDensityMode());
+    updateTriageModeToggle();
     window.addEventListener('pagehide', persistQuickNotebookDraftFromDom);
     window.addEventListener('beforeunload', persistQuickNotebookDraftFromDom);
     window.addEventListener('resize', function () {
@@ -4407,6 +4750,7 @@
         renderRecentSearches();
         initQuickMenu();
         initQuickNotebook();
+        updateTriageModeToggle();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
