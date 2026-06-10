@@ -1749,6 +1749,38 @@
         return stats;
     }
 
+    function getActiveTriageEvents() {
+        return topEventsState.items.filter(function (item) {
+            return item && item.url && ! isIncidentSnoozed(item.url) && isTriageEvent(item);
+        });
+    }
+
+    function buildTriageDigestText() {
+        var events = getActiveTriageEvents();
+        var lines = [
+            'Triage digest: ' + String(events.length) + ' active event' + (events.length === 1 ? '' : 's')
+        ];
+
+        events.forEach(function (item, index) {
+            var preview = normalizeText(item.preview || '');
+
+            lines.push('');
+            lines.push(String(index + 1) + '. ' + normalizeText(item.title || 'Untitled event'));
+            if (item.state) {
+                lines.push('State: ' + item.state);
+            }
+            if (item.meta) {
+                lines.push('Meta: ' + normalizeText(item.meta));
+            }
+            if (preview.length && preview !== normalizeText(item.title || '') && preview !== normalizeText(item.meta || '')) {
+                lines.push('Preview: ' + preview);
+            }
+            lines.push('URL: ' + normalizeIncidentUrl(item.url));
+        });
+
+        return lines.join('\n');
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var triageMode = isTriageModeEnabled();
@@ -3050,6 +3082,24 @@
         ];
     }
 
+    function getTriageDigestCommands() {
+        var events = getActiveTriageEvents();
+
+        if (! events.length) {
+            return [];
+        }
+
+        return [
+            makeCommand(
+                'copyTriageDigest',
+                'Copy triage digest',
+                'Triage Queue',
+                'Copy ' + String(events.length) + ' active triage event' + (events.length === 1 ? '' : 's'),
+                ''
+            )
+        ];
+    }
+
     function parseOperatorAction(query) {
         var text = normalizeText(query).toLowerCase();
         var match = text.match(/^(ack|acknowledge|recheck|check|downtime|comment)\s+(.+)$/);
@@ -3266,6 +3316,7 @@
             .concat(getPinnedIncidentCommands())
             .concat(getSeenIncidentCommands())
             .concat(getSnoozedIncidentCommands())
+            .concat(getTriageDigestCommands())
             .concat(getRecentIncidentCommands())
             .concat(collectNavigationCommands());
         var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
@@ -3438,6 +3489,11 @@
             rerenderCachedTopEvents();
             refreshTopEvents(true);
             renderCommandPaletteResults();
+            return;
+        }
+
+        if (command.type === 'copyTriageDigest') {
+            copyTextToClipboard(buildTriageDigestText());
             return;
         }
 
