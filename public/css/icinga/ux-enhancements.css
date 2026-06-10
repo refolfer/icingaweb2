@@ -290,6 +290,11 @@ body.modal-open {
   opacity: 0.45;
 }
 
+.operator-focus-actions [data-open-operator-playbook] {
+  border-color: rgba(53, 182, 217, 0.32);
+  color: var(--to-text-strong);
+}
+
 .operator-decision-matrix {
   display: grid;
   grid-template-columns: repeat(4, minmax(10em, 1fr));
@@ -768,6 +773,202 @@ body.modal-open {
 }
 
 .operator-activity-empty {
+  margin: 0;
+  padding: 1.4em;
+  color: var(--to-text-muted);
+  text-align: center;
+}
+
+.operator-playbook-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: start center;
+  padding-top: min(8vh, 4.5em);
+}
+
+.operator-playbook-modal[hidden] {
+  display: none !important;
+}
+
+.operator-playbook-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.operator-playbook-dialog {
+  position: relative;
+  width: min(68em, calc(100vw - 3em));
+  max-height: min(46em, calc(100vh - 4em));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5em;
+  background: var(--body-bg-color, #1f2730);
+  color: inherit;
+  box-shadow: 0 1.4em 3em rgba(0, 0, 0, 0.5);
+}
+
+.operator-playbook-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.95em 1em 0.7em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.operator-playbook-header h2 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.operator-playbook-header p {
+  margin: 0.25em 0 0;
+  color: var(--to-text-muted);
+  font-size: 0.86em;
+}
+
+.operator-playbook-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  flex: 0 0 auto;
+}
+
+.operator-playbook-actions button {
+  min-height: 2em;
+  padding: 0.25em 0.58em;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.32em;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  font-size: 0.86em;
+}
+
+.operator-playbook-actions button:hover,
+.operator-playbook-actions button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.operator-playbook-close {
+  min-width: 2em;
+  padding: 0 !important;
+}
+
+.operator-playbook-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(18em, 0.9fr);
+  gap: 0.8em;
+  padding: 0.8em;
+  max-height: min(38em, calc(100vh - 12em));
+  overflow: auto;
+}
+
+.operator-playbook-target {
+  grid-column: 1 / -1;
+  padding: 0.75em;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-left: 0.32em solid var(--to-pending);
+  border-radius: 0.42em;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.operator-playbook-target.state-critical {
+  border-left-color: var(--to-critical);
+}
+
+.operator-playbook-target.state-warning {
+  border-left-color: var(--to-warning);
+}
+
+.operator-playbook-target.state-unknown {
+  border-left-color: var(--to-unknown);
+}
+
+.operator-playbook-target p {
+  margin: 0;
+  color: var(--to-text-muted);
+  font-size: 0.84em;
+  line-height: 1.35;
+}
+
+.operator-playbook-target h3 {
+  margin: 0.18em 0;
+  color: var(--to-text-strong);
+  font-size: 1.05em;
+  line-height: 1.28;
+}
+
+.operator-playbook-section {
+  min-width: 0;
+  padding: 0.75em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.42em;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.operator-playbook-section h3 {
+  margin: 0 0 0.6em;
+  color: var(--to-text-muted);
+  font-size: 0.82em;
+  text-transform: uppercase;
+}
+
+.operator-playbook-section ol {
+  margin: 0;
+  padding-left: 1.45em;
+}
+
+.operator-playbook-section li {
+  margin: 0 0 0.55em;
+  color: var(--to-text-strong);
+  line-height: 1.35;
+}
+
+.operator-playbook-section li small {
+  display: block;
+  margin-top: 0.15em;
+  color: var(--to-text-muted);
+}
+
+.operator-playbook-links {
+  display: grid;
+  gap: 0.45em;
+}
+
+.operator-playbook-links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  min-height: 2.1em;
+  padding: 0.35em 0.58em;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.32em;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  text-decoration: none;
+}
+
+.operator-playbook-links a:hover,
+.operator-playbook-links a:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.operator-playbook-links span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operator-playbook-links small {
+  color: var(--to-text-muted);
+  white-space: nowrap;
+}
+
+.operator-playbook-empty {
   margin: 0;
   padding: 1.4em;
   color: var(--to-text-muted);

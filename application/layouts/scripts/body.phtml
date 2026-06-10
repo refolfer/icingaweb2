@@ -192,6 +192,9 @@ if ($this->layout()->inlineLayout) {
                     <button type="button" data-operator-focus-action="snooze">
                         <?= $this->translate('Snooze') ?>
                     </button>
+                    <button type="button" data-open-operator-playbook>
+                        <?= $this->translate('Playbook') ?>
+                    </button>
                 </div>
             </section>
             <section
@@ -562,6 +565,60 @@ if ($this->layout()->inlineLayout) {
         </header>
         <ol class="operator-activity-list" data-operator-activity-list></ol>
         <p class="operator-activity-empty" data-operator-activity-empty hidden></p>
+    </section>
+</div>
+<div
+    id="operator-playbook-modal"
+    class="operator-playbook-modal"
+    hidden
+    aria-hidden="true"
+    data-empty-label="<?= $this->escape($this->translate('No focus event selected')) ?>"
+    data-summary-label="<?= $this->escape($this->translate('recommended operator path')) ?>"
+    data-copy-label="<?= $this->escape($this->translate('Copy playbook')) ?>"
+    data-open-label="<?= $this->escape($this->translate('Open')) ?>"
+>
+    <div class="operator-playbook-backdrop" data-close-operator-playbook></div>
+    <section
+        class="operator-playbook-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="operator-playbook-title"
+    >
+        <header class="operator-playbook-header">
+            <div>
+                <h2 id="operator-playbook-title"><?= $this->translate('Operator Playbook') ?></h2>
+                <p data-operator-playbook-summary></p>
+            </div>
+            <div class="operator-playbook-actions">
+                <button type="button" data-operator-playbook-copy>
+                    <?= $this->translate('Copy playbook') ?>
+                </button>
+                <button
+                    type="button"
+                    class="operator-playbook-close"
+                    data-close-operator-playbook
+                    aria-label="<?= $this->translate('Close') ?>"
+                >
+                    <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+                </button>
+            </div>
+        </header>
+        <div class="operator-playbook-body">
+            <section class="operator-playbook-target">
+                <p data-operator-playbook-state></p>
+                <h3 data-operator-playbook-target></h3>
+                <p data-operator-playbook-detail></p>
+            </section>
+            <section class="operator-playbook-section">
+                <h3><?= $this->translate('Recommended path') ?></h3>
+                <ol data-operator-playbook-steps></ol>
+            </section>
+            <section class="operator-playbook-section">
+                <h3><?= $this->translate('Actions') ?></h3>
+                <div class="operator-playbook-links" data-operator-playbook-actions></div>
+            </section>
+        </div>
+        <p class="operator-playbook-empty" data-operator-playbook-empty hidden></p>
     </section>
 </div>
 <div

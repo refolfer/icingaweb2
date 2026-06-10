@@ -953,6 +953,26 @@
         return fallback;
     }
 
+    function getOperatorPlaybook() {
+        return document.getElementById('operator-playbook-modal');
+    }
+
+    function isOperatorPlaybookOpen() {
+        var modal = getOperatorPlaybook();
+
+        return !! modal && ! modal.hidden;
+    }
+
+    function getOperatorPlaybookLabel(key, fallback) {
+        var modal = getOperatorPlaybook();
+
+        if (modal && modal.dataset && modal.dataset[key]) {
+            return modal.dataset[key];
+        }
+
+        return fallback;
+    }
+
     function getOperatorToastRegion() {
         return document.getElementById('operator-toast-region');
     }
@@ -2193,6 +2213,138 @@
         renderOperatorDecisionMatrix();
     }
 
+    function getOperatorPlaybookEvent() {
+        return getOperatorFocusSnapshot().next || getActiveTriageEvents()[0] || null;
+    }
+
+    function getOperatorPlaybookSteps(item, object) {
+        var state = item ? item.state : '';
+        var steps = [];
+
+        if (state === 'critical') {
+            steps.push(['Own the incident', 'Acknowledge only when an operator is actively taking responsibility.']);
+            steps.push(['Recheck immediately', 'Confirm whether the state is still current before escalation.']);
+            steps.push(['Add operator context', 'Leave a comment with current hypothesis, customer impact, and next owner.']);
+        } else if (state === 'warning') {
+            steps.push(['Inspect trend', 'Open history and compare recent flaps or repeated warning transitions.']);
+            steps.push(['Recheck when safe', 'Use an immediate check if the service is expected to recover quickly.']);
+            steps.push(['Escalate if repeated', 'Pin the event or add a comment if it keeps returning.']);
+        } else if (state === 'unknown') {
+            steps.push(['Validate monitoring path', 'Unknown state usually means the check path needs verification.']);
+            steps.push(['Recheck and inspect history', 'Confirm whether the unknown result is transient or stable.']);
+            steps.push(['Document uncertainty', 'Add a comment if the object needs owner review.']);
+        } else if (state === 'pending') {
+            steps.push(['Wait for first signal', 'Pending objects may not have a useful check result yet.']);
+            steps.push(['Open object context', 'Confirm whether the object is newly added or has a scheduling issue.']);
+            steps.push(['Park if expected', 'Snooze the event if the pending state is planned.']);
+        } else {
+            steps.push(['Open full context', 'Review the event before applying an operator action.']);
+            steps.push(['Capture local note', 'Use the incident drawer note when context should stay local.']);
+        }
+
+        if (! object) {
+            steps.push(['Resolve object mapping', 'Open the incident and use object context before running IcingaDB actions.']);
+        }
+
+        return steps;
+    }
+
+    function getOperatorPlaybookActions(item, object) {
+        var actions = [];
+        var contexts = object ? buildIcingadbContextUrls(object) : {};
+
+        if (item && item.url) {
+            actions.push(['Open incident', normalizeIncidentUrl(item.url), 'Details']);
+        }
+
+        if (object) {
+            actions.push(['Open object', buildIcingadbObjectUrl(object), 'Context']);
+            actions.push(['History', contexts.history || '', 'Trend']);
+            actions.push(['Acknowledge', buildIcingadbActionUrl(object, 'acknowledge'), 'Own']);
+            actions.push(['Recheck now', buildIcingadbActionUrl(object, 'check-now'), 'Verify']);
+            actions.push(['Schedule downtime', buildIcingadbActionUrl(object, 'schedule-downtime'), 'Park']);
+            actions.push(['Add comment', buildIcingadbActionUrl(object, 'add-comment'), 'Record']);
+        }
+
+        return actions.filter(function (entry) {
+            return entry[1] && entry[1].length;
+        });
+    }
+
+    function buildOperatorPlaybook() {
+        var item = getOperatorPlaybookEvent();
+        var object = item ? getIcingadbObjectFromUrl(item.url) : null;
+
+        if (! item) {
+            return {
+                item: null,
+                object: null,
+                title: getOperatorPlaybookLabel('emptyLabel', 'No focus event selected'),
+                detail: '',
+                state: '',
+                steps: [],
+                actions: []
+            };
+        }
+
+        return {
+            item: item,
+            object: object,
+            title: normalizeText(item.title || item.meta || 'Untitled event'),
+            detail: normalizeText(item.meta || item.preview || ''),
+            state: item.state || '',
+            steps: getOperatorPlaybookSteps(item, object),
+            actions: getOperatorPlaybookActions(item, object)
+        };
+    }
+
+    function buildOperatorPlaybookText() {
+        var playbook = buildOperatorPlaybook();
+        var lines = [
+            'Operator playbook',
+            'Generated: ' + new Date().toLocaleString(),
+            ''
+        ];
+
+        if (! playbook.item) {
+            lines.push(getOperatorPlaybookLabel('emptyLabel', 'No focus event selected'));
+            return lines.join('\n');
+        }
+
+        lines.push('Target: ' + playbook.title);
+        if (playbook.state) {
+            lines.push('State: ' + playbook.state);
+        }
+        if (playbook.detail) {
+            lines.push('Detail: ' + playbook.detail);
+        }
+        if (playbook.object) {
+            lines.push('Object: ' + getIcingadbObjectDisplayName(playbook.object));
+        }
+        lines.push('URL: ' + normalizeIncidentUrl(playbook.item.url));
+
+        lines.push('');
+        lines.push('Recommended path:');
+        playbook.steps.forEach(function (step, index) {
+            lines.push(String(index + 1) + '. ' + step[0]);
+            if (step[1]) {
+                lines.push('   ' + step[1]);
+            }
+        });
+
+        lines.push('');
+        lines.push('Actions:');
+        if (! playbook.actions.length) {
+            lines.push('- none');
+        } else {
+            playbook.actions.forEach(function (action) {
+                lines.push('- ' + action[0] + ': ' + action[1]);
+            });
+        }
+
+        return lines.join('\n');
+    }
+
     function buildTriageDigestText() {
         var events = getActiveTriageEvents();
         var lines = [
@@ -2276,6 +2428,10 @@
 
         if (isOperatorActivityOpen()) {
             closeOperatorActivity();
+        }
+
+        if (isOperatorPlaybookOpen()) {
+            closeOperatorPlaybook();
         }
 
         lastFocusedElement = document.activeElement;
@@ -2433,6 +2589,9 @@
         lines.push('- Parked: ' + String(decision.parked.length));
         lines.push('- Handled locally: ' + String(decision.handled.length));
 
+        lines.push('');
+        lines.push(buildOperatorPlaybookText());
+
         appendHandoffIncidentList(lines, 'Pinned incidents', pinned.slice(0, PINNED_INCIDENTS_LIMIT));
         appendHandoffIncidentList(lines, 'Recent incidents', recent.slice(0, RECENT_INCIDENTS_LIMIT));
 
@@ -2493,6 +2652,10 @@
 
         if (isOperatorActivityOpen()) {
             closeOperatorActivity();
+        }
+
+        if (isOperatorPlaybookOpen()) {
+            closeOperatorPlaybook();
         }
 
         lastFocusedElement = document.activeElement;
@@ -2596,6 +2759,10 @@
             closeOperatorHandoff();
         }
 
+        if (isOperatorPlaybookOpen()) {
+            closeOperatorPlaybook();
+        }
+
         lastFocusedElement = document.activeElement;
         renderOperatorActivity();
         modal.hidden = false;
@@ -2628,6 +2795,127 @@
         writeOperatorActivity([]);
         renderOperatorActivity();
         showOperatorToast('Operator activity log cleared');
+    }
+
+    function renderOperatorPlaybook() {
+        var modal = getOperatorPlaybook();
+        var playbook = buildOperatorPlaybook();
+        var summary = modal ? modal.querySelector('[data-operator-playbook-summary]') : null;
+        var state = modal ? modal.querySelector('[data-operator-playbook-state]') : null;
+        var target = modal ? modal.querySelector('[data-operator-playbook-target]') : null;
+        var detail = modal ? modal.querySelector('[data-operator-playbook-detail]') : null;
+        var targetBox = modal ? modal.querySelector('.operator-playbook-target') : null;
+        var steps = modal ? modal.querySelector('[data-operator-playbook-steps]') : null;
+        var actions = modal ? modal.querySelector('[data-operator-playbook-actions]') : null;
+        var empty = modal ? modal.querySelector('[data-operator-playbook-empty]') : null;
+        var body = modal ? modal.querySelector('.operator-playbook-body') : null;
+
+        if (! modal || ! summary || ! state || ! target || ! detail || ! steps || ! actions || ! empty || ! body) {
+            return;
+        }
+
+        summary.textContent = getOperatorPlaybookLabel('summaryLabel', 'recommended operator path');
+        empty.textContent = getOperatorPlaybookLabel('emptyLabel', 'No focus event selected');
+        empty.hidden = !! playbook.item;
+        body.hidden = ! playbook.item;
+
+        if (! playbook.item) {
+            return;
+        }
+
+        if (targetBox) {
+            targetBox.classList.remove('state-critical', 'state-warning', 'state-unknown', 'state-pending');
+            if (playbook.state) {
+                targetBox.classList.add('state-' + playbook.state);
+            }
+        }
+
+        state.textContent = playbook.state
+            ? playbook.state + (playbook.object ? ' - ' + getIcingadbObjectDisplayName(playbook.object) : '')
+            : (playbook.object ? getIcingadbObjectDisplayName(playbook.object) : '');
+        target.textContent = playbook.title;
+        detail.textContent = playbook.detail;
+
+        steps.innerHTML = playbook.steps.map(function (step) {
+            return '<li>'
+                + escapeHtml(step[0])
+                + (step[1] ? '<small>' + escapeHtml(step[1]) + '</small>' : '')
+                + '</li>';
+        }).join('');
+
+        actions.innerHTML = playbook.actions.map(function (action) {
+            return '<a href="' + escapeHtml(action[1]) + '" data-base-target="_main">'
+                + '<span>' + escapeHtml(action[0]) + '</span>'
+                + '<small>' + escapeHtml(action[2] || getOperatorPlaybookLabel('openLabel', 'Open')) + '</small>'
+                + '</a>';
+        }).join('');
+    }
+
+    function openOperatorPlaybook() {
+        var modal = getOperatorPlaybook();
+        var firstAction;
+        var playbook = buildOperatorPlaybook();
+
+        if (! modal) {
+            return;
+        }
+
+        if (isTriageDeskOpen()) {
+            closeTriageDesk();
+        }
+
+        if (isOperatorHandoffOpen()) {
+            closeOperatorHandoff();
+        }
+
+        if (isOperatorActivityOpen()) {
+            closeOperatorActivity();
+        }
+
+        if (isIncidentDrawerOpen()) {
+            closeIncidentDrawer();
+        }
+
+        lastFocusedElement = document.activeElement;
+        renderOperatorPlaybook();
+        if (playbook.item) {
+            recordOperatorActivity('Playbook', 'Opened operator playbook', playbook.title, playbook.item.url);
+        }
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        firstAction = modal.querySelector('a, button');
+        if (firstAction) {
+            firstAction.focus();
+        }
+    }
+
+    function closeOperatorPlaybook() {
+        var modal = getOperatorPlaybook();
+
+        if (! modal || modal.hidden) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function copyOperatorPlaybook() {
+        copyTextToClipboard(buildOperatorPlaybookText()).then(function () {
+            var playbook = buildOperatorPlaybook();
+
+            if (playbook.item) {
+                recordOperatorActivity('Playbook', 'Copied operator playbook', playbook.title, playbook.item.url);
+            }
+            showOperatorToast('Operator playbook copied');
+        });
     }
 
     function renderTopEvents(items) {
@@ -2715,6 +3003,10 @@
 
         if (isOperatorHandoffOpen()) {
             renderOperatorHandoff();
+        }
+
+        if (isOperatorPlaybookOpen()) {
+            renderOperatorPlaybook();
         }
     }
 
@@ -3822,6 +4114,8 @@
             makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''),
             makeCommand('operatorHandoff', 'Operator Handoff', actions, 'Generate a shift handoff report', ''),
             makeCommand('operatorActivity', 'Operator Activity Log', actions, 'Review recent local operator actions', ''),
+            makeCommand('operatorPlaybook', 'Operator Playbook', actions, 'Open recommended actions for the focus event', ''),
+            makeCommand('copyOperatorPlaybook', 'Copy Operator Playbook', actions, 'Copy recommended actions for the focus event', ''),
             makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
             makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
             makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
@@ -4449,6 +4743,16 @@
             return;
         }
 
+        if (command.type === 'operatorPlaybook') {
+            openOperatorPlaybook();
+            return;
+        }
+
+        if (command.type === 'copyOperatorPlaybook') {
+            copyOperatorPlaybook();
+            return;
+        }
+
         if (command.type === 'anchor' && command.element) {
             command.element.click();
             return;
@@ -4721,12 +5025,15 @@
                 && ! isIncidentDrawerOpen()
                 && ! isTriageDeskOpen()
                 && ! isOperatorHandoffOpen()
-                && ! isOperatorActivityOpen())) {
+                && ! isOperatorActivityOpen()
+                && ! isOperatorPlaybookOpen())) {
             return;
         }
 
         if (isCommandPaletteOpen()) {
             modal = getCommandPalette();
+        } else if (isOperatorPlaybookOpen()) {
+            modal = getOperatorPlaybook();
         } else if (isOperatorActivityOpen()) {
             modal = getOperatorActivity();
         } else if (isOperatorHandoffOpen()) {
@@ -5668,6 +5975,9 @@
         var openOperatorActivityButton = event.target.closest('[data-open-operator-activity]');
         var closeOperatorActivityButton = event.target.closest('[data-close-operator-activity]');
         var operatorActivityClearButton = event.target.closest('[data-operator-activity-clear]');
+        var openOperatorPlaybookButton = event.target.closest('[data-open-operator-playbook]');
+        var closeOperatorPlaybookButton = event.target.closest('[data-close-operator-playbook]');
+        var operatorPlaybookCopyButton = event.target.closest('[data-operator-playbook-copy]');
         var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
         var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
@@ -5811,6 +6121,24 @@
         if (operatorActivityClearButton) {
             event.preventDefault();
             clearOperatorActivity();
+            return;
+        }
+
+        if (openOperatorPlaybookButton) {
+            event.preventDefault();
+            openOperatorPlaybook();
+            return;
+        }
+
+        if (closeOperatorPlaybookButton) {
+            event.preventDefault();
+            closeOperatorPlaybook();
+            return;
+        }
+
+        if (operatorPlaybookCopyButton) {
+            event.preventDefault();
+            copyOperatorPlaybook();
             return;
         }
 
@@ -6024,6 +6352,11 @@
 
         if (isOperatorActivityOpen()) {
             closeOperatorActivity();
+            return;
+        }
+
+        if (isOperatorPlaybookOpen()) {
+            closeOperatorPlaybook();
             return;
         }
 
