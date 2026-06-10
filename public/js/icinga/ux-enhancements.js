@@ -1755,6 +1755,14 @@
         });
     }
 
+    function getActiveTriageEventByUrl(url) {
+        var normalized = normalizeIncidentUrl(url);
+
+        return getActiveTriageEvents().filter(function (item) {
+            return normalizeIncidentUrl(item.url) === normalized;
+        })[0] || null;
+    }
+
     function buildTriageDigestText() {
         var events = getActiveTriageEvents();
         var lines = [
@@ -3082,14 +3090,61 @@
         ];
     }
 
-    function getTriageDigestCommands() {
+    function getTriageResetCommands() {
+        if (! readSeenIncidents().length && ! Object.keys(readSnoozedIncidents()).length) {
+            return [];
+        }
+
+        return [
+            makeCommand(
+                'resetTriageQueue',
+                'Reset triage queue',
+                'Triage Queue',
+                'Clear local seen and snoozed triage markers',
+                ''
+            )
+        ];
+    }
+
+    function getTriageQueueCommands() {
         var events = getActiveTriageEvents();
+        var nextPinned;
 
         if (! events.length) {
             return [];
         }
 
+        nextPinned = isIncidentPinned(events[0].url);
+
         return [
+            makeCommand(
+                'incident',
+                'Open next triage event',
+                'Triage Queue',
+                normalizeText(events[0].title || events[0].meta || 'Open active triage event'),
+                events[0].url
+            ),
+            makeCommand(
+                'toggleTriageEventPin',
+                nextPinned ? 'Unpin next triage event' : 'Pin next triage event',
+                'Triage Queue',
+                normalizeText(events[0].title || events[0].meta || 'Pin active triage event'),
+                events[0].url
+            ),
+            makeCommand(
+                'snoozeTriageEvent',
+                'Snooze next triage event',
+                'Triage Queue',
+                normalizeText(events[0].title || events[0].meta || 'Snooze active triage event'),
+                events[0].url
+            ),
+            makeCommand(
+                'markTriageEventSeen',
+                'Mark next triage event seen',
+                'Triage Queue',
+                normalizeText(events[0].title || events[0].meta || 'Mark active triage event seen'),
+                events[0].url
+            ),
             makeCommand(
                 'copyTriageDigest',
                 'Copy triage digest',
@@ -3316,7 +3371,8 @@
             .concat(getPinnedIncidentCommands())
             .concat(getSeenIncidentCommands())
             .concat(getSnoozedIncidentCommands())
-            .concat(getTriageDigestCommands())
+            .concat(getTriageResetCommands())
+            .concat(getTriageQueueCommands())
             .concat(getRecentIncidentCommands())
             .concat(collectNavigationCommands());
         var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
@@ -3492,8 +3548,40 @@
             return;
         }
 
+        if (command.type === 'resetTriageQueue') {
+            writeSeenIncidents([]);
+            writeSnoozedIncidents({});
+            refreshSeenTopEventStates();
+            rerenderCachedTopEvents();
+            refreshTopEvents(true);
+            renderCommandPaletteResults();
+            return;
+        }
+
         if (command.type === 'copyTriageDigest') {
             copyTextToClipboard(buildTriageDigestText());
+            return;
+        }
+
+        if (command.type === 'snoozeTriageEvent') {
+            snoozeIncident(command.value);
+            rerenderCachedTopEvents();
+            refreshTopEvents(true);
+            return;
+        }
+
+        if (command.type === 'toggleTriageEventPin') {
+            var event = getActiveTriageEventByUrl(command.value);
+            if (event) {
+                setIncidentPinned(event, ! isIncidentPinned(command.value));
+            }
+            return;
+        }
+
+        if (command.type === 'markTriageEventSeen') {
+            markIncidentSeen(command.value);
+            refreshSeenTopEventStates();
+            rerenderCachedTopEvents();
             return;
         }
 
