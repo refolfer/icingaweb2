@@ -122,6 +122,13 @@ if ($this->layout()->inlineLayout) {
                     >
                         <?= $this->translate('Triage') ?>
                     </button>
+                    <button
+                        type="button"
+                        class="top-events-desk-button"
+                        data-open-triage-desk
+                    >
+                        <?= $this->translate('Desk') ?>
+                    </button>
                     <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
                         <?= $this->translate('History > Event Overview') ?>
                     </a>
@@ -316,6 +323,55 @@ if ($this->layout()->inlineLayout) {
         </div>
         <div class="command-palette-empty" data-command-palette-empty hidden></div>
         <ul id="command-palette-results" class="command-palette-results" role="listbox"></ul>
+    </section>
+</div>
+<div
+    id="triage-desk-modal"
+    class="triage-desk-modal"
+    hidden
+    aria-hidden="true"
+    data-empty-label="<?= $this->escape($this->translate('No active triage events')) ?>"
+    data-summary-label="<?= $this->escape($this->translate('active events')) ?>"
+    data-copy-label="<?= $this->escape($this->translate('Copy digest')) ?>"
+    data-reset-label="<?= $this->escape($this->translate('Reset queue')) ?>"
+    data-open-label="<?= $this->escape($this->translate('Open')) ?>"
+    data-pin-label="<?= $this->escape($this->translate('Pin')) ?>"
+    data-unpin-label="<?= $this->escape($this->translate('Unpin')) ?>"
+    data-snooze-label="<?= $this->escape($this->translate('Snooze')) ?>"
+    data-seen-label="<?= $this->escape($this->translate('Seen')) ?>"
+    data-copy-link-label="<?= $this->escape($this->translate('Copy link')) ?>"
+>
+    <div class="triage-desk-backdrop" data-close-triage-desk></div>
+    <section
+        class="triage-desk-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="triage-desk-title"
+    >
+        <header class="triage-desk-header">
+            <div>
+                <h2 id="triage-desk-title"><?= $this->translate('Triage Desk') ?></h2>
+                <p data-triage-desk-summary></p>
+            </div>
+            <div class="triage-desk-header-actions">
+                <button type="button" data-triage-desk-copy>
+                    <?= $this->translate('Copy digest') ?>
+                </button>
+                <button type="button" data-triage-desk-reset>
+                    <?= $this->translate('Reset queue') ?>
+                </button>
+                <button
+                    type="button"
+                    class="triage-desk-close"
+                    data-close-triage-desk
+                    aria-label="<?= $this->translate('Close') ?>"
+                >
+                    <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+                </button>
+            </div>
+        </header>
+        <ol class="triage-desk-list" data-triage-desk-list></ol>
+        <p class="triage-desk-empty" data-triage-desk-empty hidden></p>
     </section>
 </div>
 <div

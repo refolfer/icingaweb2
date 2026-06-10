@@ -844,6 +844,26 @@
         return document.querySelector('[data-triage-mode-toggle]');
     }
 
+    function getTriageDesk() {
+        return document.getElementById('triage-desk-modal');
+    }
+
+    function isTriageDeskOpen() {
+        var modal = getTriageDesk();
+
+        return !! modal && ! modal.hidden;
+    }
+
+    function getTriageDeskLabel(key, fallback) {
+        var modal = getTriageDesk();
+
+        if (modal && modal.dataset && modal.dataset[key]) {
+            return modal.dataset[key];
+        }
+
+        return fallback;
+    }
+
     function getTopEventsSummary() {
         return document.querySelector('[data-top-events-summary]');
     }
@@ -1789,6 +1809,135 @@
         return lines.join('\n');
     }
 
+    function renderTriageDesk() {
+        var modal = getTriageDesk();
+        var list = modal ? modal.querySelector('[data-triage-desk-list]') : null;
+        var empty = modal ? modal.querySelector('[data-triage-desk-empty]') : null;
+        var summary = modal ? modal.querySelector('[data-triage-desk-summary]') : null;
+        var events = getActiveTriageEvents();
+
+        if (! modal || ! list || ! empty || ! summary) {
+            return;
+        }
+
+        summary.textContent = String(events.length) + ' ' + getTriageDeskLabel('summaryLabel', 'active events');
+        empty.textContent = getTriageDeskLabel('emptyLabel', 'No active triage events');
+        empty.hidden = events.length > 0;
+        list.hidden = ! events.length;
+
+        list.innerHTML = events.map(function (item) {
+            var url = normalizeIncidentUrl(item.url);
+            var title = normalizeText(item.title || 'Untitled event');
+            var meta = normalizeText(item.meta || '');
+            var preview = normalizeText(item.preview || '');
+            var pinned = isIncidentPinned(url);
+            var pinLabel = pinned
+                ? getTriageDeskLabel('unpinLabel', 'Unpin')
+                : getTriageDeskLabel('pinLabel', 'Pin');
+
+            return '<li data-triage-desk-row data-url="' + escapeHtml(url) + '">'
+                + '<span class="triage-desk-state ' + escapeHtml(item.state || '') + '"></span>'
+                + '<div class="triage-desk-row-main">'
+                + '<h3>' + escapeHtml(title) + '</h3>'
+                + (meta.length ? '<p>' + escapeHtml(meta) + '</p>' : '')
+                + (preview.length && preview !== title && preview !== meta ? '<p>' + escapeHtml(preview) + '</p>' : '')
+                + '</div>'
+                + '<div class="triage-desk-row-actions">'
+                + '<button type="button" data-triage-desk-action="open">' + escapeHtml(getTriageDeskLabel('openLabel', 'Open')) + '</button>'
+                + '<button type="button" data-triage-desk-action="pin">' + escapeHtml(pinLabel) + '</button>'
+                + '<button type="button" data-triage-desk-action="snooze">' + escapeHtml(getTriageDeskLabel('snoozeLabel', 'Snooze')) + '</button>'
+                + '<button type="button" data-triage-desk-action="seen">' + escapeHtml(getTriageDeskLabel('seenLabel', 'Seen')) + '</button>'
+                + '<button type="button" data-triage-desk-action="copy">' + escapeHtml(getTriageDeskLabel('copyLinkLabel', 'Copy link')) + '</button>'
+                + '</div>'
+                + '</li>';
+        }).join('');
+    }
+
+    function openTriageDesk() {
+        var modal = getTriageDesk();
+
+        if (! modal) {
+            return;
+        }
+
+        lastFocusedElement = document.activeElement;
+        renderTriageDesk();
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        var firstButton = modal.querySelector('button');
+        if (firstButton) {
+            firstButton.focus();
+        }
+    }
+
+    function closeTriageDesk() {
+        var modal = getTriageDesk();
+
+        if (! modal || modal.hidden) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function resetTriageQueue() {
+        writeSeenIncidents([]);
+        writeSnoozedIncidents({});
+        refreshSeenTopEventStates();
+        rerenderCachedTopEvents();
+        refreshTopEvents(true);
+        renderTriageDesk();
+    }
+
+    function runTriageDeskAction(action, url) {
+        var event = getActiveTriageEventByUrl(url);
+
+        if (! action || ! url.length) {
+            return;
+        }
+
+        if (action === 'open') {
+            window.location.href = url;
+            return;
+        }
+
+        if (action === 'copy') {
+            copyTextToClipboard(url);
+            return;
+        }
+
+        if (action === 'pin') {
+            if (event) {
+                setIncidentPinned(event, ! isIncidentPinned(url));
+            }
+            renderTriageDesk();
+            return;
+        }
+
+        if (action === 'snooze') {
+            snoozeIncident(url);
+            rerenderCachedTopEvents();
+            refreshTopEvents(true);
+            renderTriageDesk();
+            return;
+        }
+
+        if (action === 'seen') {
+            markIncidentSeen(url);
+            refreshSeenTopEventStates();
+            rerenderCachedTopEvents();
+            renderTriageDesk();
+        }
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var triageMode = isTriageModeEnabled();
@@ -1865,6 +2014,10 @@
                 metaEl.textContent = '';
                 linkEl.setAttribute('href', url || getTopEventsHistoryUrl());
             }
+        }
+
+        if (isTriageDeskOpen()) {
+            renderTriageDesk();
         }
     }
 
@@ -2954,6 +3107,7 @@
                 'Filter latest events to unresolved unseen problems',
                 isTriageModeEnabled() ? 'off' : 'on'
             ),
+            makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''),
             makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
             makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
             makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
@@ -3516,6 +3670,11 @@
             return;
         }
 
+        if (command.type === 'triageDesk') {
+            openTriageDesk();
+            return;
+        }
+
         if (command.type === 'anchor' && command.element) {
             command.element.click();
             return;
@@ -3549,11 +3708,7 @@
         }
 
         if (command.type === 'resetTriageQueue') {
-            writeSeenIncidents([]);
-            writeSnoozedIncidents({});
-            refreshSeenTopEventStates();
-            rerenderCachedTopEvents();
-            refreshTopEvents(true);
+            resetTriageQueue();
             renderCommandPaletteResults();
             return;
         }
@@ -3742,12 +3897,15 @@
         var first;
         var last;
 
-        if (event.key !== 'Tab' || (! isShortcutsDialogOpen() && ! isCommandPaletteOpen() && ! isIncidentDrawerOpen())) {
+        if (event.key !== 'Tab'
+            || (! isShortcutsDialogOpen() && ! isCommandPaletteOpen() && ! isIncidentDrawerOpen() && ! isTriageDeskOpen())) {
             return;
         }
 
         if (isCommandPaletteOpen()) {
             modal = getCommandPalette();
+        } else if (isTriageDeskOpen()) {
+            modal = getTriageDesk();
         } else if (isIncidentDrawerOpen()) {
             modal = getIncidentDrawer();
         } else {
@@ -4669,6 +4827,11 @@
         var closeCommandPaletteButton = event.target.closest('[data-close-command-palette]');
         var commandPaletteCommand = event.target.closest('[data-command-index]');
         var triageModeToggle = event.target.closest('[data-triage-mode-toggle]');
+        var openTriageDeskButton = event.target.closest('[data-open-triage-desk]');
+        var closeTriageDeskButton = event.target.closest('[data-close-triage-desk]');
+        var triageDeskActionButton = event.target.closest('[data-triage-desk-action]');
+        var triageDeskCopyButton = event.target.closest('[data-triage-desk-copy]');
+        var triageDeskResetButton = event.target.closest('[data-triage-desk-reset]');
         var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
         var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
@@ -4719,6 +4882,40 @@
         if (triageModeToggle) {
             event.preventDefault();
             setTriageMode(! isTriageModeEnabled());
+            return;
+        }
+
+        if (openTriageDeskButton) {
+            event.preventDefault();
+            openTriageDesk();
+            return;
+        }
+
+        if (closeTriageDeskButton) {
+            event.preventDefault();
+            closeTriageDesk();
+            return;
+        }
+
+        if (triageDeskCopyButton) {
+            event.preventDefault();
+            copyTextToClipboard(buildTriageDigestText());
+            return;
+        }
+
+        if (triageDeskResetButton) {
+            event.preventDefault();
+            resetTriageQueue();
+            return;
+        }
+
+        if (triageDeskActionButton) {
+            var triageRow = triageDeskActionButton.closest('[data-triage-desk-row]');
+            event.preventDefault();
+            runTriageDeskAction(
+                triageDeskActionButton.getAttribute('data-triage-desk-action') || '',
+                triageRow ? (triageRow.getAttribute('data-url') || '') : ''
+            );
             return;
         }
 
@@ -4917,6 +5114,11 @@
 
         if (isIncidentDrawerOpen()) {
             closeIncidentDrawer();
+            return;
+        }
+
+        if (isTriageDeskOpen()) {
+            closeTriageDesk();
             return;
         }
 
