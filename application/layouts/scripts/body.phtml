@@ -328,6 +328,10 @@ if ($this->layout()->inlineLayout) {
     data-timeline-label="<?= $this->escape($this->translate('Recent history')) ?>"
     data-timeline-loading-label="<?= $this->escape($this->translate('Loading history...')) ?>"
     data-timeline-empty-label="<?= $this->escape($this->translate('No recent history found.')) ?>"
+    data-note-label="<?= $this->escape($this->translate('Private note')) ?>"
+    data-note-placeholder="<?= $this->escape($this->translate('Add local operator note...')) ?>"
+    data-note-saved-label="<?= $this->escape($this->translate('Saved locally')) ?>"
+    data-note-clear-label="<?= $this->escape($this->translate('Clear note')) ?>"
 >
     <div class="incident-drawer-backdrop" data-close-incident-drawer></div>
     <aside
@@ -385,6 +389,20 @@ if ($this->layout()->inlineLayout) {
         <section class="incident-drawer-timeline" data-incident-timeline hidden>
             <h3 data-incident-timeline-title><?= $this->translate('Recent history') ?></h3>
             <ol data-incident-timeline-list></ol>
+        </section>
+        <section class="incident-drawer-note" data-incident-note-section hidden>
+            <header>
+                <h3 data-incident-note-title><?= $this->translate('Private note') ?></h3>
+                <button type="button" data-clear-incident-note>
+                    <?= $this->translate('Clear note') ?>
+                </button>
+            </header>
+            <textarea
+                data-incident-note
+                rows="3"
+                placeholder="<?= $this->escape($this->translate('Add local operator note...')) ?>"
+            ></textarea>
+            <p data-incident-note-status></p>
         </section>
         <div class="incident-drawer-body" data-incident-body></div>
         <footer class="incident-drawer-actions">

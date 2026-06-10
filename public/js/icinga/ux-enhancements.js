@@ -7,6 +7,7 @@
     var SEARCH_HISTORY_KEY = 'menu-search-history';
     var RECENT_INCIDENTS_KEY = 'recent-incidents';
     var PINNED_INCIDENTS_KEY = 'pinned-incidents';
+    var INCIDENT_NOTES_KEY = 'incident-notes';
     var UX_DENSITY_KEY = 'ux-density-mode';
     var QUICK_NOTE_DRAFT_KEY = 'quick-menu-note-draft';
     var NAV_SEQUENCE_TIMEOUT = 1200;
@@ -228,6 +229,49 @@
         }
 
         writePinnedIncidents(incidents.slice(0, PINNED_INCIDENTS_LIMIT));
+    }
+
+    function readIncidentNotes() {
+        var notes = {};
+
+        try {
+            notes = JSON.parse(window.localStorage.getItem(INCIDENT_NOTES_KEY) || '{}');
+        } catch (error) {
+            notes = {};
+        }
+
+        return notes && typeof notes === 'object' && ! Array.isArray(notes) ? notes : {};
+    }
+
+    function writeIncidentNotes(notes) {
+        try {
+            window.localStorage.setItem(INCIDENT_NOTES_KEY, JSON.stringify(notes));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function getIncidentNote(url) {
+        var notes = readIncidentNotes();
+
+        return String(notes[url] || '');
+    }
+
+    function setIncidentNote(url, note) {
+        var notes;
+
+        if (! url.length) {
+            return;
+        }
+
+        notes = readIncidentNotes();
+        if (String(note || '').trim().length) {
+            notes[url] = String(note || '');
+        } else {
+            delete notes[url];
+        }
+
+        writeIncidentNotes(notes);
     }
 
     function rememberSearchQuery(query) {
@@ -2019,6 +2063,76 @@
             });
     }
 
+    function setIncidentNoteStatus(message) {
+        var status = document.querySelector('[data-incident-note-status]');
+
+        if (status) {
+            status.textContent = message || '';
+        }
+    }
+
+    function loadIncidentNote() {
+        var section = document.querySelector('[data-incident-note-section]');
+        var title = document.querySelector('[data-incident-note-title]');
+        var textarea = document.querySelector('[data-incident-note]');
+        var clear = document.querySelector('[data-clear-incident-note]');
+        var note = incidentDrawerState.url.length ? getIncidentNote(incidentDrawerState.url) : '';
+
+        if (! section || ! textarea) {
+            return;
+        }
+
+        section.hidden = ! incidentDrawerState.url.length;
+        textarea.value = note;
+        textarea.placeholder = getIncidentDrawerLabel('note-placeholder', 'Add local operator note...');
+
+        if (title) {
+            title.textContent = getIncidentDrawerLabel('note-label', 'Private note');
+        }
+
+        if (clear) {
+            clear.textContent = getIncidentDrawerLabel('note-clear-label', 'Clear note');
+            clear.hidden = ! note.trim().length;
+        }
+
+        setIncidentNoteStatus(note.trim().length ? getIncidentDrawerLabel('note-saved-label', 'Saved locally') : '');
+    }
+
+    function saveIncidentNoteFromDom() {
+        var textarea = document.querySelector('[data-incident-note]');
+        var clear = document.querySelector('[data-clear-incident-note]');
+        var note;
+
+        if (! textarea || ! incidentDrawerState.url.length) {
+            return;
+        }
+
+        note = String(textarea.value || '');
+        setIncidentNote(incidentDrawerState.url, note);
+
+        if (clear) {
+            clear.hidden = ! note.trim().length;
+        }
+
+        setIncidentNoteStatus(note.trim().length ? getIncidentDrawerLabel('note-saved-label', 'Saved locally') : '');
+    }
+
+    function clearIncidentNote() {
+        var textarea = document.querySelector('[data-incident-note]');
+
+        if (! incidentDrawerState.url.length) {
+            return;
+        }
+
+        setIncidentNote(incidentDrawerState.url, '');
+        if (textarea) {
+            textarea.value = '';
+            textarea.focus();
+        }
+
+        loadIncidentNote();
+    }
+
     function extractIncidentDetailsFromDocument(doc) {
         var content = doc.querySelector('#col1 .content, main .content, .content, body');
         var text;
@@ -2147,6 +2261,7 @@
         drawer.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
         updatePinIncidentButton();
+        loadIncidentNote();
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
         if (object) {
@@ -2267,6 +2382,10 @@
 
         if (snapshot.url.length) {
             lines.push('URL: ' + snapshot.url);
+        }
+
+        if (getIncidentNote(snapshot.url).trim().length) {
+            lines.push('Note: ' + getIncidentNote(snapshot.url).trim());
         }
 
         if (timeline.length) {
@@ -4026,6 +4145,7 @@
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
         var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
         var pinIncidentButton = event.target.closest('[data-pin-incident]');
+        var clearIncidentNoteButton = event.target.closest('[data-clear-incident-note]');
         var incidentLink = event.target.closest('.top-event-link');
         var open = event.target.closest('[data-open-shortcuts]');
         var quickMenuTitle = event.target.closest('[data-qm-title]');
@@ -4088,6 +4208,12 @@
         if (pinIncidentButton) {
             event.preventDefault();
             togglePinnedIncident();
+            return;
+        }
+
+        if (clearIncidentNoteButton) {
+            event.preventDefault();
+            clearIncidentNote();
             return;
         }
 
@@ -4221,6 +4347,11 @@
             quickNotebookState.dirty = true;
             writeQuickNotebookDraft(quickMenuState.note);
             updateQuickNotebookStatus('', false);
+            return;
+        }
+
+        if (event.target.matches('[data-incident-note]')) {
+            saveIncidentNoteFromDom();
         }
     }
 

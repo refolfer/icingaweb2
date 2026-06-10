@@ -940,6 +940,56 @@ body.modal-open {
   margin-left: -1.35em;
 }
 
+.incident-drawer-note {
+  padding: 0.75em 1em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.incident-drawer-note[hidden] {
+  display: none !important;
+}
+
+.incident-drawer-note header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6em;
+  margin-bottom: 0.45em;
+}
+
+.incident-drawer-note h3 {
+  margin: 0;
+  font-size: 0.92em;
+  line-height: 1.35;
+}
+
+.incident-drawer-note button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.3em;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  min-height: 1.9em;
+  padding: 0.2em 0.5em;
+}
+
+.incident-drawer-note button:hover,
+.incident-drawer-note button:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.incident-drawer-note textarea {
+  width: 100%;
+  min-height: 4.8em;
+  resize: vertical;
+}
+
+.incident-drawer-note p {
+  margin: 0.35em 0 0;
+  color: var(--to-text-muted, rgba(255, 255, 255, 0.72));
+  font-size: 0.84em;
+}
+
 .incident-drawer-body {
   flex: 1 1 auto;
   overflow: auto;
@@ -1025,6 +1075,7 @@ body.ux-density-compact .incident-drawer-meta,
 body.ux-density-compact .incident-drawer-quick-actions,
 body.ux-density-compact .incident-drawer-context,
 body.ux-density-compact .incident-drawer-timeline,
+body.ux-density-compact .incident-drawer-note,
 body.ux-density-compact .incident-drawer-body,
 body.ux-density-compact .incident-drawer-actions {
   padding-left: 0.7em;
