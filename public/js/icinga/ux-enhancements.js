@@ -864,6 +864,26 @@
         return fallback;
     }
 
+    function getOperatorHandoff() {
+        return document.getElementById('operator-handoff-modal');
+    }
+
+    function isOperatorHandoffOpen() {
+        var modal = getOperatorHandoff();
+
+        return !! modal && ! modal.hidden;
+    }
+
+    function getOperatorHandoffLabel(key, fallback) {
+        var modal = getOperatorHandoff();
+
+        if (modal && modal.dataset && modal.dataset[key]) {
+            return modal.dataset[key];
+        }
+
+        return fallback;
+    }
+
     function getTopEventsSummary() {
         return document.querySelector('[data-top-events-summary]');
     }
@@ -1938,6 +1958,131 @@
         }
     }
 
+    function appendHandoffIncidentList(lines, title, incidents) {
+        lines.push('');
+        lines.push(title + ': ' + String(incidents.length));
+
+        if (! incidents.length) {
+            lines.push('- none');
+            return;
+        }
+
+        incidents.forEach(function (incident, index) {
+            lines.push(String(index + 1) + '. ' + normalizeText(incident.title || 'Untitled incident'));
+            if (incident.meta) {
+                lines.push('   Meta: ' + normalizeText(incident.meta));
+            }
+            if (incident.url) {
+                lines.push('   URL: ' + normalizeIncidentUrl(incident.url));
+            }
+        });
+    }
+
+    function buildOperatorHandoffText() {
+        var triageEvents = getActiveTriageEvents();
+        var pinned = readPinnedIncidents().filter(function (incident) {
+            return incident && incident.title && incident.url;
+        });
+        var recent = readRecentIncidents().filter(function (incident) {
+            return incident && incident.title && incident.url;
+        });
+        var notes = readIncidentNotes();
+        var noteUrls = Object.keys(notes).filter(function (url) {
+            return String(notes[url] || '').trim().length;
+        });
+        var lines = [
+            'Operator handoff',
+            'Generated: ' + new Date().toLocaleString(),
+            '',
+            'Queue state:',
+            '- Active triage: ' + String(triageEvents.length),
+            '- Pinned incidents: ' + String(pinned.length),
+            '- Recent incidents: ' + String(recent.length),
+            '- Local notes: ' + String(noteUrls.length),
+            '- Seen markers: ' + String(readSeenIncidents().length),
+            '- Snoozed markers: ' + String(Object.keys(readSnoozedIncidents()).length)
+        ];
+
+        lines.push('');
+        lines.push(buildTriageDigestText());
+        appendHandoffIncidentList(lines, 'Pinned incidents', pinned.slice(0, PINNED_INCIDENTS_LIMIT));
+        appendHandoffIncidentList(lines, 'Recent incidents', recent.slice(0, RECENT_INCIDENTS_LIMIT));
+
+        lines.push('');
+        lines.push('Local incident notes: ' + String(noteUrls.length));
+        if (! noteUrls.length) {
+            lines.push('- none');
+        } else {
+            noteUrls.slice(0, 12).forEach(function (url, index) {
+                lines.push(String(index + 1) + '. ' + normalizeIncidentUrl(url));
+                lines.push('   Note: ' + normalizeText(notes[url]));
+            });
+        }
+
+        return lines.join('\n');
+    }
+
+    function renderOperatorHandoff() {
+        var modal = getOperatorHandoff();
+        var output = modal ? modal.querySelector('[data-operator-handoff-output]') : null;
+        var summary = modal ? modal.querySelector('[data-operator-handoff-summary]') : null;
+
+        if (! modal || ! output || ! summary) {
+            return;
+        }
+
+        output.value = buildOperatorHandoffText();
+        summary.textContent = getOperatorHandoffLabel('summaryLabel', 'generated handoff report');
+    }
+
+    function openOperatorHandoff() {
+        var modal = getOperatorHandoff();
+        var output;
+
+        if (! modal) {
+            return;
+        }
+
+        if (isTriageDeskOpen()) {
+            closeTriageDesk();
+        }
+
+        lastFocusedElement = document.activeElement;
+        renderOperatorHandoff();
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        output = modal.querySelector('[data-operator-handoff-output]');
+        if (output) {
+            output.focus();
+            output.select();
+        }
+    }
+
+    function closeOperatorHandoff() {
+        var modal = getOperatorHandoff();
+
+        if (! modal || modal.hidden) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function copyOperatorHandoff() {
+        var modal = getOperatorHandoff();
+        var output = modal ? modal.querySelector('[data-operator-handoff-output]') : null;
+
+        copyTextToClipboard(output ? output.value : buildOperatorHandoffText());
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var triageMode = isTriageModeEnabled();
@@ -2018,6 +2163,10 @@
 
         if (isTriageDeskOpen()) {
             renderTriageDesk();
+        }
+
+        if (isOperatorHandoffOpen()) {
+            renderOperatorHandoff();
         }
     }
 
@@ -3108,6 +3257,7 @@
                 isTriageModeEnabled() ? 'off' : 'on'
             ),
             makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''),
+            makeCommand('operatorHandoff', 'Operator Handoff', actions, 'Generate a shift handoff report', ''),
             makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
             makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
             makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
@@ -3675,6 +3825,11 @@
             return;
         }
 
+        if (command.type === 'operatorHandoff') {
+            openOperatorHandoff();
+            return;
+        }
+
         if (command.type === 'anchor' && command.element) {
             command.element.click();
             return;
@@ -3898,12 +4053,18 @@
         var last;
 
         if (event.key !== 'Tab'
-            || (! isShortcutsDialogOpen() && ! isCommandPaletteOpen() && ! isIncidentDrawerOpen() && ! isTriageDeskOpen())) {
+            || (! isShortcutsDialogOpen()
+                && ! isCommandPaletteOpen()
+                && ! isIncidentDrawerOpen()
+                && ! isTriageDeskOpen()
+                && ! isOperatorHandoffOpen())) {
             return;
         }
 
         if (isCommandPaletteOpen()) {
             modal = getCommandPalette();
+        } else if (isOperatorHandoffOpen()) {
+            modal = getOperatorHandoff();
         } else if (isTriageDeskOpen()) {
             modal = getTriageDesk();
         } else if (isIncidentDrawerOpen()) {
@@ -4832,6 +4993,10 @@
         var triageDeskActionButton = event.target.closest('[data-triage-desk-action]');
         var triageDeskCopyButton = event.target.closest('[data-triage-desk-copy]');
         var triageDeskResetButton = event.target.closest('[data-triage-desk-reset]');
+        var openOperatorHandoffButton = event.target.closest('[data-open-operator-handoff]');
+        var closeOperatorHandoffButton = event.target.closest('[data-close-operator-handoff]');
+        var operatorHandoffCopyButton = event.target.closest('[data-operator-handoff-copy]');
+        var operatorHandoffRefreshButton = event.target.closest('[data-operator-handoff-refresh]');
         var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
         var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
@@ -4916,6 +5081,30 @@
                 triageDeskActionButton.getAttribute('data-triage-desk-action') || '',
                 triageRow ? (triageRow.getAttribute('data-url') || '') : ''
             );
+            return;
+        }
+
+        if (openOperatorHandoffButton) {
+            event.preventDefault();
+            openOperatorHandoff();
+            return;
+        }
+
+        if (closeOperatorHandoffButton) {
+            event.preventDefault();
+            closeOperatorHandoff();
+            return;
+        }
+
+        if (operatorHandoffCopyButton) {
+            event.preventDefault();
+            copyOperatorHandoff();
+            return;
+        }
+
+        if (operatorHandoffRefreshButton) {
+            event.preventDefault();
+            renderOperatorHandoff();
             return;
         }
 
@@ -5119,6 +5308,11 @@
 
         if (isTriageDeskOpen()) {
             closeTriageDesk();
+            return;
+        }
+
+        if (isOperatorHandoffOpen()) {
+            closeOperatorHandoff();
             return;
         }
 

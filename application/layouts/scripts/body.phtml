@@ -129,6 +129,13 @@ if ($this->layout()->inlineLayout) {
                     >
                         <?= $this->translate('Desk') ?>
                     </button>
+                    <button
+                        type="button"
+                        class="top-events-handoff-button"
+                        data-open-operator-handoff
+                    >
+                        <?= $this->translate('Handoff') ?>
+                    </button>
                     <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
                         <?= $this->translate('History > Event Overview') ?>
                     </a>
@@ -360,6 +367,9 @@ if ($this->layout()->inlineLayout) {
                 <button type="button" data-triage-desk-reset>
                     <?= $this->translate('Reset queue') ?>
                 </button>
+                <button type="button" data-open-operator-handoff>
+                    <?= $this->translate('Handoff') ?>
+                </button>
                 <button
                     type="button"
                     class="triage-desk-close"
@@ -372,6 +382,47 @@ if ($this->layout()->inlineLayout) {
         </header>
         <ol class="triage-desk-list" data-triage-desk-list></ol>
         <p class="triage-desk-empty" data-triage-desk-empty hidden></p>
+    </section>
+</div>
+<div
+    id="operator-handoff-modal"
+    class="operator-handoff-modal"
+    hidden
+    aria-hidden="true"
+    data-summary-label="<?= $this->escape($this->translate('generated handoff report')) ?>"
+    data-copy-label="<?= $this->escape($this->translate('Copy report')) ?>"
+    data-refresh-label="<?= $this->escape($this->translate('Regenerate')) ?>"
+>
+    <div class="operator-handoff-backdrop" data-close-operator-handoff></div>
+    <section
+        class="operator-handoff-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="operator-handoff-title"
+    >
+        <header class="operator-handoff-header">
+            <div>
+                <h2 id="operator-handoff-title"><?= $this->translate('Operator Handoff') ?></h2>
+                <p data-operator-handoff-summary></p>
+            </div>
+            <div class="operator-handoff-actions">
+                <button type="button" data-operator-handoff-copy>
+                    <?= $this->translate('Copy report') ?>
+                </button>
+                <button type="button" data-operator-handoff-refresh>
+                    <?= $this->translate('Regenerate') ?>
+                </button>
+                <button
+                    type="button"
+                    class="operator-handoff-close"
+                    data-close-operator-handoff
+                    aria-label="<?= $this->translate('Close') ?>"
+                >
+                    <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+                </button>
+            </div>
+        </header>
+        <textarea data-operator-handoff-output rows="22" spellcheck="false"></textarea>
     </section>
 </div>
 <div
