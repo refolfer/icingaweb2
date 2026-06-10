@@ -312,7 +312,10 @@ if ($this->layout()->inlineLayout) {
     data-unavailable-label="<?= $this->escape($this->translate('Incident details are unavailable.')) ?>"
     data-open-label="<?= $this->escape($this->translate('Open full details')) ?>"
     data-copy-label="<?= $this->escape($this->translate('Copy link')) ?>"
+    data-copy-summary-label="<?= $this->escape($this->translate('Copy summary')) ?>"
     data-copied-label="<?= $this->escape($this->translate('Copied')) ?>"
+    data-pin-label="<?= $this->escape($this->translate('Pin')) ?>"
+    data-unpin-label="<?= $this->escape($this->translate('Unpin')) ?>"
     data-acknowledge-label="<?= $this->escape($this->translate('Acknowledge')) ?>"
     data-recheck-label="<?= $this->escape($this->translate('Recheck now')) ?>"
     data-downtime-label="<?= $this->escape($this->translate('Schedule downtime')) ?>"
@@ -390,6 +393,12 @@ if ($this->layout()->inlineLayout) {
             </a>
             <button type="button" data-copy-incident-link>
                 <?= $this->translate('Copy link') ?>
+            </button>
+            <button type="button" data-copy-incident-summary>
+                <?= $this->translate('Copy summary') ?>
+            </button>
+            <button type="button" data-pin-incident>
+                <?= $this->translate('Pin') ?>
             </button>
         </footer>
     </aside>

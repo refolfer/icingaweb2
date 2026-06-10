@@ -994,6 +994,11 @@ body.modal-open {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.incident-drawer-actions button.active {
+  border-color: rgba(53, 182, 217, 0.55);
+  background: rgba(53, 182, 217, 0.18);
+}
+
 body.ux-density-compact {
   --top-widget-height: 125px;
 }

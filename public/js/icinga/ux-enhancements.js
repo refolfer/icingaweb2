@@ -6,6 +6,7 @@
 
     var SEARCH_HISTORY_KEY = 'menu-search-history';
     var RECENT_INCIDENTS_KEY = 'recent-incidents';
+    var PINNED_INCIDENTS_KEY = 'pinned-incidents';
     var UX_DENSITY_KEY = 'ux-density-mode';
     var QUICK_NOTE_DRAFT_KEY = 'quick-menu-note-draft';
     var NAV_SEQUENCE_TIMEOUT = 1200;
@@ -18,6 +19,7 @@
     var TACTICAL_REFRESH_MS = 10000;
     var COMMAND_PALETTE_RESULT_LIMIT = 12;
     var RECENT_INCIDENTS_LIMIT = 10;
+    var PINNED_INCIDENTS_LIMIT = 20;
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -176,6 +178,56 @@
         });
 
         writeRecentIncidents(incidents.slice(0, RECENT_INCIDENTS_LIMIT));
+    }
+
+    function readPinnedIncidents() {
+        var incidents = [];
+
+        try {
+            incidents = JSON.parse(window.localStorage.getItem(PINNED_INCIDENTS_KEY) || '[]');
+        } catch (error) {
+            incidents = [];
+        }
+
+        return Array.isArray(incidents) ? incidents : [];
+    }
+
+    function writePinnedIncidents(incidents) {
+        try {
+            window.localStorage.setItem(PINNED_INCIDENTS_KEY, JSON.stringify(incidents));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function isIncidentPinned(url) {
+        return readPinnedIncidents().some(function (incident) {
+            return incident && incident.url === url;
+        });
+    }
+
+    function setIncidentPinned(incident, pinned) {
+        var url = String(incident.url || '').trim();
+        var title = String(incident.title || '').trim();
+        var incidents;
+
+        if (! url.length || ! title.length) {
+            return;
+        }
+
+        incidents = readPinnedIncidents().filter(function (entry) {
+            return entry && entry.url !== url;
+        });
+
+        if (pinned) {
+            incidents.unshift({
+                title: title,
+                meta: String(incident.meta || '').trim(),
+                url: url
+            });
+        }
+
+        writePinnedIncidents(incidents.slice(0, PINNED_INCIDENTS_LIMIT));
     }
 
     function rememberSearchQuery(query) {
@@ -2094,6 +2146,7 @@
         drawer.hidden = false;
         drawer.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
+        updatePinIncidentButton();
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
         if (object) {
@@ -2178,6 +2231,106 @@
                 button.textContent = getIncidentDrawerLabel('copy-label', 'Copy link');
             }, 1200);
         });
+    }
+
+    function getIncidentTimelineText() {
+        var entries = [];
+
+        document.querySelectorAll('[data-incident-timeline-list] li').forEach(function (item) {
+            var text = normalizeText(item.textContent || '');
+
+            if (text.length && ! item.classList.contains('incident-drawer-timeline-muted')) {
+                entries.push(text);
+            }
+        });
+
+        return entries;
+    }
+
+    function buildIncidentSummaryText() {
+        var snapshot = getCurrentIncidentSnapshot();
+        var objectName = getIcingadbObjectDisplayName(incidentDrawerState.object);
+        var timeline = getIncidentTimelineText();
+        var lines = [];
+
+        if (snapshot.title.length) {
+            lines.push('Incident: ' + snapshot.title);
+        }
+
+        if (snapshot.meta.length) {
+            lines.push('Meta: ' + snapshot.meta);
+        }
+
+        if (objectName.length) {
+            lines.push('Object: ' + objectName);
+        }
+
+        if (snapshot.url.length) {
+            lines.push('URL: ' + snapshot.url);
+        }
+
+        if (timeline.length) {
+            lines.push('');
+            lines.push('Recent history:');
+            timeline.slice(0, 5).forEach(function (entry) {
+                lines.push('- ' + entry);
+            });
+        }
+
+        return lines.join('\n');
+    }
+
+    function copyIncidentSummary(button) {
+        var summary = buildIncidentSummaryText();
+
+        if (! summary.length || ! button) {
+            return;
+        }
+
+        copyTextToClipboard(summary).then(function () {
+            button.textContent = getIncidentDrawerLabel('copied-label', 'Copied');
+            window.setTimeout(function () {
+                if (! isIncidentDrawerOpen()) {
+                    return;
+                }
+
+                button.textContent = getIncidentDrawerLabel('copy-summary-label', 'Copy summary');
+            }, 1200);
+        });
+    }
+
+    function getCurrentIncidentSnapshot() {
+        var title = document.getElementById('incident-drawer-title');
+        var meta = document.querySelector('[data-incident-meta]');
+
+        return {
+            title: title ? normalizeText(title.textContent || '') : '',
+            meta: meta && ! meta.hidden ? normalizeText(meta.textContent || '') : '',
+            url: incidentDrawerState.url
+        };
+    }
+
+    function updatePinIncidentButton() {
+        var button = document.querySelector('[data-pin-incident]');
+        var pinned = incidentDrawerState.url.length && isIncidentPinned(incidentDrawerState.url);
+
+        if (! button) {
+            return;
+        }
+
+        button.hidden = ! incidentDrawerState.url.length;
+        button.textContent = pinned
+            ? getIncidentDrawerLabel('unpin-label', 'Unpin')
+            : getIncidentDrawerLabel('pin-label', 'Pin');
+        button.classList.toggle('active', pinned);
+    }
+
+    function togglePinnedIncident() {
+        var snapshot = getCurrentIncidentSnapshot();
+        var pinned = isIncidentPinned(snapshot.url);
+
+        setIncidentPinned(snapshot, ! pinned);
+        updatePinIncidentButton();
     }
 
     function focusSearchField() {
@@ -2389,6 +2542,33 @@
                 incident.url
             );
         });
+    }
+
+    function getPinnedIncidentCommands() {
+        var incidents = readPinnedIncidents().filter(function (incident) {
+            return incident && incident.title && incident.url;
+        });
+        var commands = incidents.map(function (incident) {
+            return makeCommand(
+                'incident',
+                incident.title,
+                'Pinned Incidents',
+                incident.meta || 'Open pinned incident',
+                incident.url
+            );
+        });
+
+        if (incidents.length) {
+            commands.push(makeCommand(
+                'clearPinnedIncidents',
+                'Clear pinned incidents',
+                'Pinned Incidents',
+                'Remove all locally pinned incidents',
+                ''
+            ));
+        }
+
+        return commands;
     }
 
     function parseOperatorAction(query) {
@@ -2604,6 +2784,7 @@
         var commands = getStaticCommands()
             .concat(getCurrentObjectCommands())
             .concat(getOperatorObjectCommands(query))
+            .concat(getPinnedIncidentCommands())
             .concat(getRecentIncidentCommands())
             .concat(collectNavigationCommands());
         var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
@@ -2749,6 +2930,12 @@
 
         if (command.type === 'incident') {
             window.location.href = command.value;
+            return;
+        }
+
+        if (command.type === 'clearPinnedIncidents') {
+            writePinnedIncidents([]);
+            renderCommandPaletteResults();
             return;
         }
 
@@ -3837,6 +4024,8 @@
         var commandPaletteCommand = event.target.closest('[data-command-index]');
         var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
+        var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
+        var pinIncidentButton = event.target.closest('[data-pin-incident]');
         var incidentLink = event.target.closest('.top-event-link');
         var open = event.target.closest('[data-open-shortcuts]');
         var quickMenuTitle = event.target.closest('[data-qm-title]');
@@ -3887,6 +4076,18 @@
         if (copyIncidentLinkButton) {
             event.preventDefault();
             copyIncidentLink(copyIncidentLinkButton);
+            return;
+        }
+
+        if (copyIncidentSummaryButton) {
+            event.preventDefault();
+            copyIncidentSummary(copyIncidentSummaryButton);
+            return;
+        }
+
+        if (pinIncidentButton) {
+            event.preventDefault();
+            togglePinnedIncident();
             return;
         }
 
