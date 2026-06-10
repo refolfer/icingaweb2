@@ -844,6 +844,10 @@
         return document.querySelector('[data-triage-mode-toggle]');
     }
 
+    function getTopEventsSummary() {
+        return document.querySelector('[data-top-events-summary]');
+    }
+
     function getTopEventsPanelLabel(key, fallback) {
         var panel = getTopEventsPanel();
 
@@ -879,6 +883,31 @@
         updateTriageModeToggle();
         rerenderCachedTopEvents();
         refreshTopEvents(true);
+    }
+
+    function updateTopEventsSummary(stats) {
+        var summary = getTopEventsSummary();
+        var activeLabel = getTopEventsPanelLabel('triageActiveLabel', 'active');
+        var hiddenLabel = getTopEventsPanelLabel('triageHiddenLabel', 'hidden');
+
+        if (! summary) {
+            return;
+        }
+
+        if (! stats || ! stats.total) {
+            summary.hidden = true;
+            summary.textContent = '';
+            return;
+        }
+
+        summary.hidden = false;
+        summary.innerHTML = '<strong>' + String(stats.active) + '</strong> '
+            + escapeHtml(activeLabel)
+            + ' / <strong>'
+            + String(stats.hidden)
+            + '</strong> '
+            + escapeHtml(hiddenLabel);
+        summary.title = String(stats.total) + ' latest parsed events';
     }
 
     function getTacticalResizer() {
@@ -1697,13 +1726,39 @@
         return Boolean(triageStates[item.state]);
     }
 
+    function getTopEventsTriageStats(items) {
+        var stats = {
+            active: 0,
+            hidden: 0,
+            total: 0
+        };
+
+        items.forEach(function (item) {
+            if (! item || ! item.url) {
+                return;
+            }
+
+            stats.total += 1;
+            if (! isIncidentSnoozed(item.url) && isTriageEvent(item)) {
+                stats.active += 1;
+            } else {
+                stats.hidden += 1;
+            }
+        });
+
+        return stats;
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var triageMode = isTriageModeEnabled();
+        var triageStats = getTopEventsTriageStats(items);
         var visibleItems = items.filter(function (item) {
             return ! item || ! item.url || ! isIncidentSnoozed(item.url);
         });
         var i;
+
+        updateTopEventsSummary(triageStats);
 
         if (triageMode) {
             visibleItems = visibleItems.filter(isTriageEvent);

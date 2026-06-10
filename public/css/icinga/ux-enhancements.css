@@ -88,6 +88,25 @@ body.modal-open {
   min-width: 0;
 }
 
+.top-events-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75em;
+  padding: 0.12em 0.5em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.35em;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--to-text-muted);
+  font-size: 0.82em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.top-events-summary strong {
+  color: var(--to-text-strong);
+  font-weight: 700;
+}
+
 .top-events-header a {
   color: var(--to-text-muted);
   font-size: 0.9em;

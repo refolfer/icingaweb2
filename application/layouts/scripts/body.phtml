@@ -106,11 +106,14 @@ if ($this->layout()->inlineLayout) {
             data-history-url="<?= $this->href('icingadb/history') ?>"
             data-triage-on-label="<?= $this->escape($this->translate('Triage on')) ?>"
             data-triage-off-label="<?= $this->escape($this->translate('Triage')) ?>"
+            data-triage-active-label="<?= $this->escape($this->translate('active')) ?>"
+            data-triage-hidden-label="<?= $this->escape($this->translate('hidden')) ?>"
             aria-live="polite"
         >
             <header class="top-events-header">
                 <h2><?= $this->translate('Latest Events') ?></h2>
                 <div class="top-events-actions">
+                    <span class="top-events-summary" data-top-events-summary hidden></span>
                     <button
                         type="button"
                         class="top-events-triage-toggle"
