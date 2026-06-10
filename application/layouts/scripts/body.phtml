@@ -136,6 +136,13 @@ if ($this->layout()->inlineLayout) {
                     >
                         <?= $this->translate('Handoff') ?>
                     </button>
+                    <button
+                        type="button"
+                        class="top-events-activity-button"
+                        data-open-operator-activity
+                    >
+                        <?= $this->translate('Log') ?>
+                    </button>
                     <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
                         <?= $this->translate('History > Event Overview') ?>
                     </a>
@@ -425,6 +432,51 @@ if ($this->layout()->inlineLayout) {
         <textarea data-operator-handoff-output rows="22" spellcheck="false"></textarea>
     </section>
 </div>
+<div
+    id="operator-activity-modal"
+    class="operator-activity-modal"
+    hidden
+    aria-hidden="true"
+    data-empty-label="<?= $this->escape($this->translate('No operator activity yet')) ?>"
+    data-summary-label="<?= $this->escape($this->translate('recent operator actions')) ?>"
+    data-clear-label="<?= $this->escape($this->translate('Clear log')) ?>"
+>
+    <div class="operator-activity-backdrop" data-close-operator-activity></div>
+    <section
+        class="operator-activity-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="operator-activity-title"
+    >
+        <header class="operator-activity-header">
+            <div>
+                <h2 id="operator-activity-title"><?= $this->translate('Operator Activity Log') ?></h2>
+                <p data-operator-activity-summary></p>
+            </div>
+            <div class="operator-activity-actions">
+                <button type="button" data-operator-activity-clear>
+                    <?= $this->translate('Clear log') ?>
+                </button>
+                <button
+                    type="button"
+                    class="operator-activity-close"
+                    data-close-operator-activity
+                    aria-label="<?= $this->translate('Close') ?>"
+                >
+                    <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
+                </button>
+            </div>
+        </header>
+        <ol class="operator-activity-list" data-operator-activity-list></ol>
+        <p class="operator-activity-empty" data-operator-activity-empty hidden></p>
+    </section>
+</div>
+<div
+    id="operator-toast-region"
+    class="operator-toast-region"
+    aria-live="polite"
+    aria-atomic="false"
+></div>
 <div
     id="incident-drawer"
     class="incident-drawer"

@@ -11,6 +11,7 @@
     var SNOOZED_INCIDENTS_KEY = 'snoozed-incidents';
     var TRIAGE_MODE_KEY = 'top-events-triage-mode';
     var INCIDENT_NOTES_KEY = 'incident-notes';
+    var OPERATOR_ACTIVITY_KEY = 'operator-activity-log';
     var UX_DENSITY_KEY = 'ux-density-mode';
     var QUICK_NOTE_DRAFT_KEY = 'quick-menu-note-draft';
     var NAV_SEQUENCE_TIMEOUT = 1200;
@@ -23,9 +24,11 @@
     var TOP_EVENTS_BUFFER_LIMIT = 8;
     var TACTICAL_REFRESH_MS = 10000;
     var COMMAND_PALETTE_RESULT_LIMIT = 12;
+    var OPERATOR_TOAST_TIMEOUT_MS = 2600;
     var RECENT_INCIDENTS_LIMIT = 10;
     var PINNED_INCIDENTS_LIMIT = 20;
     var SEEN_INCIDENTS_LIMIT = 200;
+    var OPERATOR_ACTIVITY_LIMIT = 80;
     var INCIDENT_SNOOZE_MS = 15 * 60 * 1000;
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
@@ -352,6 +355,52 @@
         snoozed = readSnoozedIncidents();
         snoozed[normalized] = Date.now() + INCIDENT_SNOOZE_MS;
         writeSnoozedIncidents(snoozed);
+    }
+
+    function readOperatorActivity() {
+        var activity = [];
+
+        try {
+            activity = JSON.parse(window.localStorage.getItem(OPERATOR_ACTIVITY_KEY) || '[]');
+        } catch (error) {
+            activity = [];
+        }
+
+        return Array.isArray(activity) ? activity : [];
+    }
+
+    function writeOperatorActivity(activity) {
+        try {
+            window.localStorage.setItem(OPERATOR_ACTIVITY_KEY, JSON.stringify(activity));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function recordOperatorActivity(kind, title, detail, url) {
+        var normalizedTitle = normalizeText(title || '');
+        var entry;
+        var activity;
+
+        if (! normalizedTitle.length) {
+            return;
+        }
+
+        entry = {
+            time: Date.now(),
+            kind: normalizeText(kind || 'Action'),
+            title: normalizedTitle,
+            detail: normalizeText(detail || ''),
+            url: normalizeIncidentUrl(url || '')
+        };
+
+        activity = readOperatorActivity();
+        activity.unshift(entry);
+        writeOperatorActivity(activity.slice(0, OPERATOR_ACTIVITY_LIMIT));
+
+        if (isOperatorActivityOpen()) {
+            renderOperatorActivity();
+        }
     }
 
     function readTriageMode() {
@@ -884,6 +933,57 @@
         return fallback;
     }
 
+    function getOperatorActivity() {
+        return document.getElementById('operator-activity-modal');
+    }
+
+    function isOperatorActivityOpen() {
+        var modal = getOperatorActivity();
+
+        return !! modal && ! modal.hidden;
+    }
+
+    function getOperatorActivityLabel(key, fallback) {
+        var modal = getOperatorActivity();
+
+        if (modal && modal.dataset && modal.dataset[key]) {
+            return modal.dataset[key];
+        }
+
+        return fallback;
+    }
+
+    function getOperatorToastRegion() {
+        return document.getElementById('operator-toast-region');
+    }
+
+    function showOperatorToast(message, tone) {
+        var region = getOperatorToastRegion();
+        var toast;
+        var toasts;
+
+        if (! region || ! normalizeText(message).length) {
+            return;
+        }
+
+        toast = document.createElement('div');
+        toast.className = 'operator-toast ' + (tone || 'success');
+        toast.setAttribute('role', 'status');
+        toast.textContent = message;
+        region.appendChild(toast);
+
+        toasts = region.querySelectorAll('.operator-toast');
+        if (toasts.length > 4) {
+            region.removeChild(toasts[0]);
+        }
+
+        window.setTimeout(function () {
+            if (toast.parentNode === region) {
+                region.removeChild(toast);
+            }
+        }, OPERATOR_TOAST_TIMEOUT_MS);
+    }
+
     function getTopEventsSummary() {
         return document.querySelector('[data-top-events-summary]');
     }
@@ -921,6 +1021,7 @@
     function setTriageMode(enabled) {
         writeTriageMode(enabled);
         updateTriageModeToggle();
+        recordOperatorActivity('Triage', enabled ? 'Enabled triage mode' : 'Disabled triage mode', '', '');
         rerenderCachedTopEvents();
         refreshTopEvents(true);
     }
@@ -1880,6 +1981,14 @@
             return;
         }
 
+        if (isOperatorHandoffOpen()) {
+            closeOperatorHandoff();
+        }
+
+        if (isOperatorActivityOpen()) {
+            closeOperatorActivity();
+        }
+
         lastFocusedElement = document.activeElement;
         renderTriageDesk();
         modal.hidden = false;
@@ -1915,6 +2024,8 @@
         rerenderCachedTopEvents();
         refreshTopEvents(true);
         renderTriageDesk();
+        recordOperatorActivity('Triage', 'Reset triage queue', 'Cleared local seen and snoozed markers', '');
+        showOperatorToast('Triage queue reset');
     }
 
     function runTriageDeskAction(action, url) {
@@ -1930,13 +2041,23 @@
         }
 
         if (action === 'copy') {
-            copyTextToClipboard(url);
+            copyTextToClipboard(url).then(function () {
+                recordOperatorActivity('Triage', 'Copied triage link', event ? normalizeText(event.title || event.meta || '') : '', url);
+                showOperatorToast('Triage link copied');
+            });
             return;
         }
 
         if (action === 'pin') {
             if (event) {
                 setIncidentPinned(event, ! isIncidentPinned(url));
+                recordOperatorActivity(
+                    'Triage',
+                    isIncidentPinned(url) ? 'Pinned triage event' : 'Unpinned triage event',
+                    normalizeText(event.title || event.meta || ''),
+                    url
+                );
+                showOperatorToast(isIncidentPinned(url) ? 'Triage event pinned' : 'Triage event unpinned');
             }
             renderTriageDesk();
             return;
@@ -1947,6 +2068,8 @@
             rerenderCachedTopEvents();
             refreshTopEvents(true);
             renderTriageDesk();
+            recordOperatorActivity('Triage', 'Snoozed triage event', event ? normalizeText(event.title || event.meta || '') : '', url);
+            showOperatorToast('Triage event snoozed');
             return;
         }
 
@@ -1955,6 +2078,8 @@
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
             renderTriageDesk();
+            recordOperatorActivity('Triage', 'Marked triage event seen', event ? normalizeText(event.title || event.meta || '') : '', url);
+            showOperatorToast('Triage event marked seen');
         }
     }
 
@@ -1990,6 +2115,7 @@
         var noteUrls = Object.keys(notes).filter(function (url) {
             return String(notes[url] || '').trim().length;
         });
+        var activity = readOperatorActivity().slice(0, 12);
         var lines = [
             'Operator handoff',
             'Generated: ' + new Date().toLocaleString(),
@@ -2016,6 +2142,22 @@
             noteUrls.slice(0, 12).forEach(function (url, index) {
                 lines.push(String(index + 1) + '. ' + normalizeIncidentUrl(url));
                 lines.push('   Note: ' + normalizeText(notes[url]));
+            });
+        }
+
+        lines.push('');
+        lines.push('Recent operator activity: ' + String(activity.length));
+        if (! activity.length) {
+            lines.push('- none');
+        } else {
+            activity.forEach(function (entry, index) {
+                lines.push(String(index + 1) + '. ' + formatOperatorActivityTime(entry.time) + ' - ' + normalizeText(entry.title));
+                if (entry.detail) {
+                    lines.push('   Detail: ' + normalizeText(entry.detail));
+                }
+                if (entry.url) {
+                    lines.push('   URL: ' + normalizeIncidentUrl(entry.url));
+                }
             });
         }
 
@@ -2047,8 +2189,13 @@
             closeTriageDesk();
         }
 
+        if (isOperatorActivityOpen()) {
+            closeOperatorActivity();
+        }
+
         lastFocusedElement = document.activeElement;
         renderOperatorHandoff();
+        recordOperatorActivity('Handoff', 'Generated handoff report', '', '');
         modal.hidden = false;
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
@@ -2080,7 +2227,105 @@
         var modal = getOperatorHandoff();
         var output = modal ? modal.querySelector('[data-operator-handoff-output]') : null;
 
-        copyTextToClipboard(output ? output.value : buildOperatorHandoffText());
+        copyTextToClipboard(output ? output.value : buildOperatorHandoffText()).then(function () {
+            recordOperatorActivity('Handoff', 'Copied handoff report', 'Operator handoff report copied to clipboard', '');
+            showOperatorToast('Handoff report copied');
+        });
+    }
+
+    function formatOperatorActivityTime(timestamp) {
+        var date = new Date(Number(timestamp || 0));
+
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        return date.toLocaleString();
+    }
+
+    function renderOperatorActivity() {
+        var modal = getOperatorActivity();
+        var list = modal ? modal.querySelector('[data-operator-activity-list]') : null;
+        var empty = modal ? modal.querySelector('[data-operator-activity-empty]') : null;
+        var summary = modal ? modal.querySelector('[data-operator-activity-summary]') : null;
+        var activity = readOperatorActivity();
+
+        if (! modal || ! list || ! empty || ! summary) {
+            return;
+        }
+
+        summary.textContent = String(activity.length) + ' ' + getOperatorActivityLabel('summaryLabel', 'recent operator actions');
+        empty.textContent = getOperatorActivityLabel('emptyLabel', 'No operator activity yet');
+        empty.hidden = activity.length > 0;
+        list.hidden = ! activity.length;
+        list.innerHTML = activity.map(function (entry) {
+            var detail = normalizeText(entry.detail || '');
+            var url = normalizeIncidentUrl(entry.url || '');
+            var description = detail;
+
+            if (url.length) {
+                description += (description.length ? ' - ' : '') + url;
+            }
+
+            return '<li>'
+                + '<time class="operator-activity-time">' + escapeHtml(formatOperatorActivityTime(entry.time)) + '</time>'
+                + '<div class="operator-activity-main">'
+                + '<h3>' + escapeHtml(normalizeText(entry.title || 'Operator action')) + '</h3>'
+                + (description.length ? '<p>' + escapeHtml(description) + '</p>' : '')
+                + '</div>'
+                + '<span class="operator-activity-kind">' + escapeHtml(normalizeText(entry.kind || 'Action')) + '</span>'
+                + '</li>';
+        }).join('');
+    }
+
+    function openOperatorActivity() {
+        var modal = getOperatorActivity();
+        var firstButton;
+
+        if (! modal) {
+            return;
+        }
+
+        if (isTriageDeskOpen()) {
+            closeTriageDesk();
+        }
+
+        if (isOperatorHandoffOpen()) {
+            closeOperatorHandoff();
+        }
+
+        lastFocusedElement = document.activeElement;
+        renderOperatorActivity();
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        firstButton = modal.querySelector('button');
+        if (firstButton) {
+            firstButton.focus();
+        }
+    }
+
+    function closeOperatorActivity() {
+        var modal = getOperatorActivity();
+
+        if (! modal || modal.hidden) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function clearOperatorActivity() {
+        writeOperatorActivity([]);
+        renderOperatorActivity();
+        showOperatorToast('Operator activity log cleared');
     }
 
     function renderTopEvents(items) {
@@ -2759,6 +3004,7 @@
             textarea.focus();
         }
 
+        recordOperatorActivity('Note', 'Cleared incident note', '', incidentDrawerState.url);
         loadIncidentNote();
     }
 
@@ -2871,6 +3117,7 @@
             meta: metaText,
             url: url
         });
+        recordOperatorActivity('Incident', 'Opened incident drawer', titleText, url);
 
         if (title) {
             title.textContent = titleText;
@@ -2973,6 +3220,8 @@
         }
 
         copyTextToClipboard(url).then(function () {
+            recordOperatorActivity('Incident', 'Copied incident link', getCurrentIncidentSnapshot().title, url);
+            showOperatorToast('Incident link copied');
             button.textContent = getIncidentDrawerLabel('copied-label', 'Copied');
             window.setTimeout(function () {
                 if (! isIncidentDrawerOpen()) {
@@ -3043,6 +3292,8 @@
         }
 
         copyTextToClipboard(summary).then(function () {
+            recordOperatorActivity('Incident', 'Copied incident summary', getCurrentIncidentSnapshot().title, incidentDrawerState.url);
+            showOperatorToast('Incident summary copied');
             button.textContent = getIncidentDrawerLabel('copied-label', 'Copied');
             window.setTimeout(function () {
                 if (! isIncidentDrawerOpen()) {
@@ -3100,6 +3351,12 @@
         var pinned = isIncidentPinned(snapshot.url);
 
         setIncidentPinned(snapshot, ! pinned);
+        recordOperatorActivity(
+            'Incident',
+            pinned ? 'Unpinned incident' : 'Pinned incident',
+            snapshot.title,
+            snapshot.url
+        );
         updatePinIncidentButton();
     }
 
@@ -3109,6 +3366,7 @@
         }
 
         snoozeIncident(incidentDrawerState.url);
+        recordOperatorActivity('Incident', 'Snoozed incident', getCurrentIncidentSnapshot().title, incidentDrawerState.url);
         updateSnoozeIncidentButton();
         rerenderCachedTopEvents();
         refreshTopEvents(true);
@@ -3258,6 +3516,7 @@
             ),
             makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''),
             makeCommand('operatorHandoff', 'Operator Handoff', actions, 'Generate a shift handoff report', ''),
+            makeCommand('operatorActivity', 'Operator Activity Log', actions, 'Review recent local operator actions', ''),
             makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
             makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
             makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
@@ -3405,6 +3664,22 @@
                 'Reset triage queue',
                 'Triage Queue',
                 'Clear local seen and snoozed triage markers',
+                ''
+            )
+        ];
+    }
+
+    function getOperatorActivityCommands() {
+        if (! readOperatorActivity().length) {
+            return [];
+        }
+
+        return [
+            makeCommand(
+                'clearOperatorActivity',
+                'Clear operator activity log',
+                'Operator Activity',
+                'Remove the local operator action history',
                 ''
             )
         ];
@@ -3677,6 +3952,7 @@
             .concat(getSnoozedIncidentCommands())
             .concat(getTriageResetCommands())
             .concat(getTriageQueueCommands())
+            .concat(getOperatorActivityCommands())
             .concat(getRecentIncidentCommands())
             .concat(collectNavigationCommands());
         var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
@@ -3830,18 +4106,26 @@
             return;
         }
 
+        if (command.type === 'operatorActivity') {
+            openOperatorActivity();
+            return;
+        }
+
         if (command.type === 'anchor' && command.element) {
             command.element.click();
             return;
         }
 
         if (command.type === 'incident') {
+            recordOperatorActivity('Incident', 'Opened incident from command palette', command.label, command.value);
             window.location.href = command.value;
             return;
         }
 
         if (command.type === 'clearPinnedIncidents') {
             writePinnedIncidents([]);
+            recordOperatorActivity('Incident', 'Cleared pinned incidents', '', '');
+            showOperatorToast('Pinned incidents cleared');
             renderCommandPaletteResults();
             return;
         }
@@ -3850,6 +4134,8 @@
             writeSeenIncidents([]);
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
+            recordOperatorActivity('Incident', 'Cleared seen incidents', '', '');
+            showOperatorToast('Seen incidents cleared');
             renderCommandPaletteResults();
             return;
         }
@@ -3858,6 +4144,14 @@
             writeSnoozedIncidents({});
             rerenderCachedTopEvents();
             refreshTopEvents(true);
+            recordOperatorActivity('Incident', 'Cleared snoozed incidents', '', '');
+            showOperatorToast('Snoozed incidents cleared');
+            renderCommandPaletteResults();
+            return;
+        }
+
+        if (command.type === 'clearOperatorActivity') {
+            clearOperatorActivity();
             renderCommandPaletteResults();
             return;
         }
@@ -3869,7 +4163,10 @@
         }
 
         if (command.type === 'copyTriageDigest') {
-            copyTextToClipboard(buildTriageDigestText());
+            copyTextToClipboard(buildTriageDigestText()).then(function () {
+                recordOperatorActivity('Triage', 'Copied triage digest', '', '');
+                showOperatorToast('Triage digest copied');
+            });
             return;
         }
 
@@ -3877,6 +4174,8 @@
             snoozeIncident(command.value);
             rerenderCachedTopEvents();
             refreshTopEvents(true);
+            recordOperatorActivity('Triage', 'Snoozed next triage event', '', command.value);
+            showOperatorToast('Next triage event snoozed');
             return;
         }
 
@@ -3884,6 +4183,13 @@
             var event = getActiveTriageEventByUrl(command.value);
             if (event) {
                 setIncidentPinned(event, ! isIncidentPinned(command.value));
+                recordOperatorActivity(
+                    'Triage',
+                    isIncidentPinned(command.value) ? 'Pinned next triage event' : 'Unpinned next triage event',
+                    normalizeText(event.title || event.meta || ''),
+                    command.value
+                );
+                showOperatorToast(isIncidentPinned(command.value) ? 'Next triage event pinned' : 'Next triage event unpinned');
             }
             return;
         }
@@ -3892,6 +4198,8 @@
             markIncidentSeen(command.value);
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
+            recordOperatorActivity('Triage', 'Marked next triage event seen', '', command.value);
+            showOperatorToast('Next triage event marked seen');
             return;
         }
 
@@ -4057,12 +4365,15 @@
                 && ! isCommandPaletteOpen()
                 && ! isIncidentDrawerOpen()
                 && ! isTriageDeskOpen()
-                && ! isOperatorHandoffOpen())) {
+                && ! isOperatorHandoffOpen()
+                && ! isOperatorActivityOpen())) {
             return;
         }
 
         if (isCommandPaletteOpen()) {
             modal = getCommandPalette();
+        } else if (isOperatorActivityOpen()) {
+            modal = getOperatorActivity();
         } else if (isOperatorHandoffOpen()) {
             modal = getOperatorHandoff();
         } else if (isTriageDeskOpen()) {
@@ -4997,6 +5308,9 @@
         var closeOperatorHandoffButton = event.target.closest('[data-close-operator-handoff]');
         var operatorHandoffCopyButton = event.target.closest('[data-operator-handoff-copy]');
         var operatorHandoffRefreshButton = event.target.closest('[data-operator-handoff-refresh]');
+        var openOperatorActivityButton = event.target.closest('[data-open-operator-activity]');
+        var closeOperatorActivityButton = event.target.closest('[data-close-operator-activity]');
+        var operatorActivityClearButton = event.target.closest('[data-operator-activity-clear]');
         var closeIncidentDrawerButton = event.target.closest('[data-close-incident-drawer]');
         var copyIncidentLinkButton = event.target.closest('[data-copy-incident-link]');
         var copyIncidentSummaryButton = event.target.closest('[data-copy-incident-summary]');
@@ -5064,7 +5378,10 @@
 
         if (triageDeskCopyButton) {
             event.preventDefault();
-            copyTextToClipboard(buildTriageDigestText());
+            copyTextToClipboard(buildTriageDigestText()).then(function () {
+                recordOperatorActivity('Triage', 'Copied triage digest', '', '');
+                showOperatorToast('Triage digest copied');
+            });
             return;
         }
 
@@ -5105,6 +5422,26 @@
         if (operatorHandoffRefreshButton) {
             event.preventDefault();
             renderOperatorHandoff();
+            recordOperatorActivity('Handoff', 'Regenerated handoff report', '', '');
+            showOperatorToast('Handoff report regenerated');
+            return;
+        }
+
+        if (openOperatorActivityButton) {
+            event.preventDefault();
+            openOperatorActivity();
+            return;
+        }
+
+        if (closeOperatorActivityButton) {
+            event.preventDefault();
+            closeOperatorActivity();
+            return;
+        }
+
+        if (operatorActivityClearButton) {
+            event.preventDefault();
+            clearOperatorActivity();
             return;
         }
 
@@ -5313,6 +5650,11 @@
 
         if (isOperatorHandoffOpen()) {
             closeOperatorHandoff();
+            return;
+        }
+
+        if (isOperatorActivityOpen()) {
+            closeOperatorActivity();
             return;
         }
 
