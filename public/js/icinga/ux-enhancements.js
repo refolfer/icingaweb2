@@ -1904,6 +1904,184 @@
         })[0] || null;
     }
 
+    function getOperatorFocusBoard() {
+        return document.querySelector('[data-operator-focus-board]');
+    }
+
+    function getOperatorFocusLabel(key, fallback) {
+        var board = getOperatorFocusBoard();
+
+        if (board && board.dataset && board.dataset[key]) {
+            return board.dataset[key];
+        }
+
+        return fallback;
+    }
+
+    function getOperatorFocusStateWeight(state) {
+        var weights = {
+            critical: 100,
+            warning: 70,
+            unknown: 55,
+            pending: 40
+        };
+
+        return weights[state] || 0;
+    }
+
+    function scoreOperatorFocusEvent(item, index) {
+        var score = getOperatorFocusStateWeight(item.state);
+        var preview = normalizeText(item.preview || '');
+        var title = normalizeText(item.title || '');
+        var meta = normalizeText(item.meta || '');
+
+        if (isIncidentPinned(item.url)) {
+            score += 18;
+        }
+
+        if (/\b(down|unreachable|critical|crash|failed|timeout)\b/i.test(title + ' ' + meta + ' ' + preview)) {
+            score += 12;
+        }
+
+        if (index === 0) {
+            score += 8;
+        } else if (index === 1) {
+            score += 4;
+        }
+
+        return score;
+    }
+
+    function getOperatorFocusSnapshot() {
+        var events = getActiveTriageEvents();
+        var counts = {
+            active: events.length,
+            critical: 0,
+            warning: 0,
+            unknown: 0,
+            pending: 0,
+            pinned: 0
+        };
+        var ranked = events.map(function (item, index) {
+            if (counts.hasOwnProperty(item.state)) {
+                counts[item.state] += 1;
+            }
+
+            if (isIncidentPinned(item.url)) {
+                counts.pinned += 1;
+            }
+
+            return {
+                item: item,
+                score: scoreOperatorFocusEvent(item, index),
+                index: index
+            };
+        }).sort(function (a, b) {
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+
+            return a.index - b.index;
+        });
+
+        return {
+            counts: counts,
+            next: ranked.length ? ranked[0].item : null,
+            score: ranked.length ? ranked[0].score : 0
+        };
+    }
+
+    function setOperatorFocusText(selector, value) {
+        var element = document.querySelector(selector);
+
+        if (element) {
+            element.textContent = value;
+        }
+    }
+
+    function renderOperatorFocusBoard() {
+        var board = getOperatorFocusBoard();
+        var snapshot = getOperatorFocusSnapshot();
+        var next = snapshot.next;
+        var actionButtons;
+        var title;
+        var detail;
+        var state;
+
+        if (! board) {
+            return;
+        }
+
+        board.classList.remove('priority-critical', 'priority-warning', 'priority-unknown', 'priority-pending');
+
+        setOperatorFocusText('[data-operator-focus-active]', String(snapshot.counts.active));
+        setOperatorFocusText('[data-operator-focus-critical]', String(snapshot.counts.critical));
+        setOperatorFocusText('[data-operator-focus-pinned]', String(snapshot.counts.pinned));
+
+        actionButtons = board.querySelectorAll('[data-operator-focus-action]');
+        actionButtons.forEach(function (button) {
+            var action = button.getAttribute('data-operator-focus-action') || '';
+
+            button.disabled = ! next;
+            if (action === 'open') {
+                button.textContent = getOperatorFocusLabel('openLabel', 'Open');
+            } else if (action === 'pin') {
+                button.textContent = getOperatorFocusLabel('pinLabel', 'Pin');
+            } else if (action === 'snooze') {
+                button.textContent = getOperatorFocusLabel('snoozeLabel', 'Snooze');
+            }
+        });
+
+        if (! next) {
+            setOperatorFocusText('[data-operator-focus-score]', '0');
+            setOperatorFocusText('[data-operator-focus-state]', getOperatorFocusLabel('emptyLabel', 'Queue clear'));
+            setOperatorFocusText('[data-operator-focus-kicker]', getOperatorFocusLabel('nextLabel', 'Next focus'));
+            setOperatorFocusText('[data-operator-focus-title]', getOperatorFocusLabel('emptyDetailLabel', 'No active triage events need operator focus.'));
+            setOperatorFocusText('[data-operator-focus-detail]', '');
+            return;
+        }
+
+        state = next.state || 'pending';
+        title = normalizeText(next.title || 'Untitled event');
+        detail = normalizeText(next.meta || next.preview || '');
+        board.classList.add('priority-' + state);
+
+        setOperatorFocusText('[data-operator-focus-score]', String(snapshot.score));
+        setOperatorFocusText('[data-operator-focus-state]', state);
+        setOperatorFocusText('[data-operator-focus-kicker]', getOperatorFocusLabel('nextLabel', 'Next focus') + ' - ' + getOperatorFocusLabel('workloadLabel', 'workload') + ' ' + String(snapshot.counts.active));
+        setOperatorFocusText('[data-operator-focus-title]', title);
+        setOperatorFocusText('[data-operator-focus-detail]', detail);
+
+        actionButtons.forEach(function (button) {
+            var action = button.getAttribute('data-operator-focus-action') || '';
+
+            if (action === 'pin') {
+                button.textContent = isIncidentPinned(next.url)
+                    ? getTriageDeskLabel('unpinLabel', 'Unpin')
+                    : getOperatorFocusLabel('pinLabel', 'Pin');
+            } else if (action === 'open') {
+                button.textContent = getOperatorFocusLabel('openLabel', 'Open');
+            } else if (action === 'snooze') {
+                button.textContent = getOperatorFocusLabel('snoozeLabel', 'Snooze');
+            }
+        });
+    }
+
+    function runOperatorFocusAction(action) {
+        var next = getOperatorFocusSnapshot().next;
+
+        if (! next || ! action) {
+            return;
+        }
+
+        if (action === 'open') {
+            recordOperatorActivity('Triage', 'Opened focus event', normalizeText(next.title || next.meta || ''), next.url);
+        }
+
+        runTriageDeskAction(action, normalizeIncidentUrl(next.url));
+        renderOperatorFocusBoard();
+    }
+
     function buildTriageDigestText() {
         var events = getActiveTriageEvents();
         var lines = [
@@ -2024,6 +2202,7 @@
         rerenderCachedTopEvents();
         refreshTopEvents(true);
         renderTriageDesk();
+        renderOperatorFocusBoard();
         recordOperatorActivity('Triage', 'Reset triage queue', 'Cleared local seen and snoozed markers', '');
         showOperatorToast('Triage queue reset');
     }
@@ -2060,6 +2239,7 @@
                 showOperatorToast(isIncidentPinned(url) ? 'Triage event pinned' : 'Triage event unpinned');
             }
             renderTriageDesk();
+            renderOperatorFocusBoard();
             return;
         }
 
@@ -2068,6 +2248,7 @@
             rerenderCachedTopEvents();
             refreshTopEvents(true);
             renderTriageDesk();
+            renderOperatorFocusBoard();
             recordOperatorActivity('Triage', 'Snoozed triage event', event ? normalizeText(event.title || event.meta || '') : '', url);
             showOperatorToast('Triage event snoozed');
             return;
@@ -2078,6 +2259,7 @@
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
             renderTriageDesk();
+            renderOperatorFocusBoard();
             recordOperatorActivity('Triage', 'Marked triage event seen', event ? normalizeText(event.title || event.meta || '') : '', url);
             showOperatorToast('Triage event marked seen');
         }
@@ -2338,6 +2520,7 @@
         var i;
 
         updateTopEventsSummary(triageStats);
+        renderOperatorFocusBoard();
 
         if (triageMode) {
             visibleItems = visibleItems.filter(isTriageEvent);
@@ -3358,6 +3541,7 @@
             snapshot.url
         );
         updatePinIncidentButton();
+        renderOperatorFocusBoard();
     }
 
     function snoozeCurrentIncident() {
@@ -3370,6 +3554,7 @@
         updateSnoozeIncidentButton();
         rerenderCachedTopEvents();
         refreshTopEvents(true);
+        renderOperatorFocusBoard();
         closeIncidentDrawer();
     }
 
@@ -3687,6 +3872,7 @@
 
     function getTriageQueueCommands() {
         var events = getActiveTriageEvents();
+        var focus = getOperatorFocusSnapshot().next;
         var nextPinned;
 
         if (! events.length) {
@@ -3696,6 +3882,13 @@
         nextPinned = isIncidentPinned(events[0].url);
 
         return [
+            makeCommand(
+                'operatorFocusEvent',
+                'Open focus event',
+                'Operator Focus',
+                focus ? normalizeText(focus.title || focus.meta || 'Open highest priority triage event') : 'Open highest priority triage event',
+                focus ? focus.url : events[0].url
+            ),
             makeCommand(
                 'incident',
                 'Open next triage event',
@@ -4122,8 +4315,15 @@
             return;
         }
 
+        if (command.type === 'operatorFocusEvent') {
+            recordOperatorActivity('Triage', 'Opened focus event', command.description, command.value);
+            window.location.href = command.value;
+            return;
+        }
+
         if (command.type === 'clearPinnedIncidents') {
             writePinnedIncidents([]);
+            renderOperatorFocusBoard();
             recordOperatorActivity('Incident', 'Cleared pinned incidents', '', '');
             showOperatorToast('Pinned incidents cleared');
             renderCommandPaletteResults();
@@ -4134,6 +4334,7 @@
             writeSeenIncidents([]);
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
+            renderOperatorFocusBoard();
             recordOperatorActivity('Incident', 'Cleared seen incidents', '', '');
             showOperatorToast('Seen incidents cleared');
             renderCommandPaletteResults();
@@ -4144,6 +4345,7 @@
             writeSnoozedIncidents({});
             rerenderCachedTopEvents();
             refreshTopEvents(true);
+            renderOperatorFocusBoard();
             recordOperatorActivity('Incident', 'Cleared snoozed incidents', '', '');
             showOperatorToast('Snoozed incidents cleared');
             renderCommandPaletteResults();
@@ -4174,6 +4376,7 @@
             snoozeIncident(command.value);
             rerenderCachedTopEvents();
             refreshTopEvents(true);
+            renderOperatorFocusBoard();
             recordOperatorActivity('Triage', 'Snoozed next triage event', '', command.value);
             showOperatorToast('Next triage event snoozed');
             return;
@@ -4191,6 +4394,7 @@
                 );
                 showOperatorToast(isIncidentPinned(command.value) ? 'Next triage event pinned' : 'Next triage event unpinned');
             }
+            renderOperatorFocusBoard();
             return;
         }
 
@@ -4198,6 +4402,7 @@
             markIncidentSeen(command.value);
             refreshSeenTopEventStates();
             rerenderCachedTopEvents();
+            renderOperatorFocusBoard();
             recordOperatorActivity('Triage', 'Marked next triage event seen', '', command.value);
             showOperatorToast('Next triage event marked seen');
             return;
@@ -5304,6 +5509,7 @@
         var triageDeskActionButton = event.target.closest('[data-triage-desk-action]');
         var triageDeskCopyButton = event.target.closest('[data-triage-desk-copy]');
         var triageDeskResetButton = event.target.closest('[data-triage-desk-reset]');
+        var operatorFocusActionButton = event.target.closest('[data-operator-focus-action]');
         var openOperatorHandoffButton = event.target.closest('[data-open-operator-handoff]');
         var closeOperatorHandoffButton = event.target.closest('[data-close-operator-handoff]');
         var operatorHandoffCopyButton = event.target.closest('[data-operator-handoff-copy]');
@@ -5398,6 +5604,12 @@
                 triageDeskActionButton.getAttribute('data-triage-desk-action') || '',
                 triageRow ? (triageRow.getAttribute('data-url') || '') : ''
             );
+            return;
+        }
+
+        if (operatorFocusActionButton) {
+            event.preventDefault();
+            runOperatorFocusAction(operatorFocusActionButton.getAttribute('data-operator-focus-action') || '');
             return;
         }
 

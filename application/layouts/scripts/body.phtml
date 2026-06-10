@@ -148,6 +148,52 @@ if ($this->layout()->inlineLayout) {
                     </a>
                 </div>
             </header>
+            <section
+                class="operator-focus-board"
+                data-operator-focus-board
+                data-empty-label="<?= $this->escape($this->translate('Queue clear')) ?>"
+                data-empty-detail-label="<?= $this->escape($this->translate('No active triage events need operator focus.')) ?>"
+                data-next-label="<?= $this->escape($this->translate('Next focus')) ?>"
+                data-workload-label="<?= $this->escape($this->translate('workload')) ?>"
+                data-open-label="<?= $this->escape($this->translate('Open')) ?>"
+                data-pin-label="<?= $this->escape($this->translate('Pin')) ?>"
+                data-snooze-label="<?= $this->escape($this->translate('Snooze')) ?>"
+            >
+                <div class="operator-focus-priority">
+                    <span data-operator-focus-score>0</span>
+                    <strong data-operator-focus-state><?= $this->translate('Queue clear') ?></strong>
+                </div>
+                <div class="operator-focus-main">
+                    <p data-operator-focus-kicker><?= $this->translate('Next focus') ?></p>
+                    <h3 data-operator-focus-title><?= $this->translate('No active triage events need operator focus.') ?></h3>
+                    <p data-operator-focus-detail></p>
+                </div>
+                <dl class="operator-focus-metrics">
+                    <div>
+                        <dt><?= $this->translate('Active') ?></dt>
+                        <dd data-operator-focus-active>0</dd>
+                    </div>
+                    <div>
+                        <dt><?= $this->translate('Critical') ?></dt>
+                        <dd data-operator-focus-critical>0</dd>
+                    </div>
+                    <div>
+                        <dt><?= $this->translate('Pinned') ?></dt>
+                        <dd data-operator-focus-pinned>0</dd>
+                    </div>
+                </dl>
+                <div class="operator-focus-actions">
+                    <button type="button" data-operator-focus-action="open">
+                        <?= $this->translate('Open') ?>
+                    </button>
+                    <button type="button" data-operator-focus-action="pin">
+                        <?= $this->translate('Pin') ?>
+                    </button>
+                    <button type="button" data-operator-focus-action="snooze">
+                        <?= $this->translate('Snooze') ?>
+                    </button>
+                </div>
+            </section>
             <ul class="top-events-list">
                 <li class="top-event-item" data-top-event-item="0">
                     <a
