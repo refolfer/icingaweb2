@@ -63,7 +63,8 @@
         activeIndex: 0
     };
     var operatorAuditState = {
-        filter: 'all'
+        filter: 'all',
+        query: ''
     };
     var incidentDrawerState = {
         url: '',
@@ -2727,12 +2728,32 @@
     }
 
     function getFilteredOperatorActivity(activity) {
-        if (operatorAuditState.filter === 'all') {
-            return activity;
-        }
+        var query = normalizeText(operatorAuditState.query || '').toLowerCase();
 
         return activity.filter(function (entry) {
-            return normalizeText(entry.kind || 'Action') === operatorAuditState.filter;
+            var kind = normalizeText(entry.kind || 'Action');
+            var searchable;
+
+            if (operatorAuditState.filter !== 'all' && kind !== operatorAuditState.filter) {
+                return false;
+            }
+
+            if (! query.length) {
+                return true;
+            }
+
+            searchable = [
+                kind,
+                entry.title,
+                entry.detail,
+                normalizeIncidentUrl(entry.url || ''),
+                entry.id,
+                formatOperatorActivityTime(entry.time)
+            ].map(function (value) {
+                return normalizeText(value || '').toLowerCase();
+            }).join(' ');
+
+            return searchable.indexOf(query) !== -1;
         });
     }
 
@@ -2789,6 +2810,7 @@
             'Audit timeline',
             'Generated: ' + new Date().toLocaleString(),
             'Filter: ' + operatorAuditState.filter,
+            'Search: ' + (normalizeText(operatorAuditState.query || '') || 'none'),
             'Events: ' + String(activity.length)
         ];
 
@@ -2818,9 +2840,11 @@
         var total = modal ? modal.querySelector('[data-operator-audit-total]') : null;
         var objects = modal ? modal.querySelector('[data-operator-audit-objects]') : null;
         var latest = modal ? modal.querySelector('[data-operator-audit-latest]') : null;
+        var search = modal ? modal.querySelector('[data-operator-audit-search]') : null;
+        var reset = modal ? modal.querySelector('[data-operator-audit-reset]') : null;
         var activity = readOperatorActivity();
         var filtered = getFilteredOperatorActivity(activity);
-        var metrics = getOperatorAuditMetrics(activity);
+        var metrics = getOperatorAuditMetrics(filtered);
 
         if (! modal || ! list || ! empty || ! summary) {
             return;
@@ -2836,9 +2860,18 @@
         if (latest) {
             latest.textContent = metrics.latest;
         }
+        if (search && search.value !== operatorAuditState.query) {
+            search.value = operatorAuditState.query;
+        }
+        if (reset) {
+            reset.disabled = operatorAuditState.filter === 'all'
+                && ! normalizeText(operatorAuditState.query || '').length;
+        }
 
         summary.textContent = String(filtered.length) + ' / ' + String(activity.length) + ' ' + getOperatorActivityLabel('summaryLabel', 'audit events');
-        empty.textContent = getOperatorActivityLabel('emptyLabel', 'No operator activity yet');
+        empty.textContent = activity.length
+            ? getOperatorActivityLabel('noMatchLabel', 'No audit events match the current filters')
+            : getOperatorActivityLabel('emptyLabel', 'No operator activity yet');
         empty.hidden = filtered.length > 0;
         list.hidden = ! filtered.length;
         list.innerHTML = filtered.map(function (entry) {
@@ -2859,7 +2892,7 @@
 
     function openOperatorActivity() {
         var modal = getOperatorActivity();
-        var firstButton;
+        var search;
 
         if (! modal) {
             return;
@@ -2883,9 +2916,9 @@
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
 
-        firstButton = modal.querySelector('button');
-        if (firstButton) {
-            firstButton.focus();
+        search = modal.querySelector('[data-operator-audit-search]');
+        if (search) {
+            search.focus();
         }
     }
 
@@ -2907,9 +2940,23 @@
 
     function clearOperatorActivity() {
         operatorAuditState.filter = 'all';
+        operatorAuditState.query = '';
         writeOperatorActivity([]);
         renderOperatorActivity();
         showOperatorToast('Operator activity log cleared');
+    }
+
+    function resetOperatorAuditFilters() {
+        var modal = getOperatorActivity();
+        var search = modal ? modal.querySelector('[data-operator-audit-search]') : null;
+
+        operatorAuditState.filter = 'all';
+        operatorAuditState.query = '';
+        renderOperatorActivity();
+
+        if (search) {
+            search.focus();
+        }
     }
 
     function copyOperatorAuditTimeline() {
@@ -6104,6 +6151,7 @@
         var operatorActivityClearButton = event.target.closest('[data-operator-activity-clear]');
         var operatorActivityCopyButton = event.target.closest('[data-operator-activity-copy]');
         var operatorAuditFilterButton = event.target.closest('[data-operator-audit-filter]');
+        var operatorAuditResetButton = event.target.closest('[data-operator-audit-reset]');
         var openOperatorPlaybookButton = event.target.closest('[data-open-operator-playbook]');
         var closeOperatorPlaybookButton = event.target.closest('[data-close-operator-playbook]');
         var operatorPlaybookCopyButton = event.target.closest('[data-operator-playbook-copy]');
@@ -6263,6 +6311,12 @@
             event.preventDefault();
             operatorAuditState.filter = operatorAuditFilterButton.getAttribute('data-operator-audit-filter') || 'all';
             renderOperatorActivity();
+            return;
+        }
+
+        if (operatorAuditResetButton) {
+            event.preventDefault();
+            resetOperatorAuditFilters();
             return;
         }
 
@@ -6437,6 +6491,12 @@
     function onInput(event) {
         if (event.target.matches('#command-palette-input')) {
             renderCommandPaletteResults();
+            return;
+        }
+
+        if (event.target.matches('[data-operator-audit-search]')) {
+            operatorAuditState.query = String(event.target.value || '');
+            renderOperatorActivity();
             return;
         }
 
