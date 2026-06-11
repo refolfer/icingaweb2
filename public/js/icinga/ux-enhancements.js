@@ -62,6 +62,9 @@
         commands: [],
         activeIndex: 0
     };
+    var operatorAuditState = {
+        filter: 'all'
+    };
     var incidentDrawerState = {
         url: '',
         abortController: null,
@@ -387,6 +390,7 @@
         }
 
         entry = {
+            id: String(Date.now()) + '-' + String(Math.random()).slice(2, 8),
             time: Date.now(),
             kind: normalizeText(kind || 'Action'),
             title: normalizedTitle,
@@ -2607,7 +2611,7 @@
         }
 
         lines.push('');
-        lines.push('Recent operator activity: ' + String(activity.length));
+        lines.push('Audit timeline excerpt: ' + String(activity.length));
         if (! activity.length) {
             lines.push('- none');
         } else {
@@ -2708,35 +2712,145 @@
         return date.toLocaleString();
     }
 
+    function getOperatorActivityKinds(activity) {
+        var kinds = {};
+
+        activity.forEach(function (entry) {
+            var kind = normalizeText(entry.kind || 'Action');
+
+            if (kind.length) {
+                kinds[kind] = true;
+            }
+        });
+
+        return Object.keys(kinds).sort();
+    }
+
+    function getFilteredOperatorActivity(activity) {
+        if (operatorAuditState.filter === 'all') {
+            return activity;
+        }
+
+        return activity.filter(function (entry) {
+            return normalizeText(entry.kind || 'Action') === operatorAuditState.filter;
+        });
+    }
+
+    function getOperatorAuditMetrics(activity) {
+        var objects = {};
+        var latest = activity[0] ? formatOperatorActivityTime(activity[0].time) : '—';
+
+        activity.forEach(function (entry) {
+            var url = normalizeIncidentUrl(entry.url || '');
+
+            if (url.length) {
+                objects[url] = true;
+            }
+        });
+
+        return {
+            total: activity.length,
+            objects: Object.keys(objects).length,
+            latest: latest
+        };
+    }
+
+    function renderOperatorAuditFilters(activity) {
+        var modal = getOperatorActivity();
+        var filters = modal ? modal.querySelector('[data-operator-audit-filters]') : null;
+        var kinds = getOperatorActivityKinds(activity);
+        var allLabel = getOperatorActivityLabel('allLabel', 'All');
+
+        if (! filters) {
+            return;
+        }
+
+        if (operatorAuditState.filter !== 'all' && kinds.indexOf(operatorAuditState.filter) === -1) {
+            operatorAuditState.filter = 'all';
+        }
+
+        filters.innerHTML = ['all'].concat(kinds).map(function (kind) {
+            var label = kind === 'all' ? allLabel : kind;
+            var count = kind === 'all'
+                ? activity.length
+                : activity.filter(function (entry) {
+                    return normalizeText(entry.kind || 'Action') === kind;
+                }).length;
+
+            return '<button type="button" data-operator-audit-filter="' + escapeHtml(kind) + '"'
+                + (operatorAuditState.filter === kind ? ' class="active" aria-pressed="true"' : ' aria-pressed="false"')
+                + '>' + escapeHtml(label) + ' ' + String(count) + '</button>';
+        }).join('');
+    }
+
+    function buildOperatorAuditTimelineText() {
+        var activity = getFilteredOperatorActivity(readOperatorActivity());
+        var lines = [
+            'Audit timeline',
+            'Generated: ' + new Date().toLocaleString(),
+            'Filter: ' + operatorAuditState.filter,
+            'Events: ' + String(activity.length)
+        ];
+
+        activity.forEach(function (entry, index) {
+            lines.push('');
+            lines.push(String(index + 1) + '. [' + formatOperatorActivityTime(entry.time) + '] ' + normalizeText(entry.kind || 'Action'));
+            lines.push('   Title: ' + normalizeText(entry.title || 'Operator action'));
+            if (entry.detail) {
+                lines.push('   Detail: ' + normalizeText(entry.detail));
+            }
+            if (entry.url) {
+                lines.push('   URL: ' + normalizeIncidentUrl(entry.url));
+            }
+            if (entry.id) {
+                lines.push('   Event ID: ' + normalizeText(entry.id));
+            }
+        });
+
+        return lines.join('\n');
+    }
+
     function renderOperatorActivity() {
         var modal = getOperatorActivity();
         var list = modal ? modal.querySelector('[data-operator-activity-list]') : null;
         var empty = modal ? modal.querySelector('[data-operator-activity-empty]') : null;
         var summary = modal ? modal.querySelector('[data-operator-activity-summary]') : null;
+        var total = modal ? modal.querySelector('[data-operator-audit-total]') : null;
+        var objects = modal ? modal.querySelector('[data-operator-audit-objects]') : null;
+        var latest = modal ? modal.querySelector('[data-operator-audit-latest]') : null;
         var activity = readOperatorActivity();
+        var filtered = getFilteredOperatorActivity(activity);
+        var metrics = getOperatorAuditMetrics(activity);
 
         if (! modal || ! list || ! empty || ! summary) {
             return;
         }
 
-        summary.textContent = String(activity.length) + ' ' + getOperatorActivityLabel('summaryLabel', 'recent operator actions');
+        renderOperatorAuditFilters(activity);
+        if (total) {
+            total.textContent = String(metrics.total);
+        }
+        if (objects) {
+            objects.textContent = String(metrics.objects);
+        }
+        if (latest) {
+            latest.textContent = metrics.latest;
+        }
+
+        summary.textContent = String(filtered.length) + ' / ' + String(activity.length) + ' ' + getOperatorActivityLabel('summaryLabel', 'audit events');
         empty.textContent = getOperatorActivityLabel('emptyLabel', 'No operator activity yet');
-        empty.hidden = activity.length > 0;
-        list.hidden = ! activity.length;
-        list.innerHTML = activity.map(function (entry) {
+        empty.hidden = filtered.length > 0;
+        list.hidden = ! filtered.length;
+        list.innerHTML = filtered.map(function (entry) {
             var detail = normalizeText(entry.detail || '');
             var url = normalizeIncidentUrl(entry.url || '');
-            var description = detail;
-
-            if (url.length) {
-                description += (description.length ? ' - ' : '') + url;
-            }
 
             return '<li>'
                 + '<time class="operator-activity-time">' + escapeHtml(formatOperatorActivityTime(entry.time)) + '</time>'
                 + '<div class="operator-activity-main">'
                 + '<h3>' + escapeHtml(normalizeText(entry.title || 'Operator action')) + '</h3>'
-                + (description.length ? '<p>' + escapeHtml(description) + '</p>' : '')
+                + (detail.length ? '<p>' + escapeHtml(detail) + '</p>' : '')
+                + (url.length ? '<a href="' + escapeHtml(url) + '" data-base-target="_main">' + escapeHtml(url) + '</a>' : '')
                 + '</div>'
                 + '<span class="operator-activity-kind">' + escapeHtml(normalizeText(entry.kind || 'Action')) + '</span>'
                 + '</li>';
@@ -2792,9 +2906,16 @@
     }
 
     function clearOperatorActivity() {
+        operatorAuditState.filter = 'all';
         writeOperatorActivity([]);
         renderOperatorActivity();
         showOperatorToast('Operator activity log cleared');
+    }
+
+    function copyOperatorAuditTimeline() {
+        copyTextToClipboard(buildOperatorAuditTimelineText()).then(function () {
+            showOperatorToast('Audit timeline copied');
+        });
     }
 
     function renderOperatorPlaybook() {
@@ -4113,7 +4234,8 @@
             ),
             makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''),
             makeCommand('operatorHandoff', 'Operator Handoff', actions, 'Generate a shift handoff report', ''),
-            makeCommand('operatorActivity', 'Operator Activity Log', actions, 'Review recent local operator actions', ''),
+            makeCommand('operatorActivity', 'Audit Timeline', actions, 'Review filtered operator audit events', ''),
+            makeCommand('copyOperatorAuditTimeline', 'Copy Audit Timeline', actions, 'Copy the filtered operator audit timeline', ''),
             makeCommand('operatorPlaybook', 'Operator Playbook', actions, 'Open recommended actions for the focus event', ''),
             makeCommand('copyOperatorPlaybook', 'Copy Operator Playbook', actions, 'Copy recommended actions for the focus event', ''),
             makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
@@ -4740,6 +4862,11 @@
 
         if (command.type === 'operatorActivity') {
             openOperatorActivity();
+            return;
+        }
+
+        if (command.type === 'copyOperatorAuditTimeline') {
+            copyOperatorAuditTimeline();
             return;
         }
 
@@ -5975,6 +6102,8 @@
         var openOperatorActivityButton = event.target.closest('[data-open-operator-activity]');
         var closeOperatorActivityButton = event.target.closest('[data-close-operator-activity]');
         var operatorActivityClearButton = event.target.closest('[data-operator-activity-clear]');
+        var operatorActivityCopyButton = event.target.closest('[data-operator-activity-copy]');
+        var operatorAuditFilterButton = event.target.closest('[data-operator-audit-filter]');
         var openOperatorPlaybookButton = event.target.closest('[data-open-operator-playbook]');
         var closeOperatorPlaybookButton = event.target.closest('[data-close-operator-playbook]');
         var operatorPlaybookCopyButton = event.target.closest('[data-operator-playbook-copy]');
@@ -6121,6 +6250,19 @@
         if (operatorActivityClearButton) {
             event.preventDefault();
             clearOperatorActivity();
+            return;
+        }
+
+        if (operatorActivityCopyButton) {
+            event.preventDefault();
+            copyOperatorAuditTimeline();
+            return;
+        }
+
+        if (operatorAuditFilterButton) {
+            event.preventDefault();
+            operatorAuditState.filter = operatorAuditFilterButton.getAttribute('data-operator-audit-filter') || 'all';
+            renderOperatorActivity();
             return;
         }
 

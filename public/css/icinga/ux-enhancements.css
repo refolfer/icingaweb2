@@ -716,11 +716,75 @@ body.modal-open {
   padding: 0 !important;
 }
 
+.operator-audit-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(18em, 1fr);
+  gap: 0.75em;
+  align-items: center;
+  padding: 0.65em 0.75em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.operator-audit-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(5.5em, auto));
+  gap: 0.42em;
+  margin: 0;
+}
+
+.operator-audit-metrics div {
+  min-width: 5.5em;
+  padding: 0.42em 0.5em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.35em;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.operator-audit-metrics dt {
+  color: var(--to-text-muted);
+  font-size: 0.7em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.operator-audit-metrics dd {
+  margin: 0.08em 0 0;
+  color: var(--to-text-strong);
+  font-size: 1.05em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.operator-audit-filters {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35em;
+  flex-wrap: wrap;
+}
+
+.operator-audit-filters button {
+  min-height: 1.8em;
+  padding: 0.2em 0.52em;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--to-text-muted);
+  font-size: 0.8em;
+}
+
+.operator-audit-filters button.active,
+.operator-audit-filters button:hover,
+.operator-audit-filters button:focus-visible {
+  background: rgba(53, 182, 217, 0.16);
+  color: var(--to-text-strong);
+}
+
 .operator-activity-list {
   list-style: none;
   margin: 0;
   padding: 0.55em;
-  max-height: min(36em, calc(100vh - 12em));
+  max-height: min(32em, calc(100vh - 16em));
   overflow: auto;
 }
 
@@ -759,6 +823,17 @@ body.modal-open {
   color: var(--to-text-muted);
   font-size: 0.84em;
   line-height: 1.35;
+}
+
+.operator-activity-main a {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 0.25em;
+  color: var(--ux-focus-ring-color);
+  font-size: 0.82em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .operator-activity-kind {

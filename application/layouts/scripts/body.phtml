@@ -534,8 +534,9 @@ if ($this->layout()->inlineLayout) {
     hidden
     aria-hidden="true"
     data-empty-label="<?= $this->escape($this->translate('No operator activity yet')) ?>"
-    data-summary-label="<?= $this->escape($this->translate('recent operator actions')) ?>"
+    data-summary-label="<?= $this->escape($this->translate('audit events')) ?>"
     data-clear-label="<?= $this->escape($this->translate('Clear log')) ?>"
+    data-all-label="<?= $this->escape($this->translate('All')) ?>"
 >
     <div class="operator-activity-backdrop" data-close-operator-activity></div>
     <section
@@ -546,10 +547,13 @@ if ($this->layout()->inlineLayout) {
     >
         <header class="operator-activity-header">
             <div>
-                <h2 id="operator-activity-title"><?= $this->translate('Operator Activity Log') ?></h2>
+                <h2 id="operator-activity-title"><?= $this->translate('Audit Timeline') ?></h2>
                 <p data-operator-activity-summary></p>
             </div>
             <div class="operator-activity-actions">
+                <button type="button" data-operator-activity-copy>
+                    <?= $this->translate('Copy timeline') ?>
+                </button>
                 <button type="button" data-operator-activity-clear>
                     <?= $this->translate('Clear log') ?>
                 </button>
@@ -563,6 +567,23 @@ if ($this->layout()->inlineLayout) {
                 </button>
             </div>
         </header>
+        <div class="operator-audit-toolbar">
+            <dl class="operator-audit-metrics">
+                <div>
+                    <dt><?= $this->translate('Events') ?></dt>
+                    <dd data-operator-audit-total>0</dd>
+                </div>
+                <div>
+                    <dt><?= $this->translate('Objects') ?></dt>
+                    <dd data-operator-audit-objects>0</dd>
+                </div>
+                <div>
+                    <dt><?= $this->translate('Latest') ?></dt>
+                    <dd data-operator-audit-latest>—</dd>
+                </div>
+            </dl>
+            <div class="operator-audit-filters" data-operator-audit-filters></div>
+        </div>
         <ol class="operator-activity-list" data-operator-activity-list></ol>
         <p class="operator-activity-empty" data-operator-activity-empty hidden></p>
     </section>
