@@ -112,8 +112,8 @@
                 var reply = data && data.message ? data.message : (config.labels.empty || 'Type a request and I will translate it into a search query.');
                 pending.body.textContent = reply;
 
-                if (data && data.searchUrl) {
-                    addLink(pending.root, config.labels.openSearch || 'Open search results', data.searchUrl);
+                if (data && data.openUrl) {
+                    addLink(pending.root, data.searchUrl ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result'), data.openUrl);
                 }
 
                 setBusy(false);

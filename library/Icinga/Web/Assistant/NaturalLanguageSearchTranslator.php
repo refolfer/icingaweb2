@@ -123,6 +123,8 @@ class NaturalLanguageSearchTranslator
      * @return array{
      *     reply: string,
      *     query: ?string,
+     *     routePath: ?string,
+     *     routeParams: array<string, mixed>,
      *     target: ?string,
      *     state: ?string,
      *     confidence: string,
@@ -159,6 +161,8 @@ class NaturalLanguageSearchTranslator
         return [
             'reply'      => 'Napisz, czego szukasz, na przykład: hosty prod, serwisy krytyczne albo hosty z awarią.',
             'query'      => null,
+            'routePath'  => null,
+            'routeParams'=> [],
             'target'     => null,
             'state'      => null,
             'confidence' => 'low',
@@ -193,17 +197,19 @@ class NaturalLanguageSearchTranslator
         $normalized = $this->normalize($message);
         $target = $this->detectTarget($normalized);
         $state = $this->detectState($normalized);
-        $semanticQuery = $this->buildSemanticQuery($normalized, $target, $state);
-        $tokens = $semanticQuery !== null
+        $route = $this->buildRouteIntent($normalized, $target, $state);
+        $tokens = $route !== null
             ? []
             : $this->extractTokens($message, $normalized, $target, $state);
-        $query = $semanticQuery !== null ? $semanticQuery : $this->buildQuery($tokens, $target, $state);
-        $reply = $this->buildReply($message, $query, $target, $state, $tokens, $semanticQuery);
+        $query = $route !== null ? null : $this->buildQuery($tokens, $target, $state);
+        $reply = $this->buildReply($message, $query, $target, $state, $tokens, $route);
         $confidence = $this->confidence($target, $state, $tokens, $query);
 
         return [
             'reply'      => $reply,
             'query'      => $query ?: null,
+            'routePath'  => $route !== null ? $route['path'] : null,
+            'routeParams'=> $route !== null ? $route['params'] : [],
             'target'     => $target,
             'state'      => $state,
             'confidence' => $confidence,
@@ -243,12 +249,14 @@ class NaturalLanguageSearchTranslator
         $normalizedMessage = $this->normalize($message);
         $reply = isset($result['reply']) ? trim((string) $result['reply']) : '';
         $query = isset($result['query']) ? trim((string) $result['query']) : '';
+        $routePath = isset($result['routePath']) ? trim((string) $result['routePath']) : '';
+        $routeParams = isset($result['routeParams']) && is_array($result['routeParams']) ? $result['routeParams'] : [];
         $target = isset($result['target']) ? $this->normalizeNullableWord((string) $result['target'], $this->targetWords) : null;
         $state = isset($result['state']) ? $this->normalizeNullableWord((string) $result['state'], $this->stateWords) : null;
         $confidence = isset($result['confidence']) ? strtolower(trim((string) $result['confidence'])) : 'medium';
         $tokens = isset($result['tokens']) && is_array($result['tokens']) ? $this->normalizeTokens($result['tokens']) : [];
 
-        if ($reply === '' && $query === '') {
+        if ($reply === '' && $query === '' && $routePath === '') {
             return null;
         }
 
@@ -256,7 +264,14 @@ class NaturalLanguageSearchTranslator
             $query = implode(' ', $tokens);
         }
         if ($reply === '') {
-            $reply = $this->buildReply($message, $query, $target, $state, $tokens, null);
+            $reply = $this->buildReply(
+                $message,
+                $query,
+                $target,
+                $state,
+                $tokens,
+                $routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null
+            );
         }
         if (! in_array($confidence, ['low', 'medium', 'high'], true)) {
             $confidence = 'medium';
@@ -265,29 +280,22 @@ class NaturalLanguageSearchTranslator
             $tokens = $this->extractTokens($query, $this->normalize($query), $target, $state);
         }
 
-        $semanticQuery = $this->buildSemanticQuery($normalizedMessage, $target, $state);
-        if ($semanticQuery !== null) {
-            $query = $semanticQuery;
-            if ($semanticQuery === 'problems=1') {
-                $tokens = [];
-            }
-            if ($reply === '' || $query === 'problems=1') {
-                $reply = $this->buildReply($message, $query, $target, $state, $tokens, $semanticQuery);
-            }
-        } elseif ($query !== '' && $this->looksLiteral($normalizedMessage, $this->normalize($query))) {
-            $refinedQuery = $this->buildSemanticQuery($normalizedMessage, $target, $state);
-            if ($refinedQuery !== null) {
-                $query = $refinedQuery;
-                if ($query === 'problems=1') {
-                    $tokens = [];
-                }
-                $reply = $this->buildReply($message, $query, $target, $state, $tokens, $query);
+        $route = $this->buildRouteIntent($normalizedMessage, $target, $state);
+        if ($route !== null) {
+            $routePath = $route['path'];
+            $routeParams = $route['params'];
+            if ($reply === '') {
+                $reply = $this->buildReply($message, null, $target, $state, $tokens, $route);
             }
         }
+
+        $routeParams = $this->normalizeRouteParams($routePath, $routeParams);
 
         return [
             'reply'      => $reply,
             'query'      => $query !== '' ? $query : null,
+            'routePath'  => $routePath !== '' ? $routePath : null,
+            'routeParams'=> $routeParams,
             'target'     => $target,
             'state'      => $state,
             'confidence' => $confidence,
@@ -302,15 +310,15 @@ class NaturalLanguageSearchTranslator
      * @param ?string $target
      * @param ?string $state
      * @param array<int, string> $tokens
-     * @param ?string $semanticQuery
+     * @param ?array<string, mixed> $route
      *
      * @return string
      */
-    private function buildReply($message, $query, $target, $state, array $tokens, $semanticQuery = null)
+    private function buildReply($message, $query, $target, $state, array $tokens, $route = null)
     {
         $pieces = [];
-        if ($semanticQuery === 'problems=1' || $query === 'problems=1') {
-            $pieces[] = 'aktywnych problemów ' . $this->humanTarget($target ?: 'service');
+        if (is_array($route) && isset($route['path'])) {
+            $pieces[] = $this->humanRoute($route['path'], $target);
         } else {
             if ($target !== null) {
                 $pieces[] = $this->humanTarget($target);
@@ -327,7 +335,9 @@ class NaturalLanguageSearchTranslator
             }
         }
 
-        $reply = 'Rozumiem to jako wyszukiwanie ' . implode(' ', $pieces) . '.';
+        $reply = is_array($route) && isset($route['path'])
+            ? 'Rozumiem to jako otwarcie ' . implode(' ', $pieces) . '.'
+            : 'Rozumiem to jako wyszukiwanie ' . implode(' ', $pieces) . '.';
         if ($query) {
             $reply .= ' Przerobiłem to na zapytanie: "' . $query . '".';
         }
@@ -357,27 +367,62 @@ class NaturalLanguageSearchTranslator
     }
 
     /**
+     * @param string $path
+     * @param ?string $target
+     *
+     * @return string
+     */
+    private function humanRoute($path, $target)
+    {
+        if ($path === 'icingadb/services/grid') {
+            return 'widoku aktywnych problemów serwisów';
+        }
+
+        if ($path === 'icingadb/hosts/grid') {
+            return 'widoku aktywnych problemów hostów';
+        }
+
+        return $this->humanTarget($target ?: 'service');
+    }
+
+    /**
      * @param string $normalized
      * @param ?string $target
      * @param ?string $state
      *
-     * @return ?string
+     * @return ?array{path:string,params:array<string,mixed>}
      */
-    private function buildSemanticQuery($normalized, $target, $state)
+    private function buildRouteIntent($normalized, $target, $state)
     {
         if ($this->isProblemIntent($normalized, $state)) {
-            return 'problems=1';
-        }
-
-        if ($target !== null && $state !== null) {
-            return $target . '.state=' . $state;
-        }
-
-        if ($state !== null) {
-            return 'state=' . $state;
+            $route = $target === 'host' ? 'icingadb/hosts/grid' : 'icingadb/services/grid';
+            return [
+                'path' => $route,
+                'params' => ['problems' => true]
+            ];
         }
 
         return null;
+    }
+
+    /**
+     * @param string $routePath
+     * @param array<string, mixed> $routeParams
+     *
+     * @return array<string, mixed>
+     */
+    private function normalizeRouteParams($routePath, array $routeParams)
+    {
+        if ($routePath === 'icingadb/services/grid' || $routePath === 'icingadb/hosts/grid') {
+            $params = [];
+            if (isset($routeParams['problems'])) {
+                $params['problems'] = (bool) $routeParams['problems'];
+            }
+
+            return $params;
+        }
+
+        return $routeParams;
     }
 
     /**
@@ -388,6 +433,7 @@ class NaturalLanguageSearchTranslator
      */
     private function isProblemIntent($normalized, $state)
     {
+        $normalized = $this->foldText($normalized);
         if (in_array($state, ['critical', 'down', 'warning', 'problem'], true)) {
             return true;
         }
@@ -447,11 +493,12 @@ class NaturalLanguageSearchTranslator
      */
     private function detectTarget($normalized)
     {
+        $normalized = $this->foldText($normalized);
         $phraseTargets = [
-            '/\bna\s+(hoście|hostach|serwerze|serwerach)\b/u' => 'host',
-            '/\bna\s+(serwisie|serwisach|usłudze|usługach)\b/u' => 'service',
-            '/\bgrupa\s+host(ów|y)?\b/u' => 'hostgroup',
-            '/\bgrupa\s+serwis(ów|y)?\b/u' => 'servicegroup',
+            '/\bna\s+(hoscie|hostach|serwerze|serwerach)\b/u' => 'host',
+            '/\bna\s+(serwisie|serwisach|usludze|uslugach)\b/u' => 'service',
+            '/\bgrupa\s+host(ow|y)?\b/u' => 'hostgroup',
+            '/\bgrupa\s+serwis(ow|y)?\b/u' => 'servicegroup',
         ];
 
         foreach ($phraseTargets as $pattern => $target) {
@@ -476,12 +523,12 @@ class NaturalLanguageSearchTranslator
      */
     private function detectState($normalized)
     {
+        $normalized = $this->foldText($normalized);
         $phraseStates = [
-            '/\bnie\s+działa\b/u' => 'down',
             '/\bnie\s+dziala\b/u' => 'down',
-            '/\bw\s+d[oó]ł\b/u' => 'down',
+            '/\bw\s+dol\b/u' => 'down',
             '/\bzatrzymane\b/u' => 'down',
-            '/\bwyłączone\b/u' => 'down',
+            '/\bwylaczone\b/u' => 'down',
             '/\bwlaczone\b/u' => 'up',
         ];
 
@@ -623,32 +670,6 @@ class NaturalLanguageSearchTranslator
     }
 
     /**
-     * @param string $message
-     * @param string $query
-     *
-     * @return bool
-     */
-    private function looksLiteral($message, $query)
-    {
-        if ($query === '') {
-            return false;
-        }
-
-        if ($query === $message) {
-            return true;
-        }
-
-        $messageTokens = preg_split('/\s+/u', $message, -1, PREG_SPLIT_NO_EMPTY);
-        $queryTokens = preg_split('/\s+/u', $query, -1, PREG_SPLIT_NO_EMPTY);
-        if (empty($messageTokens) || empty($queryTokens)) {
-            return false;
-        }
-
-        $sharedTokens = array_intersect($messageTokens, $queryTokens);
-        return count($sharedTokens) === count($queryTokens);
-    }
-
-    /**
      * @param string $token
      *
      * @return bool
@@ -656,5 +677,20 @@ class NaturalLanguageSearchTranslator
     private function isNoiseToken($token)
     {
         return $token === '' || in_array($token, $this->stopWords, true);
+    }
+
+    /**
+     * @param string $text
+     *
+     * @return string
+     */
+    private function foldText($text)
+    {
+        $folded = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        if ($folded === false || $folded === '') {
+            return $text;
+        }
+
+        return strtolower($folded);
     }
 }

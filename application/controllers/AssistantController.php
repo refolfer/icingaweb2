@@ -46,9 +46,13 @@ class AssistantController extends ActionController
         $translator = new NaturalLanguageSearchTranslator();
         $intent = $translator->translate($message);
         $searchUrl = null;
+        $openUrl = null;
 
-        if (! empty($intent['query'])) {
+        if (! empty($intent['routePath'])) {
+            $openUrl = Url::fromPath($intent['routePath'], $intent['routeParams'])->getAbsoluteUrl();
+        } elseif (! empty($intent['query'])) {
             $searchUrl = Url::fromPath('search', ['q' => $intent['query']])->getAbsoluteUrl();
+            $openUrl = $searchUrl;
         }
 
         $this->getResponse()->json()
@@ -56,6 +60,9 @@ class AssistantController extends ActionController
                 'message'   => $intent['reply'],
                 'query'     => $intent['query'],
                 'searchUrl' => $searchUrl,
+                'openUrl'   => $openUrl,
+                'routePath' => $intent['routePath'],
+                'routeParams' => $intent['routeParams'],
                 'target'    => $intent['target'],
                 'state'     => $intent['state'],
                 'tokens'    => $intent['tokens'],

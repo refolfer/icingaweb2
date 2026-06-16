@@ -8,13 +8,14 @@ $assistantConfig = [
     'examples' => $this->examples,
     'labels' => [
         'welcome' => $this->translate('Describe what you want to find in natural language.'),
-        'hint' => $this->translate('The assistant will turn your message into a search query that uses the existing Icinga search backend.'),
+        'hint' => $this->translate('The assistant will open a matching Icinga view or turn your message into a search query when needed.'),
         'inputPlaceholder' => $this->translate('For example: show critical services on db'),
         'send' => $this->translate('Ask'),
         'openSearch' => $this->translate('Open search results'),
+        'openView' => $this->translate('Open result'),
         'thinking' => $this->translate('Thinking...'),
         'error' => $this->translate('Unable to reach the assistant.'),
-        'empty' => $this->translate('Type a request and I will translate it into a search query.'),
+        'empty' => $this->translate('Type a request and I will translate it into an Icinga view or search query.'),
     ],
 ];
 ?>
@@ -24,7 +25,7 @@ $assistantConfig = [
             <p class="assistant-kicker"><?= $this->translate('Natural language search') ?></p>
             <h1><?= $this->translate('Ask in plain language') ?></h1>
             <p class="assistant-intro">
-                <?= $this->translate('Write what you are looking for, and I will rewrite it into the search syntax used by Icinga Web 2.') ?>
+                <?= $this->translate('Write what you are looking for, and I will open the most relevant Icinga view or rewrite it into search syntax when needed.') ?>
             </p>
         </div>
         <div class="assistant-hero-note">
@@ -37,7 +38,7 @@ $assistantConfig = [
         <div class="assistant-message assistant-message--assistant">
             <div class="assistant-message__label"><?= $this->translate('Assistant') ?></div>
             <div class="assistant-message__body">
-                <?= $this->translate('Type a request and I will translate it into a search query.') ?>
+                <?= $this->translate('Type a request and I will translate it into a view or search query.') ?>
             </div>
         </div>
     </section>
