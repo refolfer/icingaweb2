@@ -143,6 +143,14 @@ curl http://127.0.0.1:11434/v1/chat/completions
 
 If the assistant falls back to plain search translation, check the Icinga logs and confirm that the endpoint is reachable from the web server.
 
+## Standalone Ollama Chat
+
+If you want a chat window that is completely separate from Icinga Web 2, there is also a standalone page under `/ollama-chat/`.
+
+It is served directly by nginx from `public/ollama-chat/` and proxies its chat requests to the local Ollama daemon on `127.0.0.1:11434`.
+
+See [doc/99-Ollama-Standalone-Chat.md](doc/99-Ollama-Standalone-Chat.md) for the nginx snippets and deployment steps.
+
 ## Documentation
 
 The documentation is located in the [doc/](doc/) directory and also available

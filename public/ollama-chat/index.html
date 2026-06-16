@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Local Ollama Chat</title>
+  <link rel="stylesheet" href="./ollama-chat.css">
+</head>
+<body>
+  <main class="ollama-app" data-ollama-app
+        data-endpoint="api/chat"
+        data-model="qwen2.5:1.5b">
+    <header class="ollama-hero">
+      <div>
+        <p class="ollama-kicker">Local Ollama</p>
+        <h1>Chat from nginx</h1>
+        <p class="ollama-intro">
+          A standalone chat window served directly by nginx and backed by the local Ollama service.
+        </p>
+      </div>
+      <div class="ollama-badge">
+        <strong>Local only</strong>
+        <span>127.0.0.1:11434</span>
+      </div>
+    </header>
+
+    <section class="ollama-toolbar" aria-label="Chat settings">
+      <label>
+        <span>Model</span>
+        <input type="text" value="qwen2.5:1.5b" data-model>
+      </label>
+      <label>
+        <span>System prompt</span>
+        <textarea rows="2" data-system-prompt>You are a helpful assistant running on a private local Ollama instance.</textarea>
+      </label>
+      <div class="ollama-toolbar__actions">
+        <button type="button" class="button" data-reset>Reset</button>
+        <button type="button" class="button" data-copy>Copy transcript</button>
+      </div>
+    </section>
+
+    <section class="ollama-palette" aria-label="Model and prompt presets">
+      <div class="ollama-palette__group">
+        <div class="ollama-palette__header">
+          <span>Models</span>
+          <span class="ollama-palette__note" data-model-status>Loading local models...</span>
+          <button type="button" class="button button--compact" data-refresh-models>Refresh</button>
+        </div>
+        <div class="ollama-palette__buttons" data-model-palette></div>
+      </div>
+      <div class="ollama-palette__group">
+        <div class="ollama-palette__header">
+          <span>Prompt presets</span>
+        </div>
+        <div class="ollama-palette__buttons" data-prompt-palette></div>
+      </div>
+    </section>
+
+    <section class="ollama-chat" aria-live="polite" data-chat></section>
+
+    <form class="ollama-composer" data-form>
+      <label class="sr-only" for="ollama-message">Message</label>
+      <textarea id="ollama-message" rows="3" placeholder="Ask anything..." data-input></textarea>
+      <div class="ollama-composer__actions">
+        <button type="submit" class="button button--primary" data-send>Send</button>
+        <button type="button" class="button" data-stop hidden>Stop</button>
+      </div>
+    </form>
+
+    <section class="ollama-examples" aria-label="Examples">
+      <button type="button" class="ollama-chip" data-example="Explain this nginx config in simple terms.">Explain nginx config</button>
+      <button type="button" class="ollama-chip" data-example="Summarize the key points from the latest incident.">Summarize incident</button>
+      <button type="button" class="ollama-chip" data-example="Draft a short status update for the team.">Draft update</button>
+    </section>
+  </main>
+
+  <script src="./ollama-chat.js"></script>
+</body>
+</html>
