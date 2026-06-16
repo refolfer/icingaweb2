@@ -5,17 +5,20 @@ use Icinga\Util\Json;
 $assistantConfig = [
     'endpoint' => $this->assistantEndpoint,
     'searchUrl' => $this->searchUrl,
+    'capabilities' => $this->assistantCapabilities,
     'examples' => $this->examples,
     'labels' => [
-        'welcome' => $this->translate('Describe what you want to find in natural language.'),
-        'hint' => $this->translate('The assistant will open a matching Icinga view or turn your message into a search query when needed.'),
+        'welcome' => $this->translate('Describe what you want to investigate, report, or summarize.'),
+        'hint' => $this->translate('The assistant can answer conversationally, open Icinga views, and prepare report links for supported modules.'),
         'inputPlaceholder' => $this->translate('For example: show critical services on db'),
         'send' => $this->translate('Ask'),
         'openSearch' => $this->translate('Open search results'),
         'openView' => $this->translate('Open result'),
+        'openReport' => $this->translate('Create report'),
         'thinking' => $this->translate('Thinking...'),
         'error' => $this->translate('Unable to reach the assistant.'),
-        'empty' => $this->translate('Type a request and I will translate it into an Icinga view or search query.'),
+        'empty' => $this->translate('Type a request and I will answer, open a view, or prepare a report link.'),
+        'followUp' => $this->translate('Follow-up'),
     ],
 ];
 ?>
@@ -25,12 +28,12 @@ $assistantConfig = [
             <p class="assistant-kicker"><?= $this->translate('Natural language search') ?></p>
             <h1><?= $this->translate('Ask in plain language') ?></h1>
             <p class="assistant-intro">
-                <?= $this->translate('Write what you are looking for, and I will open the most relevant Icinga view or rewrite it into search syntax when needed.') ?>
+                <?= $this->translate('Write what you want to investigate, and I will respond like a chat assistant while staying inside Icinga Web 2 and its enabled modules.') ?>
             </p>
         </div>
         <div class="assistant-hero-note">
             <strong><?= $this->translate('Tip') ?></strong>
-            <p><?= $this->translate('Try mentioning hosts, services, or states like critical, warning, or down.') ?></p>
+            <p><?= $this->translate('Try mentioning hosts, services, states like critical, warning, or down, or ask for a report.') ?></p>
         </div>
     </section>
 
@@ -38,7 +41,7 @@ $assistantConfig = [
         <div class="assistant-message assistant-message--assistant">
             <div class="assistant-message__label"><?= $this->translate('Assistant') ?></div>
             <div class="assistant-message__body">
-                <?= $this->translate('Type a request and I will translate it into a view or search query.') ?>
+                <?= $this->translate('Type a request and I will answer in context, open a view, or offer a report action.') ?>
             </div>
         </div>
     </section>
@@ -73,4 +76,4 @@ $assistantConfig = [
     </section>
 </div>
 
-<script type="text/javascript" src="<?= $this->href('js/assistant-chat.js?v=20260616-1') ?>"></script>
+<script type="text/javascript" src="<?= $this->href('js/assistant-chat.js?v=20260616-2') ?>"></script>

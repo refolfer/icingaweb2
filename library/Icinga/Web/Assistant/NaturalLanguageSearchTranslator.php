@@ -32,6 +32,7 @@ class NaturalLanguageSearchTranslator
         'hostgroupy' => 'hostgroup',
         'hostgrupa' => 'hostgroup',
         'hostgrupy' => 'hostgroup',
+        'hostow' => 'host',
         'service' => 'service',
         'services' => 'service',
         'serwis' => 'service',
@@ -40,6 +41,7 @@ class NaturalLanguageSearchTranslator
         'servicegroupy' => 'servicegroup',
         'servicegrupa' => 'servicegroup',
         'servicegrupy' => 'servicegroup',
+        'serwisow' => 'service',
     ];
 
     /**
@@ -83,6 +85,10 @@ class NaturalLanguageSearchTranslator
     private $problemWords = [
         'problem',
         'problemy',
+        'problemach',
+        'problemami',
+        'problemem',
+        'problemow',
         'awaria',
         'awarie',
         'krytyczne',
@@ -128,6 +134,11 @@ class NaturalLanguageSearchTranslator
      *     query: ?string,
      *     routePath: ?string,
      *     routeParams: array<string, mixed>,
+     *     mode: string,
+     *     actions: array<int, array<string, mixed>>,
+     *     reportUrl: ?string,
+     *     chart: ?array<string, mixed>,
+     *     followUps: array<int, string>,
      *     target: ?string,
      *     state: ?string,
      *     confidence: string,
@@ -135,7 +146,7 @@ class NaturalLanguageSearchTranslator
      *     source: string
      * }
      */
-    public function translate($message)
+    public function translate($message, array $context = [])
     {
         $message = trim((string) $message);
         if ($message === '') {
@@ -144,7 +155,7 @@ class NaturalLanguageSearchTranslator
 
         try {
             if ($this->client->isConfigured()) {
-                $result = $this->fromLlm($message);
+                $result = $this->fromLlm($message, $context);
                 if ($result !== null) {
                     return $result;
                 }
@@ -153,7 +164,7 @@ class NaturalLanguageSearchTranslator
             // Fall back to deterministic parsing.
         }
 
-        return $this->fromRules($message);
+        return $this->fromRules($message, $context);
     }
 
     /**
@@ -166,6 +177,11 @@ class NaturalLanguageSearchTranslator
             'query'      => null,
             'routePath'  => null,
             'routeParams'=> [],
+            'mode'       => 'answer',
+            'actions'    => [],
+            'reportUrl'  => null,
+            'chart'      => null,
+            'followUps'  => [],
             'target'     => null,
             'state'      => null,
             'confidence' => 'low',
@@ -179,10 +195,10 @@ class NaturalLanguageSearchTranslator
      *
      * @return array<string, mixed>|null
      */
-    private function fromLlm($message)
+    private function fromLlm($message, array $context = [])
     {
-        $result = $this->client->interpret($message, $this->buildContext($message));
-        $normalized = $this->normalizeResult($result, $message);
+        $result = $this->client->interpret($message, $this->buildContext($message, $context));
+        $normalized = $this->normalizeResult($result, $message, $context);
         if ($normalized !== null) {
             $normalized['source'] = 'llm';
         }
@@ -195,7 +211,7 @@ class NaturalLanguageSearchTranslator
      *
      * @return array<string, mixed>
      */
-    private function fromRules($message)
+    private function fromRules($message, array $context = [])
     {
         $normalized = $this->normalize($message);
         $target = $this->detectTarget($normalized);
@@ -205,14 +221,21 @@ class NaturalLanguageSearchTranslator
             ? []
             : $this->extractTokens($message, $normalized, $target, $state);
         $query = $route !== null ? null : $this->buildQuery($tokens, $target, $state);
-        $reply = $this->buildReply($message, $query, $target, $state, $tokens, $route);
         $confidence = $this->confidence($target, $state, $tokens, $query);
+        $mode = $this->detectMode($normalized, $route !== null, $query !== null);
+        $reportUrl = $this->buildReportUrl($mode, $route, $context);
+        $reply = $this->buildReply($message, $query, $target, $state, $tokens, $route, $mode);
 
         return [
             'reply'      => $reply,
             'query'      => $query ?: null,
             'routePath'  => $route !== null ? $route['path'] : null,
             'routeParams'=> $route !== null ? $route['params'] : [],
+            'mode'       => $mode,
+            'actions'    => $this->buildActions($route, $query, $reportUrl),
+            'reportUrl'  => $reportUrl,
+            'chart'      => null,
+            'followUps'  => $this->buildFollowUps($normalized, $target, $state, $query, $route),
             'target'     => $target,
             'state'      => $state,
             'confidence' => $confidence,
@@ -226,19 +249,27 @@ class NaturalLanguageSearchTranslator
      *
      * @return array<string, string>
      */
-    private function buildContext($message)
+    private function buildContext($message, array $context = [])
     {
-        $context = [];
+        $result = [];
         $normalized = $this->normalize($message);
 
         if (($target = $this->detectTarget($normalized)) !== null) {
-            $context['target_hint'] = $target;
+            $result['target_hint'] = $target;
         }
         if (($state = $this->detectState($normalized)) !== null) {
-            $context['state_hint'] = $state;
+            $result['state_hint'] = $state;
         }
 
-        return $context;
+        if (! empty($context['capabilities'])) {
+            $result['capabilities'] = $context['capabilities'];
+        }
+
+        if (! empty($context['history']) && is_array($context['history'])) {
+            $result['history'] = $context['history'];
+        }
+
+        return $result;
     }
 
     /**
@@ -247,7 +278,7 @@ class NaturalLanguageSearchTranslator
      *
      * @return array<string, mixed>|null
      */
-    private function normalizeResult(array $result, $message)
+    private function normalizeResult(array $result, $message, array $context = [])
     {
         $normalizedMessage = $this->normalize($message);
         $reply = isset($result['reply']) ? trim((string) $result['reply']) : '';
@@ -258,6 +289,15 @@ class NaturalLanguageSearchTranslator
         $state = isset($result['state']) ? $this->normalizeNullableWord((string) $result['state'], $this->stateWords) : null;
         $confidence = isset($result['confidence']) ? strtolower(trim((string) $result['confidence'])) : 'medium';
         $tokens = isset($result['tokens']) && is_array($result['tokens']) ? $this->normalizeTokens($result['tokens']) : [];
+        $mode = isset($result['mode']) ? strtolower(trim((string) $result['mode'])) : 'answer';
+        $reportUrl = isset($result['reportUrl']) ? trim((string) $result['reportUrl']) : '';
+        $chart = isset($result['chart']) && is_array($result['chart']) ? $result['chart'] : null;
+        $actions = isset($result['actions']) && is_array($result['actions']) ? $result['actions'] : [];
+        $followUps = isset($result['followUps']) && is_array($result['followUps']) ? $this->normalizeFollowUps($result['followUps']) : [];
+
+        if ($mode === '' || ! in_array($mode, ['answer', 'open', 'search', 'report', 'chart', 'mixed'], true)) {
+            $mode = 'answer';
+        }
 
         if ($reply === '' && $query === '' && $routePath === '') {
             return null;
@@ -288,17 +328,35 @@ class NaturalLanguageSearchTranslator
             $routePath = $route['path'];
             $routeParams = $route['params'];
             if ($reply === '') {
-                $reply = $this->buildReply($message, null, $target, $state, $tokens, $route);
+                $reply = $this->buildReply($message, null, $target, $state, $tokens, $route, $mode);
             }
         }
 
         $routeParams = $this->normalizeRouteParams($routePath, $routeParams);
+        if ($mode === 'answer') {
+            $mode = $routePath !== '' ? 'open' : ($query !== '' ? 'search' : 'answer');
+        }
+        $reportUrl = $this->normalizeNullableRoute($reportUrl);
+        if ($reportUrl === null) {
+            $reportUrl = $this->buildReportUrl($mode, $route !== null ? $route : ($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null), $context);
+        }
+        if (empty($actions)) {
+            $actions = $this->buildActions($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null, $query !== '' ? $query : null, $reportUrl);
+        }
+        if (empty($followUps)) {
+            $followUps = $this->buildFollowUps($normalizedMessage, $target, $state, $query !== '' ? $query : null, $routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null);
+        }
 
         return [
             'reply'      => $reply,
             'query'      => $query !== '' ? $query : null,
             'routePath'  => $routePath !== '' ? $routePath : null,
             'routeParams'=> $routeParams,
+            'mode'       => $mode,
+            'actions'    => $actions,
+            'reportUrl'  => $reportUrl,
+            'chart'      => $chart,
+            'followUps'  => $followUps,
             'target'     => $target,
             'state'      => $state,
             'confidence' => $confidence,
@@ -317,7 +375,7 @@ class NaturalLanguageSearchTranslator
      *
      * @return string
      */
-    private function buildReply($message, $query, $target, $state, array $tokens, $route = null)
+    private function buildReply($message, $query, $target, $state, array $tokens, $route = null, $mode = 'answer')
     {
         $pieces = [];
         if (is_array($route) && isset($route['path'])) {
@@ -338,13 +396,19 @@ class NaturalLanguageSearchTranslator
             }
         }
 
-        $reply = is_array($route) && isset($route['path'])
-            ? 'Rozumiem to jako otwarcie ' . implode(' ', $pieces) . '.'
-            : 'Rozumiem to jako wyszukiwanie ' . implode(' ', $pieces) . '.';
+        if ($mode === 'report') {
+            $reply = 'Mogę przygotować raport dla ' . implode(' ', $pieces) . '.';
+        } else {
+            $reply = is_array($route) && isset($route['path'])
+                ? 'Rozumiem to jako otwarcie ' . implode(' ', $pieces) . '.'
+                : 'Rozumiem to jako wyszukiwanie ' . implode(' ', $pieces) . '.';
+        }
         if ($query) {
             $reply .= ' Przerobiłem to na zapytanie: "' . $query . '".';
         }
-        $reply .= ' Mogę otworzyć wynik albo doprecyzować zapytanie.';
+        $reply .= $mode === 'report'
+            ? ' Mogę otworzyć wynik albo przygotować raport.'
+            : ' Mogę otworzyć wynik albo doprecyzować zapytanie.';
 
         return $reply;
     }
@@ -682,6 +746,182 @@ class NaturalLanguageSearchTranslator
         })));
 
         return implode(' ', $queryTokens);
+    }
+
+    /**
+     * @param string $normalized
+     * @param bool $hasRoute
+     * @param bool $hasQuery
+     *
+     * @return string
+     */
+    private function detectMode($normalized, $hasRoute, $hasQuery)
+    {
+        $normalized = $this->foldText($normalized);
+        if ($this->hasAnyWord($normalized, ['raport', 'report', 'zestawienie', 'podsumuj'])) {
+            return 'report';
+        }
+
+        if ($this->hasAnyWord($normalized, ['wykres', 'chart', 'trend', 'graficznie'])) {
+            return 'chart';
+        }
+
+        if ($hasRoute) {
+            return 'open';
+        }
+
+        if ($hasQuery) {
+            return 'search';
+        }
+
+        return 'answer';
+    }
+
+    /**
+     * @param string $mode
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     * @param array<string, mixed> $context
+     *
+     * @return ?string
+     */
+    private function buildReportUrl($mode, $route, array $context)
+    {
+        if ($mode !== 'report') {
+            return null;
+        }
+
+        if (empty($context['capabilities']['reporting'])) {
+            return null;
+        }
+
+        if (! is_array($route) || ! isset($route['path'])) {
+            return null;
+        }
+
+        $filter = null;
+        $report = null;
+        if ($route['path'] === 'icingadb/hosts') {
+            $filter = 'host.state.is_problem=y';
+            $report = 'host';
+        } elseif ($route['path'] === 'icingadb/services/grid') {
+            $filter = 'service.state.is_problem=y';
+            $report = 'service';
+        }
+
+        if ($filter === null || $report === null) {
+            return null;
+        }
+
+        return 'reporting/reports/new?report=' . rawurlencode($report) . '&filter=' . rawurlencode($filter);
+    }
+
+    /**
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     * @param ?string $query
+     * @param ?string $reportUrl
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildActions($route, $query, $reportUrl)
+    {
+        $actions = [];
+        if (is_array($route) && isset($route['path'])) {
+            $actions[] = [
+                'type' => 'open',
+                'label' => 'Open result',
+            ];
+        } elseif ($query !== null && $query !== '') {
+            $actions[] = [
+                'type' => 'search',
+                'label' => 'Open search results',
+            ];
+        }
+
+        if ($reportUrl !== null) {
+            $actions[] = [
+                'type' => 'report',
+                'label' => 'Create report',
+            ];
+        }
+
+        return $actions;
+    }
+
+    /**
+     * @param string $normalized
+     * @param ?string $target
+     * @param ?string $state
+     * @param ?string $query
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     *
+     * @return array<int, string>
+     */
+    private function buildFollowUps($normalized, $target, $state, $query, $route)
+    {
+        $followUps = [];
+        if ($route === null && $query === null) {
+            $followUps[] = 'Czy chcesz hosty, serwisy, czy grupy obiektów?';
+        }
+
+        if ($this->hasAnyWord($this->foldText($normalized), ['raport', 'zestawienie']) && $route === null) {
+            $followUps[] = 'Mam przygotować raport dla hostów czy serwisów?';
+        }
+
+        if ($target !== null && $state === null && $route === null && $query !== null) {
+            $followUps[] = 'Chcesz zawęzić to do stanu krytycznego, warning albo down?';
+        }
+
+        return array_values(array_unique($followUps));
+    }
+
+    /**
+     * @param string $normalized
+     * @param array<int, string> $words
+     *
+     * @return bool
+     */
+    private function hasAnyWord($normalized, array $words)
+    {
+        foreach ($words as $word) {
+            if (preg_match('/\b' . preg_quote($word, '/') . '\b/u', $normalized)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param ?string $value
+     *
+     * @return ?string
+     */
+    private function normalizeNullableRoute($value)
+    {
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param array<int, mixed> $followUps
+     *
+     * @return array<int, string>
+     */
+    private function normalizeFollowUps(array $followUps)
+    {
+        $normalized = [];
+        foreach ($followUps as $followUp) {
+            if (! is_string($followUp)) {
+                continue;
+            }
+
+            $followUp = trim($followUp);
+            if ($followUp !== '' && ! in_array($followUp, $normalized, true)) {
+                $normalized[] = $followUp;
+            }
+        }
+
+        return $normalized;
     }
 
     /**

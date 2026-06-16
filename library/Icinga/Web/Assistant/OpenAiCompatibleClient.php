@@ -40,7 +40,7 @@ class OpenAiCompatibleClient
 
     /**
      * @param string $message
-     * @param array<string, string> $context
+     * @param array<string, mixed> $context
      *
      * @return array<string, mixed>
      */
@@ -58,6 +58,7 @@ class OpenAiCompatibleClient
                     'role' => 'system',
                     'content' => $this->systemPrompt()
                 ],
+                ...$this->historyMessages($context),
                 [
                     'role' => 'user',
                     'content' => $this->userPrompt($message, $context)
@@ -111,20 +112,27 @@ class OpenAiCompatibleClient
     private function systemPrompt()
     {
         return implode("\n", [
-            'You are a search assistant for Icinga Web 2.',
-            'Convert natural language into a concise search intent.',
-            'Return JSON with the keys: reply, query, target, state, confidence, tokens.',
+            'You are a conversational assistant for Icinga Web 2.',
+            'Stay strictly inside Icinga Web 2, its enabled modules, and their data.',
+            'If the request is outside that domain, say so briefly and offer a relevant Icinga alternative.',
+            'Return JSON with the keys: reply, query, target, state, mode, actions, reportUrl, chart, followUps, confidence, tokens.',
             'When possible also return routePath and routeParams for a direct Icinga view.',
             'target must be one of: host, service, hostgroup, servicegroup, or null.',
             'state must be one of: up, down, critical, warning, unknown, pending, problem, or null.',
+            'mode must be one of: answer, open, search, report, chart, mixed.',
+            'actions must be an array of domain actions like open, report, chart, or search.',
+            'reportUrl should point to a report creation page when a report is requested and the reporting module is available.',
+            'chart should be omitted unless you can describe a chart in a way that is grounded in the Icinga domain.',
+            'followUps should contain one or more short clarifying questions when the request is ambiguous.',
             'query should be a short text search string only when there is no better direct route.',
             'Prefer routePath + routeParams over query whenever the intent maps to a known Icinga grid or list.',
             'For problem-focused queries, use direct IcingaDB views such as icingadb/services/grid with problems=true or icingadb/hosts with host.state.is_problem=y.',
             'Do not invent routeParams like service.state or host.state for grid views.',
             'Examples:',
-            '  - "Serwisy krytyczne" -> {"reply":"Rozumiem to jako aktywne problemy serwisów.","routePath":"icingadb/services/grid","routeParams":{"problems":true},"target":"service","state":"critical","confidence":"high","tokens":[]}',
-            '  - "Hosty z awarią" -> {"reply":"Rozumiem to jako hosty z problemami.","routePath":"icingadb/hosts","routeParams":{"host.state.is_problem":"y"},"target":"host","state":"down","confidence":"high","tokens":[]}',
-            '  - "Hosty prod" -> {"reply":"Rozumiem to jako hosty z etykietą prod.","query":"prod","target":"host","state":null,"confidence":"medium","tokens":["prod"]}',
+            '  - "Serwisy krytyczne" -> {"reply":"Rozumiem to jako aktywne problemy serwisów.","routePath":"icingadb/services/grid","routeParams":{"problems":true},"target":"service","state":"critical","mode":"open","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":[]}',
+            '  - "Hosty z awarią" -> {"reply":"Rozumiem to jako hosty z problemami.","routePath":"icingadb/hosts","routeParams":{"host.state.is_problem":"y"},"target":"host","state":"down","mode":"open","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":[]}',
+            '  - "Zrób raport o problemach hostów" -> {"reply":"Mogę przygotować raport z problemów hostów.","mode":"report","reportUrl":"reporting/reports/new?report=host&filter=host.state.is_problem=y","target":"host","state":"problem","confidence":"high","tokens":["raport","problemy","hostow"]}',
+            '  - "Hosty prod" -> {"reply":"Rozumiem to jako hosty z etykietą prod.","query":"prod","target":"host","state":null,"mode":"search","confidence":"medium","tokens":["prod"]}',
             'confidence must be one of: low, medium, high.',
             'Do not output markdown or prose outside the JSON object.',
         ]);
@@ -132,7 +140,7 @@ class OpenAiCompatibleClient
 
     /**
      * @param string $message
-     * @param array<string, string> $context
+     * @param array<string, mixed> $context
      *
      * @return string
      */
@@ -142,11 +150,51 @@ class OpenAiCompatibleClient
             'User request: ' . $message,
         ];
 
+        if (! empty($context['capabilities'])) {
+            $parts[] = 'Available capabilities: ' . Json::encode($context['capabilities']);
+        }
+
+        if (! empty($context['history']) && is_array($context['history'])) {
+            $parts[] = 'Conversation history: ' . Json::encode($context['history']);
+        }
+
         if (! empty($context)) {
             $parts[] = 'Known context: ' . Json::encode($context);
         }
 
         return implode("\n", $parts);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function historyMessages(array $context)
+    {
+        if (empty($context['history']) || ! is_array($context['history'])) {
+            return [];
+        }
+
+        $messages = [];
+        foreach ($context['history'] as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $role = isset($entry['role']) ? (string) $entry['role'] : '';
+            $content = isset($entry['content']) ? trim((string) $entry['content']) : '';
+            if ($content === '' || ! in_array($role, ['user', 'assistant'], true)) {
+                continue;
+            }
+
+            $messages[] = [
+                'role' => $role,
+                'content' => $content,
+            ];
+        }
+
+        return $messages;
     }
 
     /**

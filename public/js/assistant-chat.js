@@ -27,25 +27,64 @@
         var message = el('div', 'assistant-message assistant-message--' + type);
         var heading = el('div', 'assistant-message__label', label);
         var content = el('div', 'assistant-message__body');
-        content.textContent = body;
+        var text = el('div', 'assistant-message__text');
+        text.textContent = body;
+        content.appendChild(text);
         message.appendChild(heading);
         message.appendChild(content);
         chat.appendChild(message);
         chat.scrollTop = chat.scrollHeight;
         return {
             root: message,
-            body: content
+            body: text,
+            meta: content
         };
     }
 
-    function addLink(node, label, href) {
+    function clearChildren(node) {
+        while (node.firstChild) {
+            node.removeChild(node.firstChild);
+        }
+    }
+
+    function renderAction(node, action, config) {
+        if (! action || ! action.url) {
+            return;
+        }
+
+        var label = action.label || (action.type === 'report' ? (config.labels.openReport || 'Create report') : (action.type === 'search' ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result')));
         var link = el('a', 'button assistant-open-search', label);
-        link.href = href;
+        link.href = action.url;
         link.target = '_top';
+        if (action.type) {
+            link.setAttribute('data-assistant-action-type', action.type);
+        }
         node.appendChild(link);
     }
 
-    function sendRequest(endpoint, message, done, fail) {
+    function renderFollowUps(node, followUps, config, onClick) {
+        if (! followUps || ! followUps.length) {
+            return;
+        }
+
+        var label = el('div', 'assistant-response__meta-label', config.labels.followUp || 'Follow-up');
+        var list = el('div', 'assistant-followups');
+        node.appendChild(label);
+        node.appendChild(list);
+
+        for (var i = 0; i < followUps.length; i++) {
+            (function (text) {
+                var button = el('button', 'assistant-followup', text);
+                button.type = 'button';
+                button.addEventListener('click', function () {
+                    onClick(text);
+                });
+                list.appendChild(button);
+            })(followUps[i]);
+        }
+    }
+
+    function sendRequest(endpoint, message, history, done, fail) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', endpoint, true);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
@@ -65,20 +104,21 @@
                 fail(new Error('HTTP ' + xhr.status));
             }
         };
-        xhr.send('message=' + encodeURIComponent(message));
+        xhr.send(
+            'message=' + encodeURIComponent(message) +
+            '&history=' + encodeURIComponent(JSON.stringify(history || []))
+        );
     }
 
     function initAssistant(root) {
         var config = parseConfig(root);
-        var chat = root.querySelector('[data-assistant-chat]');
-        if (! chat) {
-            chat = root.querySelector('.assistant-chat');
-        }
+        var chat = root.querySelector('[data-assistant-chat]') || root.querySelector('.assistant-chat');
         var form = root.querySelector('[data-assistant-form]');
         var input = root.querySelector('[data-assistant-input]');
         var submit = root.querySelector('[data-assistant-submit]');
         var examples = root.querySelectorAll('[data-assistant-example]');
         var busy = false;
+        var history = [];
 
         if (! chat || ! form || ! input) {
             return;
@@ -93,6 +133,54 @@
             }
         }
 
+        function addHistory(role, content) {
+            history.push({
+                role: role,
+                content: content
+            });
+            if (history.length > 12) {
+                history = history.slice(history.length - 12);
+            }
+        }
+
+        function renderAssistantPayload(pending, data) {
+            var reply = data && data.message ? data.message : (config.labels.empty || 'Type a request and I will answer in context.');
+            pending.body.textContent = reply;
+            clearChildren(pending.meta);
+            pending.meta.appendChild(pending.body);
+
+            if (data && data.mode) {
+                pending.meta.setAttribute('data-assistant-mode', data.mode);
+            }
+
+            if (data && data.actions && data.actions.length) {
+                var actions = el('div', 'assistant-response__actions');
+                for (var i = 0; i < data.actions.length; i++) {
+                    var action = data.actions[i];
+                    if (! action || ! action.url) {
+                        continue;
+                    }
+                    renderAction(actions, action, config);
+                }
+                if (actions.children.length) {
+                    pending.meta.appendChild(actions);
+                }
+            } else if (data && data.openUrl) {
+                renderAction(pending.meta, {
+                    type: data.reportUrl ? 'report' : (data.searchUrl ? 'search' : 'open'),
+                    label: data.reportUrl ? (config.labels.openReport || 'Create report') : (data.searchUrl ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result')),
+                    url: data.openUrl
+                }, config);
+            }
+
+            if (data && data.followUps && data.followUps.length) {
+                renderFollowUps(pending.meta, data.followUps, config, function (text) {
+                    input.value = text;
+                    input.focus();
+                });
+            }
+        }
+
         function submitMessage(message) {
             if (busy) {
                 return;
@@ -104,18 +192,16 @@
             }
 
             appendMessage(chat, 'user', 'You', text);
+            addHistory('user', text);
             setBusy(true);
 
             var pending = appendMessage(chat, 'assistant', 'Assistant', config.labels.thinking || 'Thinking...');
-            sendRequest(config.endpoint, text, function (response) {
+            sendRequest(config.endpoint, text, history, function (response) {
                 var data = response && response.data ? response.data : null;
-                var reply = data && data.message ? data.message : (config.labels.empty || 'Type a request and I will translate it into a search query.');
-                pending.body.textContent = reply;
-
-                if (data && data.openUrl) {
-                    addLink(pending.root, data.searchUrl ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result'), data.openUrl);
+                if (data && data.message) {
+                    addHistory('assistant', data.message);
                 }
-
+                renderAssistantPayload(pending, data);
                 setBusy(false);
                 input.value = '';
                 input.focus();
