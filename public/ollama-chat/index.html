@@ -10,7 +10,7 @@
 <body>
   <main class="ollama-app" data-ollama-app
         data-endpoint="api/chat"
-        data-model="qwen2.5:1.5b">
+        data-model="qwen3:1.7b">
     <header class="ollama-hero">
       <div>
         <p class="ollama-kicker">Local Ollama</p>
@@ -28,7 +28,7 @@
     <section class="ollama-toolbar" aria-label="Chat settings">
       <label>
         <span>Model</span>
-        <input type="text" value="qwen2.5:1.5b" data-model>
+        <input type="text" value="qwen3:1.7b" data-model>
       </label>
       <label>
         <span>System prompt</span>
@@ -47,6 +47,7 @@
           <span class="ollama-palette__note" data-model-status>Loading local models...</span>
           <button type="button" class="button button--compact" data-refresh-models>Refresh</button>
         </div>
+        <p class="ollama-palette__legend">Recommended default: balanced mode for everyday Icinga conversations.</p>
         <div class="ollama-palette__buttons" data-model-palette></div>
       </div>
       <div class="ollama-palette__group">
@@ -69,9 +70,9 @@
     </form>
 
     <section class="ollama-examples" aria-label="Examples">
-      <button type="button" class="ollama-chip" data-example="Explain this nginx config in simple terms.">Explain nginx config</button>
-      <button type="button" class="ollama-chip" data-example="Summarize the key points from the latest incident.">Summarize incident</button>
-      <button type="button" class="ollama-chip" data-example="Draft a short status update for the team.">Draft update</button>
+      <button type="button" class="ollama-chip" data-example="Ktore hosty maja teraz problemy i jak to krotko podsumowac?">Host summary</button>
+      <button type="button" class="ollama-chip" data-example="Przygotuj krotki raport o krytycznych serwisach i ryzykach.">Critical services report</button>
+      <button type="button" class="ollama-chip" data-example="Zaproponuj wykres dla trendu alertow i opisz jakie dane beda potrzebne.">Chart suggestion</button>
     </section>
   </main>
 

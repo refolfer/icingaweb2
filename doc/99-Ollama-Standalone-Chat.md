@@ -13,6 +13,8 @@ The page lives under `/ollama-chat/` and is backed by a local Ollama instance on
 - A simple model selector
 - One-click prompt presets for common chat styles
 - Local model discovery through Ollama's `/api/tags`
+- A default `balanced` profile based on `qwen3:1.7b`
+- Quick model tiers such as `fast`, `balanced`, and `quality`
 
 ## File layout
 
@@ -58,8 +60,22 @@ Environment=OLLAMA_HOST=127.0.0.1:11434
 Then pull a model such as:
 
 ```bash
-ollama pull qwen2.5:1.5b
+ollama pull qwen3:1.7b
 ```
+
+Recommended local set for this server:
+
+```bash
+ollama pull qwen2.5:1.5b
+ollama pull qwen3:1.7b
+ollama pull qwen3:4b
+```
+
+Suggested usage:
+
+- `fast`: `qwen2.5:1.5b`
+- `balanced`: `qwen3:1.7b`
+- `quality`: `qwen3:4b`
 
 ## Deployment steps
 

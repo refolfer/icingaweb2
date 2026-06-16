@@ -224,6 +224,12 @@ body {
   text-transform: none;
 }
 
+.ollama-palette__legend {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .ollama-palette__buttons {
   display: flex;
   flex-wrap: wrap;
@@ -233,6 +239,31 @@ body {
 .ollama-palette__buttons .button,
 .ollama-palette__buttons .ollama-chip {
   border-radius: 999px;
+}
+
+.ollama-model-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.ollama-model-button__tier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(99, 208, 255, 0.12);
+  border: 1px solid rgba(99, 208, 255, 0.16);
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ollama-model-button__name {
+  white-space: nowrap;
 }
 
 .ollama-chip--active,

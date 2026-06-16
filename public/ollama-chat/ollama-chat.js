@@ -57,6 +57,13 @@
     }
   ];
 
+  const modelProfiles = {
+    'qwen2.5:1.5b': { tier: 'fast', description: 'Fastest replies, lightest quality' },
+    'qwen3:0.6b': { tier: 'fast', description: 'Smallest qwen3 variant' },
+    'qwen3:1.7b': { tier: 'balanced', description: 'Recommended default for this host' },
+    'qwen3:4b': { tier: 'quality', description: 'Best quality here, slower on longer replies' }
+  };
+
   const defaultSystemPrompt = systemPromptInput ? systemPromptInput.value.trim() : '';
   const defaultModel = modelInput ? modelInput.value.trim() : 'qwen2.5:1.5b';
   const fallbackModels = [defaultModel];
@@ -161,11 +168,27 @@
     }
 
     models.forEach((model) => {
+      const profile = modelProfiles[model] || null;
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = `button button--compact${model === getCurrentModel() ? ' button--active' : ''}`;
-      button.textContent = model;
+      button.className = `button button--compact ollama-model-button${model === getCurrentModel() ? ' button--active' : ''}`;
       button.dataset.modelName = model;
+      button.title = profile ? profile.description : model;
+
+      if (profile) {
+        const tier = document.createElement('span');
+        tier.className = 'ollama-model-button__tier';
+        tier.textContent = profile.tier;
+
+        const name = document.createElement('span');
+        name.className = 'ollama-model-button__name';
+        name.textContent = model;
+
+        button.append(tier, name);
+      } else {
+        button.textContent = model;
+      }
+
       button.addEventListener('click', () => setModel(model));
       modelPalette.appendChild(button);
     });

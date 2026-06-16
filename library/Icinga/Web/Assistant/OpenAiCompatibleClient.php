@@ -50,21 +50,19 @@ class OpenAiCompatibleClient
             throw new IcingaException('Assistant LLM is not configured');
         }
 
-        $payload = [
-            'model' => $this->config['model'],
-            'temperature' => $this->config['temperature'],
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $this->systemPrompt()
-                ],
-                ...$this->historyMessages($context),
-                [
-                    'role' => 'user',
-                    'content' => $this->userPrompt($message, $context)
-                ],
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => $this->systemPrompt()
+            ],
+            ...$this->historyMessages($context),
+            [
+                'role' => 'user',
+                'content' => $this->userPrompt($message, $context)
             ],
         ];
+
+        $payload = $this->buildPayload($messages);
 
         $response = $this->request($payload);
         $content = $this->extractContent($response);
@@ -80,8 +78,8 @@ class OpenAiCompatibleClient
         $config = [
             'api_key' => getenv('ICINGAWEB_ASSISTANT_API_KEY') ?: null,
             'base_url' => rtrim((string) (getenv('ICINGAWEB_ASSISTANT_BASE_URL') ?: 'https://api.openai.com'), '/'),
-            'endpoint' => (string) (getenv('ICINGAWEB_ASSISTANT_ENDPOINT') ?: '/v1/chat/completions'),
-            'model' => (string) (getenv('ICINGAWEB_ASSISTANT_MODEL') ?: 'gpt-4o-mini'),
+            'endpoint' => (string) (getenv('ICINGAWEB_ASSISTANT_ENDPOINT') ?: '/api/chat'),
+            'model' => (string) (getenv('ICINGAWEB_ASSISTANT_MODEL') ?: 'qwen3:1.7b'),
             'temperature' => (float) (getenv('ICINGAWEB_ASSISTANT_TEMPERATURE') !== false ? getenv('ICINGAWEB_ASSISTANT_TEMPERATURE') : 0),
             'timeout' => (int) (getenv('ICINGAWEB_ASSISTANT_TIMEOUT') !== false ? getenv('ICINGAWEB_ASSISTANT_TIMEOUT') : 12),
         ];
@@ -104,6 +102,38 @@ class OpenAiCompatibleClient
         $config['timeout'] = (int) $config['timeout'];
 
         return $config;
+    }
+
+    /**
+     * @param array<int, array<string, string>> $messages
+     *
+     * @return array<string, mixed>
+     */
+    private function buildPayload(array $messages)
+    {
+        if ($this->usesNativeChatApi()) {
+            $payload = [
+                'model' => $this->config['model'],
+                'messages' => $messages,
+                'stream' => false,
+                'format' => 'json',
+                'options' => [
+                    'temperature' => $this->config['temperature'],
+                ],
+            ];
+
+            if ($this->shouldDisableThinking()) {
+                $payload['think'] = false;
+            }
+
+            return $payload;
+        }
+
+        return [
+            'model' => $this->config['model'],
+            'temperature' => $this->config['temperature'],
+            'messages' => $messages,
+        ];
     }
 
     /**
@@ -265,12 +295,32 @@ class OpenAiCompatibleClient
     }
 
     /**
+     * @return bool
+     */
+    private function usesNativeChatApi()
+    {
+        return $this->config['endpoint'] === '/api/chat';
+    }
+
+    /**
+     * @return bool
+     */
+    private function shouldDisableThinking()
+    {
+        return strpos(strtolower($this->config['model']), 'qwen3') === 0;
+    }
+
+    /**
      * @param array<string, mixed> $response
      *
      * @return string
      */
     private function extractContent(array $response)
     {
+        if (isset($response['message']['content'])) {
+            return (string) $response['message']['content'];
+        }
+
         if (isset($response['choices'][0]['message']['content'])) {
             return (string) $response['choices'][0]['message']['content'];
         }

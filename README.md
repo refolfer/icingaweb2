@@ -110,13 +110,16 @@ Add this section to `/etc/icingaweb2/config.ini`:
 ```ini
 [assistant]
 base_url = "http://127.0.0.1:11434"
-endpoint = "/v1/chat/completions"
-model = "qwen2.5:1.5b"
+endpoint = "/api/chat"
+model = "qwen3:1.7b"
 temperature = "0"
 timeout = "30"
 ```
 
 No API key is required when the base URL points to a local endpoint.
+
+For local Ollama with `qwen3`, the native `/api/chat` endpoint is recommended because it supports `think=false`
+and JSON-formatted replies with lower latency than the OpenAI-compatible endpoint on this host.
 
 #### 3. Reload services
 
