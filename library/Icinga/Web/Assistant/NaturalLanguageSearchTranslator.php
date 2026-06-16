@@ -61,6 +61,9 @@ class NaturalLanguageSearchTranslator
         'critical' => 'critical',
         'crit' => 'critical',
         'krytyczne' => 'critical',
+        'krytyczny' => 'critical',
+        'krytyczna' => 'critical',
+        'krytycznym' => 'critical',
         'warning' => 'warning',
         'warn' => 'warning',
         'ostrzezenie' => 'warning',
@@ -378,8 +381,8 @@ class NaturalLanguageSearchTranslator
             return 'widoku aktywnych problemów serwisów';
         }
 
-        if ($path === 'icingadb/hosts/grid') {
-            return 'widoku aktywnych problemów hostów';
+        if ($path === 'icingadb/hosts') {
+            return 'widoku hostów z problemami';
         }
 
         return $this->humanTarget($target ?: 'service');
@@ -395,10 +398,13 @@ class NaturalLanguageSearchTranslator
     private function buildRouteIntent($normalized, $target, $state)
     {
         if ($this->isProblemIntent($normalized, $state)) {
-            $route = $target === 'host' ? 'icingadb/hosts/grid' : 'icingadb/services/grid';
+            $route = $target === 'host' ? 'icingadb/hosts' : 'icingadb/services/grid';
+            $params = $target === 'host'
+                ? ['host.state.is_problem' => 'y']
+                : ['problems' => true];
             return [
                 'path' => $route,
-                'params' => ['problems' => true]
+                'params' => $params
             ];
         }
 
@@ -413,10 +419,19 @@ class NaturalLanguageSearchTranslator
      */
     private function normalizeRouteParams($routePath, array $routeParams)
     {
-        if ($routePath === 'icingadb/services/grid' || $routePath === 'icingadb/hosts/grid') {
+        if ($routePath === 'icingadb/services/grid') {
             $params = [];
             if (isset($routeParams['problems'])) {
                 $params['problems'] = (bool) $routeParams['problems'];
+            }
+
+            return $params;
+        }
+
+        if ($routePath === 'icingadb/hosts') {
+            $params = [];
+            if (isset($routeParams['host.state.is_problem'])) {
+                $params['host.state.is_problem'] = (string) $routeParams['host.state.is_problem'];
             }
 
             return $params;
