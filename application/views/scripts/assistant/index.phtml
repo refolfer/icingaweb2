@@ -1,0 +1,75 @@
+<?php
+
+use Icinga\Util\Json;
+
+$assistantConfig = [
+    'endpoint' => $this->assistantEndpoint,
+    'searchUrl' => $this->searchUrl,
+    'examples' => $this->examples,
+    'labels' => [
+        'welcome' => $this->translate('Describe what you want to find in natural language.'),
+        'hint' => $this->translate('The assistant will turn your message into a search query that uses the existing Icinga search backend.'),
+        'inputPlaceholder' => $this->translate('For example: show critical services on db'),
+        'send' => $this->translate('Ask'),
+        'openSearch' => $this->translate('Open search results'),
+        'thinking' => $this->translate('Thinking...'),
+        'error' => $this->translate('Unable to reach the assistant.'),
+        'empty' => $this->translate('Type a request and I will translate it into a search query.'),
+    ],
+];
+?>
+<div class="assistant-page" data-assistant-root data-assistant-config="<?= $this->escape(Json::sanitize($assistantConfig)) ?>">
+    <section class="assistant-hero">
+        <div>
+            <p class="assistant-kicker"><?= $this->translate('Natural language search') ?></p>
+            <h1><?= $this->translate('Ask in plain language') ?></h1>
+            <p class="assistant-intro">
+                <?= $this->translate('Write what you are looking for, and I will rewrite it into the search syntax used by Icinga Web 2.') ?>
+            </p>
+        </div>
+        <div class="assistant-hero-note">
+            <strong><?= $this->translate('Tip') ?></strong>
+            <p><?= $this->translate('Try mentioning hosts, services, or states like critical, warning, or down.') ?></p>
+        </div>
+    </section>
+
+    <section class="assistant-chat" aria-live="polite" data-assistant-chat>
+        <div class="assistant-message assistant-message--assistant">
+            <div class="assistant-message__label"><?= $this->translate('Assistant') ?></div>
+            <div class="assistant-message__body">
+                <?= $this->translate('Type a request and I will translate it into a search query.') ?>
+            </div>
+        </div>
+    </section>
+
+    <form class="assistant-form" data-assistant-form data-no-icinga-ajax>
+        <label class="sr-only" for="assistant-message"><?= $this->translate('Your request') ?></label>
+        <textarea
+            id="assistant-message"
+            name="message"
+            rows="3"
+            placeholder="<?= $this->escape($this->translate('For example: show critical services on db')) ?>"
+            autocomplete="off"
+            spellcheck="false"
+            required
+            data-assistant-input
+        ></textarea>
+        <div class="assistant-form__actions">
+            <button type="submit" class="button btn-primary" data-assistant-submit><?= $this->translate('Ask') ?></button>
+            <a class="button assistant-form__secondary" href="<?= $this->escape($this->searchUrl) ?>"><?= $this->translate('Open existing search') ?></a>
+        </div>
+    </form>
+
+    <section class="assistant-examples">
+        <h2><?= $this->translate('Examples') ?></h2>
+        <div class="assistant-chips">
+            <?php foreach ($this->examples as $example): ?>
+                <button type="button" class="assistant-chip" data-assistant-example="<?= $this->escape($example) ?>">
+                    <?= $this->escape($example) ?>
+                </button>
+            <?php endforeach ?>
+        </div>
+    </section>
+</div>
+
+<script type="text/javascript" src="<?= $this->href('js/assistant-chat.js?v=20260616-1') ?>"></script>

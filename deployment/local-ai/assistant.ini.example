@@ -1,0 +1,6 @@
+[assistant]
+base_url = "http://127.0.0.1:11434"
+endpoint = "/v1/chat/completions"
+model = "qwen2.5:1.5b"
+temperature = "0"
+timeout = "30"

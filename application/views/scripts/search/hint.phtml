@@ -5,6 +5,11 @@
       . " For convenience I'll always add a wildcard in front and after your"
       . ' search string.'
     ) ?></p>
+    <p>
+        <a class="button btn-primary" href="<?= $this->href('assistant') ?>">
+            <?= $this->translate('Try AI search') ?>
+        </a>
+    </p>
     <p><?= $this->translate('You can start quickly with examples like:') ?></p>
     <ul>
         <li><code>db*</code></li>
