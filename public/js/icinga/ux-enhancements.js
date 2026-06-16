@@ -69,7 +69,8 @@
         url: '',
         abortController: null,
         timelineAbortController: null,
-        object: null
+        object: null,
+        focusTimeline: false
     };
 
     var lastFocusedElement = null;
@@ -1407,6 +1408,22 @@
         }
     }
 
+    function isHistoryOverviewLocation() {
+        return /\/icingadb\/history\b/i.test(window.location.pathname + window.location.search);
+    }
+
+    function getHistoryEventBlock(target) {
+        if (! target || ! isHistoryOverviewLocation()) {
+            return null;
+        }
+
+        if (target.closest('button, input, select, textarea, .controls, .pagination, .tabs, [role="button"]')) {
+            return null;
+        }
+
+        return target.closest('[data-action-item], .action-list li, .item-list li, .state-row, tr, article, .history-event, .event, .list-item');
+    }
+
     function normalizeText(value) {
         return String(value || '').replace(/\s+/g, ' ').trim();
     }
@@ -2041,6 +2058,11 @@
         setOperatorFocusText('[data-operator-focus-active]', String(snapshot.counts.active));
         setOperatorFocusText('[data-operator-focus-critical]', String(snapshot.counts.critical));
         setOperatorFocusText('[data-operator-focus-pinned]', String(snapshot.counts.pinned));
+
+        var metroButton = board.querySelector('[data-open-metro-timeline]');
+        if (metroButton) {
+            metroButton.disabled = ! next;
+        }
 
         actionButtons = board.querySelectorAll('[data-operator-focus-action]');
         actionButtons.forEach(function (button) {
@@ -3540,10 +3562,214 @@
         });
     }
 
+    function getMetroStateFromText(text) {
+        var value = String(text || '').toLowerCase();
+
+        if (/\b(critical|down|unreachable|failed|crash)\b/.test(value)) {
+            return 'critical';
+        }
+
+        if (/\bwarning\b/.test(value)) {
+            return 'warning';
+        }
+
+        if (/\bunknown\b/.test(value)) {
+            return 'unknown';
+        }
+
+        if (/\b(pending|not checked)\b/.test(value)) {
+            return 'pending';
+        }
+
+        if (/\b(ok|up|recovered|resolved)\b/.test(value)) {
+            return 'ok';
+        }
+
+        return 'event';
+    }
+
+    function getMetroStateColor(state) {
+        var colors = {
+            critical: 'var(--to-critical)',
+            warning: 'var(--to-warning)',
+            unknown: 'var(--to-unknown)',
+            pending: 'var(--to-pending)',
+            ok: 'var(--to-ok)',
+            event: 'var(--to-text-muted)'
+        };
+
+        return colors[state] || colors.event;
+    }
+
+    function getMetroStationLabel(text) {
+        var normalized = normalizeText(text || '')
+            .replace(/\b(host|service|state|changed|notification|check result)\b/ig, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (! normalized.length) {
+            return 'Event';
+        }
+
+        return normalized.length > 34 ? normalized.slice(0, 34).replace(/\s+\S*$/, '') + '...' : normalized;
+    }
+
+    function getMetroStationTime(text) {
+        var match = String(text || '').match(/\b(\d{1,2}:\d{2}(?::\d{2})?|\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{2,4})\b/);
+
+        return match ? match[1] : '';
+    }
+
+    function renderIncidentMetroTimeline(entries) {
+        var metro = document.querySelector('[data-incident-metro-timeline]');
+        var stops = entries.map(function (entry, index) {
+            var state = entry.state || getMetroStateFromText(entry.text);
+
+            return {
+                index: index,
+                label: getMetroStationLabel(entry.text),
+                time: getMetroStationTime(entry.text),
+                state: state,
+                color: getMetroStateColor(state)
+            };
+        });
+        var legend = {};
+        var segments;
+
+        if (! metro) {
+            return;
+        }
+
+        metro.hidden = stops.length < 2;
+        if (stops.length < 2) {
+            metro.innerHTML = '';
+            return;
+        }
+
+        segments = stops.slice(0, -1).map(function (stop, index) {
+            var from = stops.length > 1 ? (index * 100 / (stops.length - 1)) : 0;
+            var to = stops.length > 1 ? ((index + 1) * 100 / (stops.length - 1)) : 100;
+
+            return '<span class="incident-metro-segment" style="--from: '
+                + String(index)
+                + '; --to: '
+                + String(index + 1)
+                + '; --left: calc('
+                + String(from.toFixed(3))
+                + '% + 0.5em); --right: calc('
+                + String((100 - to).toFixed(3))
+                + '% + 0.5em)'
+                + '; --metro-color: '
+                + stop.color
+                + '"></span>';
+        }).join('');
+
+        stops.forEach(function (stop) {
+            legend[stop.state] = stop.color;
+        });
+
+        metro.innerHTML = '<div class="incident-metro-viewport" style="--metro-count: '
+            + String(stops.length)
+            + '; --metro-width: '
+            + String(Math.max(38, stops.length * 6))
+            + 'em">'
+            + '<div class="incident-metro-line">'
+            + segments
+            + stops.map(function (stop, index) {
+                return '<div class="incident-metro-stop'
+                    + (index === 0 ? ' current' : '')
+                    + '" style="--metro-color: '
+                    + stop.color
+                    + '">'
+                    + '<span class="incident-metro-label">' + escapeHtml(stop.label) + '</span>'
+                    + '<span class="incident-metro-dot"></span>'
+                    + '<span class="incident-metro-time">' + escapeHtml(stop.time || ('#' + String(index + 1))) + '</span>'
+                    + '</div>';
+            }).join('')
+            + '</div>'
+            + '<div class="incident-metro-legend">'
+            + Object.keys(legend).map(function (state) {
+                return '<span style="--metro-color: ' + legend[state] + '">' + escapeHtml(state) + '</span>';
+            }).join('')
+            + '</div>'
+            + '</div>';
+    }
+
+    function renderMetroMapInto(container, entries) {
+        var stops = entries.map(function (entry, index) {
+            var state = entry.state || getMetroStateFromText(entry.text);
+
+            return {
+                index: index,
+                label: getMetroStationLabel(entry.text),
+                time: getMetroStationTime(entry.text),
+                state: state,
+                color: getMetroStateColor(state)
+            };
+        });
+        var legend = {};
+        var segments;
+
+        if (! container) {
+            return;
+        }
+
+        if (stops.length < 2) {
+            container.innerHTML = '<p class="event-metro-empty">No timeline data for this range.</p>';
+            return;
+        }
+
+        segments = stops.slice(0, -1).map(function (stop, index) {
+            var from = stops.length > 1 ? (index * 100 / (stops.length - 1)) : 0;
+            var to = stops.length > 1 ? ((index + 1) * 100 / (stops.length - 1)) : 100;
+
+            return '<span class="incident-metro-segment" style="--left: calc('
+                + String(from.toFixed(3))
+                + '% + 0.5em); --right: calc('
+                + String((100 - to).toFixed(3))
+                + '% + 0.5em); --metro-color: '
+                + stop.color
+                + '"></span>';
+        }).join('');
+
+        stops.forEach(function (stop) {
+            legend[stop.state] = stop.color;
+        });
+
+        container.innerHTML = '<div class="incident-metro-timeline event-metro-map">'
+            + '<div class="incident-metro-viewport" style="--metro-count: '
+            + String(stops.length)
+            + '; --metro-width: '
+            + String(Math.max(44, stops.length * 6))
+            + 'em">'
+            + '<div class="incident-metro-line">'
+            + segments
+            + stops.map(function (stop, index) {
+                return '<div class="incident-metro-stop'
+                    + (index === 0 ? ' current' : '')
+                    + '" style="--metro-color: '
+                    + stop.color
+                    + '">'
+                    + '<span class="incident-metro-label">' + escapeHtml(stop.label) + '</span>'
+                    + '<span class="incident-metro-dot"></span>'
+                    + '<span class="incident-metro-time">' + escapeHtml(stop.time || ('#' + String(index + 1))) + '</span>'
+                    + '</div>';
+            }).join('')
+            + '</div>'
+            + '<div class="incident-metro-legend">'
+            + Object.keys(legend).map(function (state) {
+                return '<span style="--metro-color: ' + legend[state] + '">' + escapeHtml(state) + '</span>';
+            }).join('')
+            + '</div>'
+            + '</div>'
+            + '</div>';
+    }
+
     function setIncidentTimelineState(state, items) {
         var container = document.querySelector('[data-incident-timeline]');
         var title = document.querySelector('[data-incident-timeline-title]');
         var list = document.querySelector('[data-incident-timeline-list]');
+        var metro = document.querySelector('[data-incident-metro-timeline]');
         var entries = items || [];
 
         if (! container || ! list) {
@@ -3552,10 +3778,14 @@
 
         container.hidden = state === 'hidden';
         if (title) {
-            title.textContent = getIncidentDrawerLabel('timeline-label', 'Recent history');
+            title.textContent = getIncidentDrawerLabel('timeline-label', 'Metro Timeline');
         }
 
         if (state === 'loading') {
+            if (metro) {
+                metro.hidden = true;
+                metro.innerHTML = '';
+            }
             list.innerHTML = '<li class="incident-drawer-timeline-muted">'
                 + escapeHtml(getIncidentDrawerLabel('timeline-loading-label', 'Loading history...'))
                 + '</li>';
@@ -3563,12 +3793,19 @@
         }
 
         if (! entries.length) {
+            if (metro) {
+                metro.hidden = true;
+                metro.innerHTML = '';
+            }
             list.innerHTML = '<li class="incident-drawer-timeline-muted">'
                 + escapeHtml(getIncidentDrawerLabel('timeline-empty-label', 'No recent history found.'))
                 + '</li>';
+            focusIncidentMetroTimelineWhenReady();
             return;
         }
 
+        renderIncidentMetroTimeline(entries);
+        focusIncidentMetroTimelineWhenReady();
         list.innerHTML = entries.map(function (entry) {
             return '<li><a href="'
                 + escapeHtml(entry.url || '#')
@@ -3588,20 +3825,23 @@
         var seen = {};
         var i;
 
-        for (i = 0; i < nodes.length && items.length < 5; i++) {
+        for (i = 0; i < nodes.length && items.length < 9; i++) {
             var node = nodes[i];
             var text = normalizeText(node.textContent || '');
             var link = node.querySelector('a[href]');
             var url = link ? normalizeIncidentUrl(link.getAttribute('href') || link.href || '') : historyUrl;
+            var entryText;
 
             if (! text.length || text.length < 12 || seen[text]) {
                 continue;
             }
 
+            entryText = text.length > 180 ? text.slice(0, 180).replace(/\s+\S*$/, '') + '...' : text;
             seen[text] = true;
             items.push({
-                text: text.length > 180 ? text.slice(0, 180).replace(/\s+\S*$/, '') + '...' : text,
-                url: url
+                text: entryText,
+                url: url,
+                state: getMetroStateFromText(entryText)
             });
         }
 
@@ -3651,6 +3891,165 @@
 
                 setIncidentTimelineState('hidden');
             });
+    }
+
+    function isEventDetailLocation() {
+        var col1 = document.getElementById('col1');
+        var url = col1 ? (col1.getAttribute('data-icinga-url') || '') : '';
+        var path = window.location.pathname + window.location.search;
+
+        return /(^|\/)icingadb\/event\b/i.test(url) || /\/icingadb\/event\b/i.test(path);
+    }
+
+    function getEventDetailRoot() {
+        var col1 = document.getElementById('col1');
+
+        if (! col1 || ! isEventDetailLocation()) {
+            return null;
+        }
+
+        return col1.querySelector('.object-detail');
+    }
+
+    function formatEventMetroDate(date) {
+        return String(date.getFullYear())
+            + '-' + pad2(date.getMonth() + 1)
+            + '-' + pad2(date.getDate());
+    }
+
+    function getEventMetroRange(range) {
+        var now = new Date();
+        var from = new Date(now.getTime());
+        var to = new Date(now.getTime());
+
+        if (range === 'day') {
+            from.setDate(now.getDate() - 1);
+        } else if (range === 'week') {
+            from.setDate(now.getDate() - 7);
+        } else if (range === 'month') {
+            from.setMonth(now.getMonth() - 1);
+        } else if (range === 'year') {
+            from.setFullYear(now.getFullYear() - 1);
+        } else {
+            from.setHours(0, 0, 0, 0);
+        }
+
+        return {
+            from: formatEventMetroDate(from),
+            to: formatEventMetroDate(to)
+        };
+    }
+
+    function buildEventMetroHistoryUrl(object, range) {
+        var urls = buildIcingadbContextUrls(object);
+        var historyUrl = urls.history || '';
+        var parsed;
+
+        if (! historyUrl.length) {
+            return '';
+        }
+
+        try {
+            parsed = new URL(historyUrl, window.location.href);
+            if (range && range.from) {
+                parsed.searchParams.set('from', range.from + ' 00:00:00');
+            }
+            if (range && range.to) {
+                parsed.searchParams.set('to', range.to + ' 23:59:59');
+            }
+
+            return parsed.toString();
+        } catch (error) {
+            return historyUrl;
+        }
+    }
+
+    function setEventMetroBusy(panel, busy) {
+        if (panel) {
+            panel.classList.toggle('is-loading', !! busy);
+        }
+    }
+
+    function loadEventMetroTimeline(panel, object, range) {
+        var map = panel ? panel.querySelector('[data-event-metro-map]') : null;
+        var historyUrl = buildEventMetroHistoryUrl(object, range);
+
+        if (! panel || ! map || ! historyUrl.length || typeof window.fetch !== 'function') {
+            return;
+        }
+
+        setEventMetroBusy(panel, true);
+        map.innerHTML = '<p class="event-metro-empty">Loading timeline...</p>';
+
+        window.fetch(historyUrl, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Unable to load event metro history');
+                }
+
+                return response.text();
+            })
+            .then(function (html) {
+                renderMetroMapInto(map, extractHistoryTimelineItems(html, historyUrl));
+            })
+            .catch(function () {
+                map.innerHTML = '<p class="event-metro-empty">Timeline is unavailable for this range.</p>';
+            })
+            .then(function () {
+                setEventMetroBusy(panel, false);
+            });
+    }
+
+    function setEventMetroActiveRange(panel, range) {
+        panel.querySelectorAll('[data-event-metro-range]').forEach(function (button) {
+            button.classList.toggle('active', button.getAttribute('data-event-metro-range') === range);
+        });
+    }
+
+    function createEventMetroPanel(object) {
+        var panel = document.createElement('section');
+        var current = getEventMetroRange('current');
+
+        panel.className = 'event-metro-panel';
+        panel.setAttribute('data-event-metro-panel', '');
+        panel.innerHTML = '<div class="event-metro-toolbar">'
+            + '<button type="button" data-event-metro-range="current">Current</button>'
+            + '<button type="button" data-event-metro-range="day">Day</button>'
+            + '<button type="button" data-event-metro-range="week">Week</button>'
+            + '<button type="button" data-event-metro-range="month">Month</button>'
+            + '<button type="button" data-event-metro-range="year">Year</button>'
+            + '<input type="date" data-event-metro-from value="' + escapeHtml(current.from) + '">'
+            + '<input type="date" data-event-metro-to value="' + escapeHtml(current.to) + '">'
+            + '<button type="button" data-event-metro-apply>Range</button>'
+            + '</div>'
+            + '<div class="event-metro-canvas" data-event-metro-map></div>';
+        panel.eventMetroObject = object;
+        setEventMetroActiveRange(panel, 'current');
+        loadEventMetroTimeline(panel, object, current);
+
+        return panel;
+    }
+
+    function renderEventDetailMetroTimeline() {
+        var root = getEventDetailRoot();
+        var object;
+        var existing;
+
+        if (! root) {
+            return;
+        }
+
+        existing = root.querySelector('[data-event-metro-panel]');
+        if (existing) {
+            return;
+        }
+
+        object = findIcingadbObjectInDocument(root);
+        if (! object) {
+            return;
+        }
+
+        root.appendChild(createEventMetroPanel(object));
     }
 
     function setIncidentNoteStatus(message) {
@@ -3802,28 +4201,41 @@
             });
     }
 
-    function openIncidentDrawerFromLink(link) {
+    function focusIncidentMetroTimelineWhenReady() {
+        var timeline = document.querySelector('[data-incident-timeline]');
+
+        if (! incidentDrawerState.focusTimeline || ! timeline || timeline.hidden) {
+            return;
+        }
+
+        incidentDrawerState.focusTimeline = false;
+        timeline.scrollIntoView({
+            block: 'start',
+            behavior: 'smooth'
+        });
+    }
+
+    function openIncidentDrawerFromEventData(eventData, focusTimeline) {
         var drawer = getIncidentDrawer();
         var title = drawer ? drawer.querySelector('#incident-drawer-title') : null;
         var meta = drawer ? drawer.querySelector('[data-incident-meta]') : null;
         var open = drawer ? drawer.querySelector('[data-incident-open]') : null;
         var copy = drawer ? drawer.querySelector('[data-copy-incident-link]') : null;
-        var item = link ? link.closest('.top-event-item') : null;
-        var titleText = item ? normalizeText((item.querySelector('.top-event-title') || {}).textContent || '') : '';
-        var metaText = item ? normalizeText((item.querySelector('.top-event-meta') || {}).textContent || '') : '';
-        var previewText = item ? normalizeText((item.querySelector('.top-event-preview') || {}).textContent || '') : '';
-        var url = normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : '');
-        var hasRenderedState = item && /top-event-state-/.test(item.className || '');
-        var object = getIcingadbObjectFromUrl(url);
+        var titleText = normalizeText(eventData.title || '');
+        var metaText = normalizeText(eventData.meta || '');
+        var previewText = normalizeText(eventData.preview || '');
+        var url = normalizeIncidentUrl(eventData.url || '');
+        var object = eventData.object || getIcingadbObjectFromUrl(url);
+        var skipDetailsLoad = !! eventData.skipDetailsLoad;
 
-        if (! drawer || ! link || ! item || ! titleText.length || (! hasRenderedState && url.indexOf('/icingadb/history') !== -1)) {
+        if (! drawer || ! titleText.length || ! url.length) {
             return false;
         }
 
         incidentDrawerState.url = url;
+        incidentDrawerState.focusTimeline = !! focusTimeline;
         lastFocusedElement = document.activeElement;
         markIncidentSeen(url);
-        item.classList.add('top-event-seen');
         refreshSeenTopEventStates();
         if (isTriageModeEnabled()) {
             rerenderCachedTopEvents();
@@ -3868,14 +4280,87 @@
         } else {
             setIncidentTimelineState('hidden');
         }
-        setIncidentDrawerBody(previewText || getIncidentDrawerLabel('loading-label', 'Loading incident details...'), true);
-        loadIncidentDrawerDetails(url);
+        setIncidentDrawerBody(
+            previewText || getIncidentDrawerLabel('loading-label', 'Loading incident details...'),
+            ! skipDetailsLoad
+        );
+        if (! skipDetailsLoad) {
+            loadIncidentDrawerDetails(url);
+        }
 
         if (open && ! open.hidden) {
             open.focus();
         }
 
         return true;
+    }
+
+    function openIncidentDrawerFromLink(link) {
+        var item = link ? link.closest('.top-event-item') : null;
+        var titleText = item ? normalizeText((item.querySelector('.top-event-title') || {}).textContent || '') : '';
+        var metaText = item ? normalizeText((item.querySelector('.top-event-meta') || {}).textContent || '') : '';
+        var previewText = item ? normalizeText((item.querySelector('.top-event-preview') || {}).textContent || '') : '';
+        var url = normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : '');
+        var hasRenderedState = item && /top-event-state-/.test(item.className || '');
+
+        if (! link || ! item || ! titleText.length || (! hasRenderedState && url.indexOf('/icingadb/history') !== -1)) {
+            return false;
+        }
+
+        item.classList.add('top-event-seen');
+
+        return openIncidentDrawerFromEventData({
+            title: titleText,
+            meta: metaText,
+            preview: previewText,
+            url: url
+        }, false);
+    }
+
+    function openMetroTimelineForFocusEvent() {
+        var event = getOperatorPlaybookEvent();
+        var object;
+
+        if (! event || ! event.url) {
+            showOperatorToast('No focus event for metro timeline', 'warning');
+            return;
+        }
+
+        object = getIcingadbObjectFromUrl(event.url);
+        if (object) {
+            event.object = object;
+        }
+
+        if (openIncidentDrawerFromEventData(event, true)) {
+            recordOperatorActivity('Incident', 'Opened metro history timeline', normalizeText(event.title || event.meta || ''), event.url);
+        }
+    }
+
+    function openIncidentDrawerFromHistoryBlock(block) {
+        var event;
+        var object;
+
+        if (! block) {
+            return false;
+        }
+
+        event = extractEvent(block);
+        if (! event || ! event.url) {
+            return false;
+        }
+
+        object = getIcingadbObjectFromUrl(event.url) || findIcingadbObjectInDocument({
+            querySelectorAll: function (selector) {
+                return block.querySelectorAll(selector);
+            }
+        });
+
+        if (openIncidentDrawerFromEventData(event, true)) {
+            recordOperatorActivity('Incident', 'Opened history event metro timeline', normalizeText(event.title || event.meta || ''), event.url);
+            return true;
+        }
+
+        return false;
     }
 
     function closeIncidentDrawer() {
@@ -3897,6 +4382,7 @@
 
         drawer.hidden = true;
         drawer.setAttribute('aria-hidden', 'true');
+        incidentDrawerState.focusTimeline = false;
         document.body.classList.remove('modal-open');
 
         if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
@@ -6094,6 +6580,7 @@
         var triageDeskCopyButton = event.target.closest('[data-triage-desk-copy]');
         var triageDeskResetButton = event.target.closest('[data-triage-desk-reset]');
         var operatorFocusActionButton = event.target.closest('[data-operator-focus-action]');
+        var openMetroTimelineButton = event.target.closest('[data-open-metro-timeline]');
         var operatorDecisionActionButton = event.target.closest('[data-operator-decision-action]');
         var openOperatorHandoffButton = event.target.closest('[data-open-operator-handoff]');
         var closeOperatorHandoffButton = event.target.closest('[data-close-operator-handoff]');
@@ -6114,6 +6601,8 @@
         var snoozeIncidentButton = event.target.closest('[data-snooze-incident]');
         var clearIncidentNoteButton = event.target.closest('[data-clear-incident-note]');
         var incidentLink = event.target.closest('.top-event-link');
+        var eventMetroRangeButton = event.target.closest('[data-event-metro-range]');
+        var eventMetroApplyButton = event.target.closest('[data-event-metro-apply]');
         var open = event.target.closest('[data-open-shortcuts]');
         var quickMenuTitle = event.target.closest('[data-qm-title]');
         var toggleNotebook = event.target.closest('[data-qm-toggle-note]');
@@ -6200,6 +6689,12 @@
         if (operatorFocusActionButton) {
             event.preventDefault();
             runOperatorFocusAction(operatorFocusActionButton.getAttribute('data-operator-focus-action') || '');
+            return;
+        }
+
+        if (openMetroTimelineButton) {
+            event.preventDefault();
+            openMetroTimelineForFocusEvent();
             return;
         }
 
@@ -6317,6 +6812,43 @@
         if (clearIncidentNoteButton) {
             event.preventDefault();
             clearIncidentNote();
+            return;
+        }
+
+        if (eventMetroRangeButton) {
+            var metroPanel = eventMetroRangeButton.closest('[data-event-metro-panel]');
+            var rangeName = eventMetroRangeButton.getAttribute('data-event-metro-range') || 'current';
+            var rangeValue = getEventMetroRange(rangeName);
+            var fromInput = metroPanel ? metroPanel.querySelector('[data-event-metro-from]') : null;
+            var toInput = metroPanel ? metroPanel.querySelector('[data-event-metro-to]') : null;
+
+            event.preventDefault();
+            if (fromInput) {
+                fromInput.value = rangeValue.from;
+            }
+            if (toInput) {
+                toInput.value = rangeValue.to;
+            }
+            if (metroPanel && metroPanel.eventMetroObject) {
+                setEventMetroActiveRange(metroPanel, rangeName);
+                loadEventMetroTimeline(metroPanel, metroPanel.eventMetroObject, rangeValue);
+            }
+            return;
+        }
+
+        if (eventMetroApplyButton) {
+            var rangePanel = eventMetroApplyButton.closest('[data-event-metro-panel]');
+            var from = rangePanel ? rangePanel.querySelector('[data-event-metro-from]') : null;
+            var to = rangePanel ? rangePanel.querySelector('[data-event-metro-to]') : null;
+
+            event.preventDefault();
+            if (rangePanel && rangePanel.eventMetroObject) {
+                setEventMetroActiveRange(rangePanel, '');
+                loadEventMetroTimeline(rangePanel, rangePanel.eventMetroObject, {
+                    from: from ? from.value : '',
+                    to: to ? to.value : ''
+                });
+            }
             return;
         }
 
@@ -6536,6 +7068,7 @@
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
         startTopEventsPolling();
+        renderEventDetailMetroTimeline();
     });
 
     if (typeof window.jQuery !== 'undefined') {
@@ -6548,6 +7081,7 @@
         });
         window.jQuery(document).on('rendered', '#col1', function () {
             updateQuickNotebookVisibility();
+            renderEventDetailMetroTimeline();
         });
     }
 
@@ -6555,4 +7089,5 @@
     initQuickMenu();
     initQuickNotebook();
     refreshTacticalOverview(true);
+    renderEventDetailMetroTimeline();
 })();

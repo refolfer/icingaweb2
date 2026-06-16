@@ -192,6 +192,9 @@ if ($this->layout()->inlineLayout) {
                     <button type="button" data-operator-focus-action="snooze">
                         <?= $this->translate('Snooze') ?>
                     </button>
+                    <button type="button" data-open-metro-timeline>
+                        <?= $this->translate('Metro') ?>
+                    </button>
                     <button type="button" data-open-operator-playbook>
                         <?= $this->translate('Playbook') ?>
                     </button>
@@ -733,8 +736,10 @@ if ($this->layout()->inlineLayout) {
                 </a>
             </div>
         </section>
+        <div class="incident-drawer-body" data-incident-body></div>
         <section class="incident-drawer-timeline" data-incident-timeline hidden>
-            <h3 data-incident-timeline-title><?= $this->translate('Recent history') ?></h3>
+            <h3 data-incident-timeline-title><?= $this->translate('Metro Timeline') ?></h3>
+            <div class="incident-metro-timeline" data-incident-metro-timeline hidden></div>
             <ol data-incident-timeline-list></ol>
         </section>
         <section class="incident-drawer-note" data-incident-note-section hidden>
@@ -751,7 +756,6 @@ if ($this->layout()->inlineLayout) {
             ></textarea>
             <p data-incident-note-status></p>
         </section>
-        <div class="incident-drawer-body" data-incident-body></div>
         <footer class="incident-drawer-actions">
             <a href="#" data-incident-open data-base-target="_main">
                 <?= $this->translate('Open full details') ?>
