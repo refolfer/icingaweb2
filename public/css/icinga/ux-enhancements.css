@@ -1751,11 +1751,79 @@ body.modal-open {
 
 .command-palette-command-main strong {
   font-size: 0.98em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
 }
 
 .command-palette-command-main small,
 .command-palette-command-desc {
   color: var(--to-text-muted, rgba(255, 255, 255, 0.72));
+}
+
+.command-palette-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.14em 0.5em;
+  border-radius: 999px;
+  font-size: 0.66em;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.command-palette-badge--ai {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.command-palette-badge--ready {
+  background: rgba(19, 61, 161, 0.14);
+  border-color: rgba(36, 111, 191, 0.42);
+  color: #184f91;
+}
+
+.command-palette-badge--waiting {
+  background: rgba(184, 111, 18, 0.16);
+  border-color: rgba(184, 111, 18, 0.46);
+  color: #8b5208;
+}
+
+.command-palette-badge--loading {
+  position: relative;
+  padding-left: 1.35em;
+}
+
+.command-palette-badge--loading::before {
+  content: '';
+  position: absolute;
+  left: 0.42em;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 82, 8, 0.18);
+  border-top-color: rgba(139, 82, 8, 0.92);
+  animation: command-palette-ai-spin 0.9s linear infinite;
+}
+
+.command-palette-results button[data-command-pending] {
+  opacity: 0.88;
+}
+
+.command-palette-results button[data-command-pending] .command-palette-command-desc {
+  color: #9a5c09;
+}
+
+@keyframes command-palette-ai-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .command-palette-command-desc {

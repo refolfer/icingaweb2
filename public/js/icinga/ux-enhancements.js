@@ -60,7 +60,13 @@
     };
     var commandPaletteState = {
         commands: [],
-        activeIndex: 0
+        activeIndex: 0,
+        aiCommand: null,
+        aiError: false,
+        aiLoading: false,
+        aiQuery: '',
+        requestId: 0,
+        requestTimer: null
     };
     var operatorAuditState = {
         filter: 'all'
@@ -4669,6 +4675,12 @@
         return document.getElementById('command-palette-results');
     }
 
+    function getCommandPaletteAssistantEndpoint() {
+        var modal = getCommandPalette();
+
+        return modal ? (modal.getAttribute('data-assistant-endpoint') || '') : '';
+    }
+
     function isCommandPaletteOpen() {
         var modal = getCommandPalette();
 
@@ -4695,8 +4707,168 @@
             category: category,
             description: description || '',
             value: value || '',
-            element: element || null
+            element: element || null,
+            badge: '',
+            badgeClass: '',
+            pending: false
         };
+    }
+
+    function getCommandPaletteAiCommand(query) {
+        if (! query || commandPaletteState.aiQuery !== query.trim()) {
+            return null;
+        }
+
+        return commandPaletteState.aiCommand;
+    }
+
+    function buildPendingCommandPaletteAiCommand(query, state) {
+        var category = getCommandPaletteLabel('ai-category-label', 'AI Search');
+        var label = getCommandPaletteLabel('ai-pending-label', 'AI Search');
+        var description = getCommandPaletteLabel('ai-pending-desc', 'Waiting for AI interpretation...');
+        var command = makeCommand('aiSearchPending', label + ': "' + query.trim() + '"', category, description, query.trim());
+
+        command.badge = 'AI';
+        command.badgeClass = state === 'ready'
+            ? 'command-palette-badge--ai command-palette-badge--ready'
+            : 'command-palette-badge--ai command-palette-badge--waiting command-palette-badge--loading';
+        command.pending = state !== 'ready';
+
+        if (state === 'error') {
+            command.description = getCommandPaletteLabel(
+                'ai-unavailable-desc',
+                'AI did not return a direct result yet. You can still use Global Search.'
+            );
+        }
+
+        return command;
+    }
+
+    function buildCommandPaletteAiCommand(query, data) {
+        var action = null;
+        var actionIndex;
+        var value = '';
+        var label = getCommandPaletteLabel('ai-command-label', 'Open AI result');
+        var category = getCommandPaletteLabel('ai-category-label', 'AI Search');
+        var description = getCommandPaletteLabel('ai-command-desc', 'Open the AI-interpreted result for this query');
+
+        if (data && data.actions && data.actions.length) {
+            for (actionIndex = 0; actionIndex < data.actions.length; actionIndex += 1) {
+                if (data.actions[actionIndex] && data.actions[actionIndex].url) {
+                    action = data.actions[actionIndex];
+                    break;
+                }
+            }
+        }
+
+        value = action && action.url
+            ? action.url
+            : (data && (data.openUrl || data.searchUrl || data.reportUrl) ? (data.openUrl || data.searchUrl || data.reportUrl) : '');
+
+        if (! value) {
+            return buildPendingCommandPaletteAiCommand(query, 'error');
+        }
+
+        if (action && action.label) {
+            label = action.label;
+        } else if (query && query.trim()) {
+            label = label + ': "' + query.trim() + '"';
+        }
+
+        if (data && data.message) {
+            description = data.message;
+        }
+
+        var command = makeCommand('navigateAbsolute', label, category, description, value);
+        command.badge = 'AI';
+        command.badgeClass = 'command-palette-badge--ai';
+
+        return command;
+    }
+
+    function shouldUseAiCommandPalette(query) {
+        return Boolean(query && query.trim().length >= 3 && getCommandPaletteAssistantEndpoint());
+    }
+
+    function scheduleCommandPaletteAiLookup(query) {
+        var trimmedQuery = (query || '').trim();
+        var requestId;
+
+        if (commandPaletteState.requestTimer !== null) {
+            window.clearTimeout(commandPaletteState.requestTimer);
+            commandPaletteState.requestTimer = null;
+        }
+
+        if (! shouldUseAiCommandPalette(trimmedQuery)) {
+            commandPaletteState.aiCommand = null;
+            commandPaletteState.aiError = false;
+            commandPaletteState.aiLoading = false;
+            commandPaletteState.aiQuery = '';
+            commandPaletteState.requestId += 1;
+            return;
+        }
+
+        if (commandPaletteState.aiQuery === trimmedQuery
+            && (commandPaletteState.aiCommand !== null || commandPaletteState.aiLoading || commandPaletteState.aiError)
+        ) {
+            return;
+        }
+
+        commandPaletteState.aiCommand = buildPendingCommandPaletteAiCommand(trimmedQuery, 'loading');
+        commandPaletteState.aiError = false;
+        commandPaletteState.aiLoading = true;
+        commandPaletteState.aiQuery = trimmedQuery;
+        requestId = commandPaletteState.requestId + 1;
+        commandPaletteState.requestId = requestId;
+        renderCommandPaletteResults();
+
+        commandPaletteState.requestTimer = window.setTimeout(function () {
+            window.fetch(getCommandPaletteAssistantEndpoint(), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'message=' + encodeURIComponent(trimmedQuery)
+                    + '&history=' + encodeURIComponent('[]')
+            }).then(function (response) {
+                if (! response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                return response.json();
+            }).then(function (payload) {
+                var currentInput = getCommandPaletteInput();
+                var data = payload && payload.data ? payload.data : null;
+
+                if (commandPaletteState.requestId !== requestId) {
+                    return;
+                }
+
+                commandPaletteState.aiLoading = false;
+                commandPaletteState.aiError = false;
+                commandPaletteState.aiCommand = buildCommandPaletteAiCommand(trimmedQuery, data);
+
+                if (currentInput && currentInput.value.trim() === trimmedQuery) {
+                    renderCommandPaletteResults();
+                }
+            }).catch(function () {
+                var currentInput = getCommandPaletteInput();
+
+                if (commandPaletteState.requestId !== requestId) {
+                    return;
+                }
+
+                commandPaletteState.aiLoading = false;
+                commandPaletteState.aiError = true;
+                commandPaletteState.aiCommand = buildPendingCommandPaletteAiCommand(trimmedQuery, 'error');
+
+                if (currentInput && currentInput.value.trim() === trimmedQuery) {
+                    renderCommandPaletteResults();
+                }
+            });
+        }, 220);
     }
 
     function getStaticCommands() {
@@ -5182,6 +5354,7 @@
     }
 
     function buildCommandPaletteCommands(query) {
+        var trimmedQuery = (query || '').trim();
         var normalizedQuery = normalizeText(query || '').toLowerCase();
         var commands = getStaticCommands()
             .concat(getCurrentObjectCommands())
@@ -5209,14 +5382,20 @@
             return a.label.localeCompare(b.label);
         });
 
-        if (normalizedQuery.length) {
+        if (trimmedQuery.length) {
             commands.unshift(makeCommand(
                 'search',
-                searchLabel + ' "' + query.trim() + '"',
+                searchLabel + ' "' + trimmedQuery + '"',
                 getCommandPaletteLabel('actions-label', 'Actions'),
                 'Run global search',
-                query.trim()
+                trimmedQuery
             ));
+
+            var aiCommand = getCommandPaletteAiCommand(trimmedQuery);
+
+            if (aiCommand) {
+                commands.unshift(aiCommand);
+            }
         }
 
         return commands.slice(0, COMMAND_PALETTE_RESULT_LIMIT);
@@ -5254,9 +5433,14 @@
         commandPaletteState.commands = buildCommandPaletteCommands(query);
         results.innerHTML = commandPaletteState.commands.map(function (command, index) {
             return '<li role="presentation">'
-                + '<button type="button" role="option" data-command-index="' + String(index) + '">'
+                + '<button type="button" role="option" data-command-index="' + String(index) + '"'
+                + (command.pending ? ' data-command-pending="y" aria-disabled="true"' : '')
+                + '>'
                 + '<span class="command-palette-command-main">'
-                + '<strong>' + escapeHtml(command.label) + '</strong>'
+                + '<strong>'
+                + escapeHtml(command.label)
+                + (command.badge ? '<span class="command-palette-badge ' + escapeHtml(command.badgeClass || 'command-palette-badge--ai') + '">' + escapeHtml(command.badge) + '</span>' : '')
+                + '</strong>'
                 + '<small>' + escapeHtml(command.category) + '</small>'
                 + '</span>'
                 + '<span class="command-palette-command-desc">' + escapeHtml(command.description) + '</span>'
@@ -5270,6 +5454,7 @@
         }
 
         setCommandPaletteActive(0);
+        scheduleCommandPaletteAiLookup(query);
     }
 
     function openCommandPalette(prefill) {
@@ -5318,6 +5503,10 @@
 
         if (command.type === 'search') {
             navigateTo('search?q=' + encodeURIComponent(command.value));
+            return;
+        }
+
+        if (command.type === 'aiSearchPending') {
             return;
         }
 
