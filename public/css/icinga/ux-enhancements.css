@@ -2915,6 +2915,16 @@ body.ux-density-wallboard .tactical-donut {
   margin-top: 0.85rem;
 }
 
+.assistant-followup-group__question {
+  margin-top: 0.9rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+.assistant-followups--group {
+  margin-top: 0.45rem;
+}
+
 .assistant-followup {
   appearance: none;
   border: 1px solid rgba(0, 0, 0, 0.1);

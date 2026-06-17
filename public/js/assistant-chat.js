@@ -68,18 +68,47 @@
         }
 
         var label = el('div', 'assistant-response__meta-label', config.labels.followUp || 'Follow-up');
-        var list = el('div', 'assistant-followups');
         node.appendChild(label);
-        node.appendChild(list);
 
         for (var i = 0; i < followUps.length; i++) {
-            (function (text) {
-                var button = el('button', 'assistant-followup', text);
-                button.type = 'button';
-                button.addEventListener('click', function () {
-                    onClick(text);
-                });
-                list.appendChild(button);
+            if (typeof followUps[i] === 'string') {
+                (function (text) {
+                    var list = el('div', 'assistant-followups');
+                    var button = el('button', 'assistant-followup', text);
+                    button.type = 'button';
+                    button.addEventListener('click', function () {
+                        onClick(text, false);
+                    });
+                    list.appendChild(button);
+                    node.appendChild(list);
+                })(followUps[i]);
+                continue;
+            }
+
+            if (! followUps[i] || typeof followUps[i] !== 'object' || ! followUps[i].question || ! followUps[i].options) {
+                continue;
+            }
+
+            (function (group) {
+                var question = el('div', 'assistant-followup-group__question', group.question);
+                var list = el('div', 'assistant-followups assistant-followups--group');
+                node.appendChild(question);
+                node.appendChild(list);
+
+                for (var j = 0; j < group.options.length; j++) {
+                    if (! group.options[j] || ! group.options[j].message) {
+                        continue;
+                    }
+
+                    (function (option) {
+                        var button = el('button', 'assistant-followup', option.label || option.message);
+                        button.type = 'button';
+                        button.addEventListener('click', function () {
+                            onClick(option.message, true);
+                        });
+                        list.appendChild(button);
+                    })(group.options[j]);
+                }
             })(followUps[i]);
         }
     }
@@ -108,6 +137,36 @@
             'message=' + encodeURIComponent(message) +
             '&history=' + encodeURIComponent(JSON.stringify(history || []))
         );
+    }
+
+    function appendSuggestionToInput(input, text) {
+        var current;
+        var normalizedCurrent;
+        var normalizedText;
+
+        if (! input) {
+            return;
+        }
+
+        current = (input.value || '').trim();
+        normalizedCurrent = current.toLowerCase();
+        normalizedText = (text || '').trim();
+
+        if (! normalizedText) {
+            return;
+        }
+
+        if (! current) {
+            input.value = normalizedText;
+            return;
+        }
+
+        if (normalizedCurrent.indexOf(normalizedText.toLowerCase()) !== -1) {
+            input.value = current;
+            return;
+        }
+
+        input.value = current + '\n' + normalizedText;
     }
 
     function initAssistant(root) {
@@ -175,7 +234,7 @@
 
             if (data && data.followUps && data.followUps.length) {
                 renderFollowUps(pending.meta, data.followUps, config, function (text) {
-                    input.value = text;
+                    appendSuggestionToInput(input, text);
                     input.focus();
                 });
             }

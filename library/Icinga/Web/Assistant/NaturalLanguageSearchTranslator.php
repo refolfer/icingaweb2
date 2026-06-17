@@ -138,7 +138,7 @@ class NaturalLanguageSearchTranslator
      *     actions: array<int, array<string, mixed>>,
      *     reportUrl: ?string,
      *     chart: ?array<string, mixed>,
-     *     followUps: array<int, string>,
+     *     followUps: array<int, mixed>,
      *     target: ?string,
      *     state: ?string,
      *     confidence: string,
@@ -223,7 +223,10 @@ class NaturalLanguageSearchTranslator
         $query = $route !== null ? null : $this->buildQuery($tokens, $target, $state);
         $confidence = $this->confidence($target, $state, $tokens, $query);
         $mode = $this->detectMode($normalized, $route !== null, $query !== null);
-        $reportUrl = $this->buildReportUrl($mode, $route, $context);
+        if ($mode !== 'chart' && $this->isReportConversation($normalized, $context)) {
+            $mode = 'report';
+        }
+        $reportUrl = $this->buildReportUrl($mode, $route, $context, $message, $target, $state);
         $reply = $this->buildReply($message, $query, $target, $state, $tokens, $route, $mode);
 
         return [
@@ -235,7 +238,7 @@ class NaturalLanguageSearchTranslator
             'actions'    => $this->buildActions($route, $query, $reportUrl),
             'reportUrl'  => $reportUrl,
             'chart'      => null,
-            'followUps'  => $this->buildFollowUps($normalized, $target, $state, $query, $route),
+            'followUps'  => $this->buildFollowUps($normalized, $target, $state, $query, $route, $context),
             'target'     => $target,
             'state'      => $state,
             'confidence' => $confidence,
@@ -323,6 +326,11 @@ class NaturalLanguageSearchTranslator
             $tokens = $this->extractTokens($query, $this->normalize($query), $target, $state);
         }
 
+        $reportContext = $this->isReportConversation($normalizedMessage, $context);
+        if ($mode !== 'chart' && $mode !== 'report' && $reportContext) {
+            $mode = 'report';
+        }
+
         $route = $this->buildRouteIntent($normalizedMessage, $target, $state);
         if ($route !== null) {
             $routePath = $route['path'];
@@ -338,13 +346,36 @@ class NaturalLanguageSearchTranslator
         }
         $reportUrl = $this->normalizeNullableRoute($reportUrl);
         if ($reportUrl === null) {
-            $reportUrl = $this->buildReportUrl($mode, $route !== null ? $route : ($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null), $context);
+            $reportUrl = $this->buildReportUrl(
+                $mode,
+                $route !== null ? $route : ($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null),
+                $context,
+                $message,
+                $target,
+                $state
+            );
         }
         if (empty($actions)) {
             $actions = $this->buildActions($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null, $query !== '' ? $query : null, $reportUrl);
         }
-        if (empty($followUps)) {
-            $followUps = $this->buildFollowUps($normalizedMessage, $target, $state, $query !== '' ? $query : null, $routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null);
+        if ($reportContext) {
+            $followUps = $this->buildFollowUps(
+                $normalizedMessage,
+                $target,
+                $state,
+                $query !== '' ? $query : null,
+                $routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null,
+                $context
+            );
+        } elseif (empty($followUps)) {
+            $followUps = $this->buildFollowUps(
+                $normalizedMessage,
+                $target,
+                $state,
+                $query !== '' ? $query : null,
+                $routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null,
+                $context
+            );
         }
 
         return [
@@ -398,6 +429,7 @@ class NaturalLanguageSearchTranslator
 
         if ($mode === 'report') {
             $reply = 'Mogę przygotować raport dla ' . implode(' ', $pieces) . '.';
+            $reply .= ' Mogę przeprowadzić Cię przez pola raportu: Name, Timeframe, Report, Filter, Breakdown i SLA Visualization.';
         } else {
             $reply = is_array($route) && isset($route['path'])
                 ? 'Rozumiem to jako otwarcie ' . implode(' ', $pieces) . '.'
@@ -784,7 +816,7 @@ class NaturalLanguageSearchTranslator
      *
      * @return ?string
      */
-    private function buildReportUrl($mode, $route, array $context)
+    private function buildReportUrl($mode, $route, array $context, $message = '', $target = null, $state = null)
     {
         if ($mode !== 'report') {
             return null;
@@ -794,25 +826,38 @@ class NaturalLanguageSearchTranslator
             return null;
         }
 
-        if (! is_array($route) || ! isset($route['path'])) {
-            return null;
+        $reportSpec = $this->extractReportSpec($message, $route, $context, $target, $state);
+        $query = [];
+
+        if (! empty($reportSpec['report'])) {
+            $query['report'] = $reportSpec['report'];
+        }
+        if (! empty($reportSpec['name'])) {
+            $query['name'] = $reportSpec['name'];
+        }
+        if (! empty($reportSpec['timeframe_name'])) {
+            $query['timeframe_name'] = $reportSpec['timeframe_name'];
+        }
+        if (! empty($reportSpec['filter'])) {
+            $query['filter'] = $reportSpec['filter'];
+        }
+        if (! empty($reportSpec['breakdown'])) {
+            $query['breakdown'] = $reportSpec['breakdown'];
+        }
+        if (! empty($reportSpec['sla_chart'])) {
+            $query['sla_chart'] = $reportSpec['sla_chart'];
+        }
+        if (! empty($reportSpec['outage_object_type'])) {
+            $query['outage_object_type'] = $reportSpec['outage_object_type'];
+        }
+        if (! empty($reportSpec['outage_filter'])) {
+            $query['outage_filter'] = $reportSpec['outage_filter'];
+        }
+        if (! empty($reportSpec['outage_service_state'])) {
+            $query['outage_service_state'] = $reportSpec['outage_service_state'];
         }
 
-        $filter = null;
-        $report = null;
-        if ($route['path'] === 'icingadb/hosts') {
-            $filter = 'host.state.is_problem=y';
-            $report = 'host';
-        } elseif ($route['path'] === 'icingadb/services/grid') {
-            $filter = 'service.state.is_problem=y';
-            $report = 'service';
-        }
-
-        if ($filter === null || $report === null) {
-            return null;
-        }
-
-        return 'reporting/reports/new?report=' . rawurlencode($report) . '&filter=' . rawurlencode($filter);
+        return 'assistant/report' . (empty($query) ? '' : '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986));
     }
 
     /**
@@ -854,24 +899,519 @@ class NaturalLanguageSearchTranslator
      * @param ?string $query
      * @param ?array{path:string,params:array<string,mixed>} $route
      *
-     * @return array<int, string>
+     * @return array<int, mixed>
      */
-    private function buildFollowUps($normalized, $target, $state, $query, $route)
+    private function buildFollowUps($normalized, $target, $state, $query, $route, array $context = [])
     {
         $followUps = [];
+        $reportContext = $this->isReportConversation($normalized, $context);
+
         if ($route === null && $query === null) {
             $followUps[] = 'Czy chcesz hosty, serwisy, czy grupy obiektów?';
         }
 
-        if ($this->hasAnyWord($this->foldText($normalized), ['raport', 'zestawienie']) && $route === null) {
-            $followUps[] = 'Mam przygotować raport dla hostów czy serwisów?';
+        if ($reportContext && $route === null) {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jaki typ raportu chcesz przygotować?',
+                [
+                    $this->makeFollowUpOption('Host SLA Report', 'Ustaw Report na Host SLA Report.'),
+                    $this->makeFollowUpOption('Service SLA Report', 'Ustaw Report na Service SLA Report.'),
+                    $this->makeFollowUpOption('Outage Report', 'Ustaw Report na Outage Report (Icinga DB).'),
+                ]
+            );
         }
 
         if ($target !== null && $state === null && $route === null && $query !== null) {
             $followUps[] = 'Chcesz zawęzić to do stanu krytycznego, warning albo down?';
         }
 
-        return array_values(array_unique($followUps));
+        if ($reportContext) {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jak ma się nazywać raport?',
+                $this->buildReportNameOptions($target, $state)
+            );
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jaki Timeframe mam ustawić?',
+                [
+                    $this->makeFollowUpOption('Last 24 hours', 'Ustaw Timeframe na Last 24 hours.'),
+                    $this->makeFollowUpOption('Last 7 days', 'Ustaw Timeframe na Last 7 days.'),
+                    $this->makeFollowUpOption('Last 30 days', 'Ustaw Timeframe na Last 30 days.'),
+                ]
+            );
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jaki Filter zastosować?',
+                [
+                    $this->makeFollowUpOption('Bez filtra', 'Nie ustawiaj Filter.'),
+                    $this->makeFollowUpOption('hostgroup.name=linux-servers', 'Ustaw Filter na hostgroup.name=linux-servers.'),
+                    $this->makeFollowUpOption('servicegroup.name=core-services', 'Ustaw Filter na servicegroup.name=core-services.'),
+                ]
+            );
+            $followUps[] = $this->makeFollowUpGroup(
+                'Czy chcesz Breakdown?',
+                [
+                    $this->makeFollowUpOption('Bez breakdown', 'Nie ustawiaj Breakdown.'),
+                    $this->makeFollowUpOption('Hour', 'Ustaw Breakdown na hour.'),
+                    $this->makeFollowUpOption('Day', 'Ustaw Breakdown na day.'),
+                    $this->makeFollowUpOption('Week', 'Ustaw Breakdown na week.'),
+                    $this->makeFollowUpOption('Month', 'Ustaw Breakdown na month.'),
+                ]
+            );
+            $followUps[] = $this->makeFollowUpGroup(
+                'Czy ustawić SLA Visualization?',
+                [
+                    $this->makeFollowUpOption('Tabela', 'Ustaw SLA Visualization na table.'),
+                    $this->makeFollowUpOption('Bars', 'Ustaw SLA Visualization na horizontal bars.'),
+                    $this->makeFollowUpOption('Columns', 'Ustaw SLA Visualization na columns.'),
+                    $this->makeFollowUpOption('Balance', 'Ustaw SLA Visualization na availability balance columns.'),
+                    $this->makeFollowUpOption('Pie chart', 'Ustaw SLA Visualization na pie chart.'),
+                ]
+            );
+        }
+
+        return $this->uniqueFollowUps($followUps);
+    }
+
+    /**
+     * @param ?string $target
+     * @param ?string $state
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildReportNameOptions($target, $state)
+    {
+        $options = [
+            $this->makeFollowUpOption('Nadaj nazwę automatycznie', 'Nadaj raportowi automatyczną nazwę.'),
+        ];
+
+        if ($target === 'host' && in_array($state, ['problem', 'down'], true)) {
+            $options[] = $this->makeFollowUpOption(
+                'Raport z problemów hostów',
+                'Ustaw Name na "Raport z problemów hostów".'
+            );
+        }
+
+        if ($target === 'service' || $state === 'critical' || $state === 'warning') {
+            $options[] = $this->makeFollowUpOption(
+                'Raport SLA serwisów',
+                'Ustaw Name na "Raport SLA serwisów".'
+            );
+        }
+
+        $options[] = $this->makeFollowUpOption('SLA - 7 dni', 'Ustaw Name na "SLA - 7 dni".');
+        $options[] = $this->makeFollowUpOption('Outage - prod', 'Ustaw Name na "Outage - prod".');
+
+        return $options;
+    }
+
+    /**
+     * @param string $normalized
+     * @param array<string, mixed> $context
+     *
+     * @return bool
+     */
+    private function isReportConversation($normalized, array $context = [])
+    {
+        $folded = $this->foldText($normalized);
+        if ($this->hasAnyWord($folded, ['raport', 'report', 'zestawienie', 'sla'])) {
+            return true;
+        }
+
+        $historyHasReport = $this->historyHasReportContext($context);
+        if (! $historyHasReport) {
+            return false;
+        }
+
+        if ($this->hasReportFollowUpSignal($folded)) {
+            return true;
+        }
+
+        return mb_strlen(trim($folded)) <= 48;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return bool
+     */
+    private function historyHasReportContext(array $context)
+    {
+        if (empty($context['history']) || ! is_array($context['history'])) {
+            return false;
+        }
+
+        $recentHistory = array_slice($context['history'], -6);
+        foreach ($recentHistory as $entry) {
+            if (! is_array($entry) || empty($entry['content'])) {
+                continue;
+            }
+
+            $content = $this->foldText($this->normalize((string) $entry['content']));
+            if ($this->hasAnyWord($content, ['raport', 'report', 'zestawienie', 'sla'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $normalized
+     *
+     * @return bool
+     */
+    private function hasReportFollowUpSignal($normalized)
+    {
+        if ($normalized === '') {
+            return false;
+        }
+
+        if ($this->hasAnyWord($normalized, ['timeframe', 'breakdown', 'template'])) {
+            return true;
+        }
+
+        if (strpos($normalized, 'sla visualization') !== false) {
+            return true;
+        }
+
+        if (strpos($normalized, 'ustaw report') !== false) {
+            return true;
+        }
+
+        if (strpos($normalized, 'ustaw filter') !== false || strpos($normalized, 'nie ustawiaj filter') !== false) {
+            return true;
+        }
+
+        if (strpos($normalized, 'nadaj raportowi') !== false) {
+            return true;
+        }
+
+        if (preg_match('/\blast\s+\d+\s+(hours|days|weeks|months)\b/u', $normalized)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $message
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     * @param array<string, mixed> $context
+     * @param ?string $target
+     * @param ?string $state
+     *
+     * @return array<string, string>
+     */
+    private function extractReportSpec($message, $route, array $context, $target, $state)
+    {
+        $raw = $this->collectReportSourceText($message, $context);
+        $normalized = $this->foldText($this->normalize($raw));
+
+        $report = $this->extractReportType($normalized, $route, $target);
+        $timeframe = $this->extractTimeframeName($normalized);
+        $filter = $this->extractExplicitReportSetting($raw, 'Filter');
+        $breakdown = $this->extractBreakdown($normalized);
+        $slaChart = $this->extractSlaChart($normalized);
+        $name = $this->extractReportName($raw, $report, $timeframe);
+
+        if ($filter === null && strpos($normalized, 'nie ustawiaj filter') === false) {
+            $filter = $this->inferReportFilter($route, $target, $state, $report);
+        }
+
+        $spec = [
+            'report' => $report,
+            'name' => $name,
+            'timeframe_name' => $timeframe,
+            'filter' => $filter,
+            'breakdown' => $breakdown,
+            'sla_chart' => $report === 'outage' ? null : $slaChart,
+            'outage_object_type' => $report === 'outage' ? $this->inferOutageObjectType($target) : null,
+            'outage_filter' => $report === 'outage' ? $filter : null,
+            'outage_service_state' => $report === 'outage' ? $this->inferOutageServiceState($state) : null,
+        ];
+
+        return array_filter($spec, function ($value) {
+            return $value !== null && $value !== '';
+        });
+    }
+
+    /**
+     * @param string $message
+     * @param array<string, mixed> $context
+     *
+     * @return string
+     */
+    private function collectReportSourceText($message, array $context)
+    {
+        $parts = [trim((string) $message)];
+        if (! empty($context['history']) && is_array($context['history'])) {
+            foreach (array_slice($context['history'], -6) as $entry) {
+                if (! is_array($entry) || empty($entry['content'])) {
+                    continue;
+                }
+
+                $parts[] = trim((string) $entry['content']);
+            }
+        }
+
+        return implode("\n", array_filter($parts));
+    }
+
+    /**
+     * @param string $normalized
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     * @param ?string $target
+     *
+     * @return string
+     */
+    private function extractReportType($normalized, $route, $target)
+    {
+        if (strpos($normalized, 'outage report') !== false) {
+            return 'outage';
+        }
+
+        if (strpos($normalized, 'service sla report') !== false) {
+            return 'service';
+        }
+
+        if (strpos($normalized, 'host sla report') !== false) {
+            return 'host';
+        }
+
+        if (strpos($normalized, 'outage') !== false) {
+            return 'outage';
+        }
+
+        if (is_array($route) && isset($route['path'])) {
+            if ($route['path'] === 'icingadb/services/grid') {
+                return 'service';
+            }
+
+            if ($route['path'] === 'icingadb/hosts') {
+                return 'host';
+            }
+        }
+
+        if ($target === 'service') {
+            return 'service';
+        }
+
+        return 'host';
+    }
+
+    /**
+     * @param string $normalized
+     *
+     * @return ?string
+     */
+    private function extractTimeframeName($normalized)
+    {
+        $mapping = [
+            'last 24 hours' => '25 Hours',
+            'last 7 days' => 'One Week',
+            'last 30 days' => 'One Month',
+            '25 hours' => '25 Hours',
+            'one week' => 'One Week',
+            'one month' => 'One Month',
+            'current day' => 'Current Day',
+            'last day' => 'Last Day',
+            'current week' => 'Current Week',
+            'last week' => 'Last Week',
+            'current month' => 'Current Month',
+            'last month' => 'Last Month',
+            'current year' => 'Current Year',
+            'last year' => 'Last Year',
+        ];
+
+        foreach ($mapping as $needle => $timeframe) {
+            if (strpos($normalized, $needle) !== false) {
+                return $timeframe;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $raw
+     * @param string $field
+     *
+     * @return ?string
+     */
+    private function extractExplicitReportSetting($raw, $field)
+    {
+        if (preg_match('/Ustaw\s+' . preg_quote($field, '/') . '\s+na\s+"([^"]+)"/iu', $raw, $match)) {
+            return trim($match[1]);
+        }
+
+        if (preg_match('/Ustaw\s+' . preg_quote($field, '/') . '\s+na\s+([^\n]+)/iu', $raw, $match)) {
+            return rtrim(trim($match[1]), " \t\n\r\0\x0B.");
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $raw
+     * @param string $report
+     * @param ?string $timeframe
+     *
+     * @return ?string
+     */
+    private function extractReportName($raw, $report, $timeframe)
+    {
+        $explicit = $this->extractExplicitReportSetting($raw, 'Name');
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
+        if (preg_match('/Nadaj raportowi automatyczn[aą]\s+nazw[eę]/iu', $raw)) {
+            return $this->buildAutomaticReportName($report, $timeframe);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $report
+     * @param ?string $timeframe
+     *
+     * @return string
+     */
+    private function buildAutomaticReportName($report, $timeframe)
+    {
+        switch ($report) {
+            case 'service':
+                $prefix = 'Service SLA';
+                break;
+            case 'outage':
+                $prefix = 'Outage Report';
+                break;
+            case 'host':
+            default:
+                $prefix = 'Host SLA';
+                break;
+        }
+
+        return $timeframe !== null ? $prefix . ' - ' . $timeframe : $prefix;
+    }
+
+    /**
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     * @param ?string $target
+     * @param ?string $state
+     * @param string $report
+     *
+     * @return ?string
+     */
+    private function inferReportFilter($route, $target, $state, $report)
+    {
+        if ($report === 'outage') {
+            if ($target === 'service' && ($state === 'problem' || $state === 'critical' || $state === 'warning')) {
+                return 'service.state.is_problem=y';
+            }
+
+            if ($target === 'host' && ($state === 'problem' || $state === 'down')) {
+                return 'host.state.is_problem=y';
+            }
+        }
+
+        if (is_array($route) && isset($route['path'])) {
+            if ($route['path'] === 'icingadb/hosts') {
+                return 'host.state.is_problem=y';
+            }
+
+            if ($route['path'] === 'icingadb/services/grid') {
+                return 'service.state.is_problem=y';
+            }
+        }
+
+        if ($target === 'service' && in_array($state, ['problem', 'critical', 'warning'], true)) {
+            return 'service.state.is_problem=y';
+        }
+
+        if ($target === 'host' && in_array($state, ['problem', 'down'], true)) {
+            return 'host.state.is_problem=y';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $normalized
+     *
+     * @return ?string
+     */
+    private function extractBreakdown($normalized)
+    {
+        if (strpos($normalized, 'nie ustawiaj breakdown') !== false || strpos($normalized, 'bez breakdown') !== false) {
+            return 'none';
+        }
+
+        foreach (['hour', 'day', 'week', 'month'] as $value) {
+            if (strpos($normalized, 'ustaw breakdown na ' . $value) !== false || preg_match('/\bbreakdown\b.*\b' . $value . '\b/u', $normalized)) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $normalized
+     *
+     * @return ?string
+     */
+    private function extractSlaChart($normalized)
+    {
+        if (strpos($normalized, 'sla visualization na table') !== false || strpos($normalized, 'tabela') !== false) {
+            return 'table';
+        }
+
+        if (strpos($normalized, 'sla visualization na horizontal bars') !== false || preg_match('/\bbars\b/u', $normalized)) {
+            return 'bars';
+        }
+
+        if (strpos($normalized, 'sla visualization na availability balance columns') !== false || strpos($normalized, 'balance') !== false) {
+            return 'balance_columns';
+        }
+
+        if (strpos($normalized, 'sla visualization na columns') !== false) {
+            return 'columns';
+        }
+
+        if (strpos($normalized, 'sla visualization na pie chart') !== false || strpos($normalized, 'pie chart') !== false) {
+            return 'gauge';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param ?string $target
+     *
+     * @return string
+     */
+    private function inferOutageObjectType($target)
+    {
+        if ($target === 'service') {
+            return 'service';
+        }
+
+        if ($target === 'host') {
+            return 'host';
+        }
+
+        return 'all';
+    }
+
+    /**
+     * @param ?string $state
+     *
+     * @return string
+     */
+    private function inferOutageServiceState($state)
+    {
+        return $state === 'warning' ? 'warning' : 'critical';
     }
 
     /**
@@ -905,23 +1445,103 @@ class NaturalLanguageSearchTranslator
     /**
      * @param array<int, mixed> $followUps
      *
-     * @return array<int, string>
+     * @return array<int, mixed>
      */
     private function normalizeFollowUps(array $followUps)
     {
         $normalized = [];
         foreach ($followUps as $followUp) {
-            if (! is_string($followUp)) {
+            if (is_string($followUp)) {
+                $followUp = trim($followUp);
+                if ($followUp !== '' && ! in_array($followUp, $normalized, true)) {
+                    $normalized[] = $followUp;
+                }
                 continue;
             }
 
-            $followUp = trim($followUp);
-            if ($followUp !== '' && ! in_array($followUp, $normalized, true)) {
-                $normalized[] = $followUp;
+            if (! is_array($followUp) || empty($followUp['question']) || empty($followUp['options']) || ! is_array($followUp['options'])) {
+                continue;
+            }
+
+            $question = trim((string) $followUp['question']);
+            $options = [];
+            foreach ($followUp['options'] as $option) {
+                if (! is_array($option)) {
+                    continue;
+                }
+
+                $label = isset($option['label']) ? trim((string) $option['label']) : '';
+                $message = isset($option['message']) ? trim((string) $option['message']) : '';
+                if ($message === '') {
+                    continue;
+                }
+
+                $options[] = [
+                    'label' => $label !== '' ? $label : $message,
+                    'message' => $message,
+                ];
+            }
+
+            if ($question !== '' && ! empty($options)) {
+                $normalized[] = [
+                    'question' => $question,
+                    'options' => $options,
+                ];
             }
         }
 
         return $normalized;
+    }
+
+    /**
+     * @param string $question
+     * @param array<int, array<string, string>> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function makeFollowUpGroup($question, array $options)
+    {
+        return [
+            'question' => $question,
+            'options' => $options,
+        ];
+    }
+
+    /**
+     * @param string $label
+     * @param string $message
+     *
+     * @return array<string, string>
+     */
+    private function makeFollowUpOption($label, $message)
+    {
+        return [
+            'label' => $label,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @param array<int, mixed> $followUps
+     *
+     * @return array<int, mixed>
+     */
+    private function uniqueFollowUps(array $followUps)
+    {
+        $unique = [];
+        $seen = [];
+
+        foreach ($this->normalizeFollowUps($followUps) as $followUp) {
+            $key = \Icinga\Util\Json::encode($followUp);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $unique[] = $followUp;
+        }
+
+        return $unique;
     }
 
     /**
