@@ -89,6 +89,54 @@
         node.appendChild(link);
     }
 
+    function pickPrimaryAction(data) {
+        var actions;
+        var i;
+        var fallback = null;
+
+        if (! data) {
+            return null;
+        }
+
+        actions = data.actions && data.actions.length ? data.actions : [];
+        for (i = 0; i < actions.length; i++) {
+            if (! actions[i] || ! actions[i].url) {
+                continue;
+            }
+
+            if (actions[i].type === 'report' && data.mode === 'report') {
+                return actions[i];
+            }
+
+            if (fallback === null) {
+                fallback = actions[i];
+            }
+        }
+
+        if (fallback !== null) {
+            return fallback;
+        }
+
+        if (data.openUrl) {
+            return {
+                type: data.reportUrl && data.mode === 'report' ? 'report' : (data.searchUrl ? 'search' : 'open'),
+                label: data.reportUrl && data.mode === 'report'
+                    ? null
+                    : (data.searchUrl ? null : null),
+                url: data.reportUrl && data.mode === 'report' ? data.reportUrl : data.openUrl
+            };
+        }
+
+        if (data.reportUrl) {
+            return {
+                type: 'report',
+                url: data.reportUrl
+            };
+        }
+
+        return null;
+    }
+
     function renderFollowUps(node, followUps, config, onClick, input) {
         var rendered = false;
 
@@ -281,6 +329,7 @@
 
         function renderAssistantPayload(pending, data) {
             var reply = data && data.message ? data.message : (config.labels.empty || 'Type a request and I will answer in context.');
+            var primaryAction;
             var actions = null;
             pending.body.textContent = reply;
             clearChildren(pending.meta);
@@ -290,22 +339,10 @@
                 pending.meta.setAttribute('data-assistant-mode', data.mode);
             }
 
-            if (data && data.actions && data.actions.length) {
+            primaryAction = pickPrimaryAction(data);
+            if (primaryAction) {
                 actions = el('div', 'assistant-response__actions');
-                for (var i = 0; i < data.actions.length; i++) {
-                    var action = data.actions[i];
-                    if (! action || ! action.url) {
-                        continue;
-                    }
-                    renderAction(actions, action, config);
-                }
-            } else if (data && data.openUrl) {
-                actions = el('div', 'assistant-response__actions');
-                renderAction(actions, {
-                    type: data.reportUrl ? 'report' : (data.searchUrl ? 'search' : 'open'),
-                    label: data.reportUrl ? (config.labels.openReport || 'Create report') : (data.searchUrl ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result')),
-                    url: data.openUrl
-                }, config);
+                renderAction(actions, primaryAction, config);
             }
 
             if (data && data.followUps && data.followUps.length) {

@@ -2976,6 +2976,26 @@ body.ux-density-wallboard .tactical-donut {
   flex-wrap: wrap;
 }
 
+.assistant-form__submit {
+  min-width: 10rem;
+  min-height: 2.85rem;
+  padding: 0.7rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 150, 191, 0.9);
+  background: linear-gradient(135deg, #0096bf, #0a6d88);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 24px rgba(0, 72, 92, 0.18);
+}
+
+.assistant-form__submit:hover,
+.assistant-form__submit:focus-visible {
+  background: linear-gradient(135deg, #00a8d6, #0c7c99);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 .assistant-form__secondary,
 .assistant-open-search {
   display: inline-flex;

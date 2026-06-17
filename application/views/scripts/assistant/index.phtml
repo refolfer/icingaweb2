@@ -59,8 +59,7 @@ $assistantConfig = [
             data-assistant-input
         ></textarea>
         <div class="assistant-form__actions">
-            <button type="submit" class="button btn-primary" data-assistant-submit><?= $this->translate('Ask') ?></button>
-            <a class="button assistant-form__secondary" href="<?= $this->escape($this->searchUrl) ?>"><?= $this->translate('Open existing search') ?></a>
+            <button type="submit" class="button btn-primary assistant-form__submit" data-assistant-submit><?= $this->translate('Ask') ?></button>
         </div>
     </form>
 
@@ -76,4 +75,4 @@ $assistantConfig = [
     </section>
 </div>
 
-<script type="text/javascript" src="<?= $this->href('js/assistant-chat.js?v=20260617-1') ?>"></script>
+<script type="text/javascript" src="<?= $this->href('js/assistant-chat.js?v=20260617-2') ?>"></script>
