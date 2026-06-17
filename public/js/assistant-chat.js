@@ -47,13 +47,40 @@
         }
     }
 
+    function normalizeSuggestionText(text) {
+        return (text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function inputContainsSuggestion(input, text) {
+        var current;
+
+        if (! input) {
+            return false;
+        }
+
+        current = normalizeSuggestionText(input.value || '');
+        text = normalizeSuggestionText(text);
+
+        if (! current || ! text) {
+            return false;
+        }
+
+        return current.indexOf(text) !== -1;
+    }
+
     function renderAction(node, action, config) {
+        var className;
         if (! action || ! action.url) {
             return;
         }
 
         var label = action.label || (action.type === 'report' ? (config.labels.openReport || 'Create report') : (action.type === 'search' ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result')));
-        var link = el('a', 'button assistant-open-search', label);
+        className = 'button assistant-open-search';
+        if (action.type) {
+            className += ' assistant-open-search--' + action.type;
+        }
+
+        var link = el('a', className, label);
         link.href = action.url;
         link.target = '_top';
         if (action.type) {
@@ -62,22 +89,39 @@
         node.appendChild(link);
     }
 
-    function renderFollowUps(node, followUps, config, onClick) {
+    function renderFollowUps(node, followUps, config, onClick, input) {
+        var rendered = false;
+
         if (! followUps || ! followUps.length) {
             return;
         }
 
-        var label = el('div', 'assistant-response__meta-label', config.labels.followUp || 'Follow-up');
-        node.appendChild(label);
-
         for (var i = 0; i < followUps.length; i++) {
             if (typeof followUps[i] === 'string') {
                 (function (text) {
+                    var label;
                     var list = el('div', 'assistant-followups');
-                    var button = el('button', 'assistant-followup', text);
+                    var button;
+
+                    if (inputContainsSuggestion(input, text)) {
+                        return;
+                    }
+
+                    if (! rendered) {
+                        label = el('div', 'assistant-response__meta-label', config.labels.followUp || 'Follow-up');
+                        node.appendChild(label);
+                        rendered = true;
+                    }
+                    button = el('button', 'assistant-followup', text);
                     button.type = 'button';
                     button.addEventListener('click', function () {
                         onClick(text, false);
+                        if (button.parentNode) {
+                            button.parentNode.removeChild(button);
+                        }
+                        if (! list.children.length && list.parentNode) {
+                            list.parentNode.removeChild(list);
+                        }
                     });
                     list.appendChild(button);
                     node.appendChild(list);
@@ -90,24 +134,56 @@
             }
 
             (function (group) {
+                var visibleOptions = [];
+                var j;
                 var question = el('div', 'assistant-followup-group__question', group.question);
                 var list = el('div', 'assistant-followups assistant-followups--group');
-                node.appendChild(question);
-                node.appendChild(list);
 
-                for (var j = 0; j < group.options.length; j++) {
+                for (j = 0; j < group.options.length; j++) {
                     if (! group.options[j] || ! group.options[j].message) {
                         continue;
                     }
+
+                    if (inputContainsSuggestion(input, group.options[j].message)) {
+                        continue;
+                    }
+
+                    visibleOptions.push(group.options[j]);
+                }
+
+                if (! visibleOptions.length) {
+                    return;
+                }
+
+                if (! rendered) {
+                    node.appendChild(el('div', 'assistant-response__meta-label', config.labels.followUp || 'Follow-up'));
+                    rendered = true;
+                }
+
+                node.appendChild(question);
+                node.appendChild(list);
+
+                for (j = 0; j < visibleOptions.length; j++) {
 
                     (function (option) {
                         var button = el('button', 'assistant-followup', option.label || option.message);
                         button.type = 'button';
                         button.addEventListener('click', function () {
                             onClick(option.message, true);
+                            if (button.parentNode) {
+                                button.parentNode.removeChild(button);
+                            }
+                            if (! list.children.length) {
+                                if (question.parentNode) {
+                                    question.parentNode.removeChild(question);
+                                }
+                                if (list.parentNode) {
+                                    list.parentNode.removeChild(list);
+                                }
+                            }
                         });
                         list.appendChild(button);
-                    })(group.options[j]);
+                    })(visibleOptions[j]);
                 }
             })(followUps[i]);
         }
@@ -178,6 +254,7 @@
         var examples = root.querySelectorAll('[data-assistant-example]');
         var busy = false;
         var history = [];
+        var draftMessage = '';
 
         if (! chat || ! form || ! input) {
             return;
@@ -204,6 +281,7 @@
 
         function renderAssistantPayload(pending, data) {
             var reply = data && data.message ? data.message : (config.labels.empty || 'Type a request and I will answer in context.');
+            var actions = null;
             pending.body.textContent = reply;
             clearChildren(pending.meta);
             pending.meta.appendChild(pending.body);
@@ -213,7 +291,7 @@
             }
 
             if (data && data.actions && data.actions.length) {
-                var actions = el('div', 'assistant-response__actions');
+                actions = el('div', 'assistant-response__actions');
                 for (var i = 0; i < data.actions.length; i++) {
                     var action = data.actions[i];
                     if (! action || ! action.url) {
@@ -221,11 +299,9 @@
                     }
                     renderAction(actions, action, config);
                 }
-                if (actions.children.length) {
-                    pending.meta.appendChild(actions);
-                }
             } else if (data && data.openUrl) {
-                renderAction(pending.meta, {
+                actions = el('div', 'assistant-response__actions');
+                renderAction(actions, {
                     type: data.reportUrl ? 'report' : (data.searchUrl ? 'search' : 'open'),
                     label: data.reportUrl ? (config.labels.openReport || 'Create report') : (data.searchUrl ? (config.labels.openSearch || 'Open search results') : (config.labels.openView || 'Open result')),
                     url: data.openUrl
@@ -235,8 +311,13 @@
             if (data && data.followUps && data.followUps.length) {
                 renderFollowUps(pending.meta, data.followUps, config, function (text) {
                     appendSuggestionToInput(input, text);
+                    draftMessage = input.value;
                     input.focus();
-                });
+                }, input);
+            }
+
+            if (actions && actions.children.length) {
+                pending.meta.appendChild(actions);
             }
         }
 
@@ -250,6 +331,7 @@
                 return;
             }
 
+            draftMessage = text;
             appendMessage(chat, 'user', 'You', text);
             addHistory('user', text);
             setBusy(true);
@@ -262,11 +344,12 @@
                 }
                 renderAssistantPayload(pending, data);
                 setBusy(false);
-                input.value = '';
+                input.value = draftMessage;
                 input.focus();
             }, function () {
                 pending.body.textContent = config.labels.error || 'Unable to reach the assistant.';
                 setBusy(false);
+                input.value = draftMessage;
             });
         }
 
@@ -278,6 +361,7 @@
         for (var i = 0; i < examples.length; i++) {
             examples[i].addEventListener('click', function () {
                 input.value = this.getAttribute('data-assistant-example') || '';
+                draftMessage = input.value;
                 input.focus();
             });
         }

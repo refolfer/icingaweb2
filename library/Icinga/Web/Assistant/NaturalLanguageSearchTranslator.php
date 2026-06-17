@@ -905,19 +905,20 @@ class NaturalLanguageSearchTranslator
     {
         $followUps = [];
         $reportContext = $this->isReportConversation($normalized, $context);
+        $reportType = $this->extractReportType(
+            $this->foldText($this->normalize($this->collectReportSourceText($normalized, $context))),
+            $route,
+            $target
+        );
 
         if ($route === null && $query === null) {
             $followUps[] = 'Czy chcesz hosty, serwisy, czy grupy obiektów?';
         }
 
-        if ($reportContext && $route === null) {
+        if ($reportContext) {
             $followUps[] = $this->makeFollowUpGroup(
                 'Jaki typ raportu chcesz przygotować?',
-                [
-                    $this->makeFollowUpOption('Host SLA Report', 'Ustaw Report na Host SLA Report.'),
-                    $this->makeFollowUpOption('Service SLA Report', 'Ustaw Report na Service SLA Report.'),
-                    $this->makeFollowUpOption('Outage Report', 'Ustaw Report na Outage Report (Icinga DB).'),
-                ]
+                $this->buildReportTypeOptions($context)
             );
         }
 
@@ -932,12 +933,15 @@ class NaturalLanguageSearchTranslator
             );
             $followUps[] = $this->makeFollowUpGroup(
                 'Jaki Timeframe mam ustawić?',
-                [
-                    $this->makeFollowUpOption('Last 24 hours', 'Ustaw Timeframe na Last 24 hours.'),
-                    $this->makeFollowUpOption('Last 7 days', 'Ustaw Timeframe na Last 7 days.'),
-                    $this->makeFollowUpOption('Last 30 days', 'Ustaw Timeframe na Last 30 days.'),
-                ]
+                $this->buildTimeframeOptions($context)
             );
+            $templateOptions = $this->buildTemplateOptions($context);
+            if (! empty($templateOptions)) {
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Jaki Template ustawić?',
+                    $templateOptions
+                );
+            }
             $followUps[] = $this->makeFollowUpGroup(
                 'Jaki Filter zastosować?',
                 [
@@ -946,29 +950,238 @@ class NaturalLanguageSearchTranslator
                     $this->makeFollowUpOption('servicegroup.name=core-services', 'Ustaw Filter na servicegroup.name=core-services.'),
                 ]
             );
-            $followUps[] = $this->makeFollowUpGroup(
-                'Czy chcesz Breakdown?',
-                [
-                    $this->makeFollowUpOption('Bez breakdown', 'Nie ustawiaj Breakdown.'),
-                    $this->makeFollowUpOption('Hour', 'Ustaw Breakdown na hour.'),
-                    $this->makeFollowUpOption('Day', 'Ustaw Breakdown na day.'),
-                    $this->makeFollowUpOption('Week', 'Ustaw Breakdown na week.'),
-                    $this->makeFollowUpOption('Month', 'Ustaw Breakdown na month.'),
-                ]
-            );
-            $followUps[] = $this->makeFollowUpGroup(
-                'Czy ustawić SLA Visualization?',
-                [
-                    $this->makeFollowUpOption('Tabela', 'Ustaw SLA Visualization na table.'),
-                    $this->makeFollowUpOption('Bars', 'Ustaw SLA Visualization na horizontal bars.'),
-                    $this->makeFollowUpOption('Columns', 'Ustaw SLA Visualization na columns.'),
-                    $this->makeFollowUpOption('Balance', 'Ustaw SLA Visualization na availability balance columns.'),
-                    $this->makeFollowUpOption('Pie chart', 'Ustaw SLA Visualization na pie chart.'),
-                ]
-            );
+
+            if ($reportType === 'outage' || $this->hasAnyWord($this->foldText($normalized), ['outage'])) {
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Jakie Objects ustawić?',
+                    $this->buildOutageObjectsOptions($context)
+                );
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Jaki Service Outage State ustawić?',
+                    $this->buildOutageServiceStateOptions($context)
+                );
+            } else {
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Czy chcesz Breakdown?',
+                    $this->buildBreakdownOptions($context)
+                );
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Czy ustawić SLA Visualization?',
+                    $this->buildSlaVisualizationOptions($context)
+                );
+            }
         }
 
         return $this->uniqueFollowUps($followUps);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildReportTypeOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'reportTypes', [
+            'Host SLA Report',
+            'Service SLA Report',
+            'Outage Report (Icinga DB)',
+        ]);
+        $options = [];
+
+        foreach ($labels as $label) {
+            $normalized = $this->foldText($this->normalize($label));
+            if (strpos($normalized, 'host sla') !== false) {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw Report na Host SLA Report.');
+            } elseif (strpos($normalized, 'service sla') !== false) {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw Report na Service SLA Report.');
+            } elseif (strpos($normalized, 'outage') !== false) {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw Report na Outage Report (Icinga DB).');
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildTimeframeOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'timeframes', [
+            '25 Hours',
+            'One Week',
+            'One Month',
+            'One Year',
+            'Current Day',
+            'Last Day',
+            'Current Week',
+            'Last Week',
+            'Current Month',
+            'Last Month',
+            'Current Year',
+            'Last Year',
+        ]);
+        $options = [];
+
+        foreach ($labels as $label) {
+            $options[] = $this->makeFollowUpOption($label, 'Ustaw Timeframe na ' . $label . '.');
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildTemplateOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'templates', []);
+        $options = [
+            $this->makeFollowUpOption('Bez template', 'Nie ustawiaj Template.'),
+        ];
+
+        foreach ($labels as $label) {
+            $options[] = $this->makeFollowUpOption($label, 'Ustaw Template na ' . $label . '.');
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildBreakdownOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'breakdownOptions', [
+            'None',
+            'Hour',
+            'Day',
+            'Week',
+            'Month',
+        ]);
+        $options = [];
+
+        foreach ($labels as $label) {
+            $normalized = $this->foldText($this->normalize($label));
+            if ($normalized === 'none') {
+                $options[] = $this->makeFollowUpOption($label, 'Nie ustawiaj Breakdown.');
+            } else {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw Breakdown na ' . strtolower($label) . '.');
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildSlaVisualizationOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'slaVisualizationOptions', [
+            'Table',
+            'Horizontal Bars',
+            'Columns',
+            'Availability Balance Columns',
+            'Pie Charts',
+        ]);
+        $options = [];
+
+        foreach ($labels as $label) {
+            $normalized = $this->foldText($this->normalize($label));
+            if ($normalized === 'table') {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na table.');
+            } elseif ($normalized === 'horizontal bars') {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na horizontal bars.');
+            } elseif ($normalized === 'columns') {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na columns.');
+            } elseif ($normalized === 'availability balance columns') {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na availability balance columns.');
+            } elseif ($normalized === 'pie charts') {
+                $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na pie chart.');
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildOutageObjectsOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'outageObjectsOptions', [
+            'Hosts and Services',
+            'Hosts',
+            'Services',
+        ]);
+        $options = [];
+
+        foreach ($labels as $label) {
+            $options[] = $this->makeFollowUpOption($label, 'Ustaw Objects na ' . $label . '.');
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function buildOutageServiceStateOptions(array $context)
+    {
+        $labels = $this->reportingBuilderOptions($context, 'outageServiceStateOptions', [
+            'Critical',
+            'Critical and Warning',
+        ]);
+        $options = [];
+
+        foreach ($labels as $label) {
+            $options[] = $this->makeFollowUpOption($label, 'Ustaw Service Outage State na ' . $label . '.');
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @param string $key
+     * @param array<int, string> $defaults
+     *
+     * @return array<int, string>
+     */
+    private function reportingBuilderOptions(array $context, $key, array $defaults)
+    {
+        if (
+            isset($context['capabilities']['reportingBuilder'][$key])
+            && is_array($context['capabilities']['reportingBuilder'][$key])
+        ) {
+            $values = [];
+            foreach ($context['capabilities']['reportingBuilder'][$key] as $value) {
+                $value = trim((string) $value);
+                if ($value !== '') {
+                    $values[] = $value;
+                }
+            }
+
+            if (! empty($values)) {
+                return $values;
+            }
+        }
+
+        return $defaults;
     }
 
     /**
@@ -1112,6 +1325,8 @@ class NaturalLanguageSearchTranslator
         $breakdown = $this->extractBreakdown($normalized);
         $slaChart = $this->extractSlaChart($normalized);
         $name = $this->extractReportName($raw, $report, $timeframe);
+        $outageObjectType = $this->extractOutageObjectType($normalized, $target);
+        $outageServiceState = $this->extractOutageServiceState($normalized, $state);
 
         if ($filter === null && strpos($normalized, 'nie ustawiaj filter') === false) {
             $filter = $this->inferReportFilter($route, $target, $state, $report);
@@ -1124,9 +1339,9 @@ class NaturalLanguageSearchTranslator
             'filter' => $filter,
             'breakdown' => $breakdown,
             'sla_chart' => $report === 'outage' ? null : $slaChart,
-            'outage_object_type' => $report === 'outage' ? $this->inferOutageObjectType($target) : null,
+            'outage_object_type' => $report === 'outage' ? $outageObjectType : null,
             'outage_filter' => $report === 'outage' ? $filter : null,
-            'outage_service_state' => $report === 'outage' ? $this->inferOutageServiceState($state) : null,
+            'outage_service_state' => $report === 'outage' ? $outageServiceState : null,
         ];
 
         return array_filter($spec, function ($value) {
@@ -1405,6 +1620,29 @@ class NaturalLanguageSearchTranslator
     }
 
     /**
+     * @param string $normalized
+     * @param ?string $target
+     *
+     * @return string
+     */
+    private function extractOutageObjectType($normalized, $target)
+    {
+        if (strpos($normalized, 'objects na hosts and services') !== false || strpos($normalized, 'hosts and services') !== false) {
+            return 'all';
+        }
+
+        if (strpos($normalized, 'objects na hosts') !== false) {
+            return 'host';
+        }
+
+        if (strpos($normalized, 'objects na services') !== false) {
+            return 'service';
+        }
+
+        return $this->inferOutageObjectType($target);
+    }
+
+    /**
      * @param ?string $state
      *
      * @return string
@@ -1412,6 +1650,25 @@ class NaturalLanguageSearchTranslator
     private function inferOutageServiceState($state)
     {
         return $state === 'warning' ? 'warning' : 'critical';
+    }
+
+    /**
+     * @param string $normalized
+     * @param ?string $state
+     *
+     * @return string
+     */
+    private function extractOutageServiceState($normalized, $state)
+    {
+        if (strpos($normalized, 'service outage state na critical and warning') !== false || strpos($normalized, 'critical and warning') !== false) {
+            return 'warning';
+        }
+
+        if (strpos($normalized, 'service outage state na critical') !== false) {
+            return 'critical';
+        }
+
+        return $this->inferOutageServiceState($state);
     }
 
     /**

@@ -203,17 +203,32 @@ class AssistantController extends ActionController
     private function getAssistantCapabilities()
     {
         $modules = [];
+        $reportingEnabled = false;
+        $timeframes = [];
+        $templates = [];
         $moduleManager = Icinga::app()->getModuleManager()->loadEnabledModules();
         foreach ($moduleManager->getLoadedModules() as $module) {
             $modules[] = $module->getName();
         }
 
         sort($modules);
+        $reportingEnabled = in_array('reporting', $modules, true);
+
+        if ($reportingEnabled) {
+            try {
+                require_once '/usr/share/icingaweb2/modules/reporting/library/Reporting/Database.php';
+                $timeframes = array_values(\Icinga\Module\Reporting\Database::listTimeframes());
+                $templates = array_values(\Icinga\Module\Reporting\Database::listTemplates());
+            } catch (\Throwable $e) {
+                $timeframes = [];
+                $templates = [];
+            }
+        }
 
         return [
             'modules' => $modules,
             'icingadb' => in_array('icingadb', $modules, true),
-            'reporting' => in_array('reporting', $modules, true),
+            'reporting' => $reportingEnabled,
             'reportingBuilder' => [
                 'fields' => [
                     'Name',
@@ -227,6 +242,31 @@ class AssistantController extends ActionController
                     'Host SLA Report',
                     'Service SLA Report',
                     'Outage Report (Icinga DB)',
+                ],
+                'timeframes' => $timeframes,
+                'templates' => $templates,
+                'breakdownOptions' => [
+                    'None',
+                    'Hour',
+                    'Day',
+                    'Week',
+                    'Month',
+                ],
+                'slaVisualizationOptions' => [
+                    'Table',
+                    'Horizontal Bars',
+                    'Columns',
+                    'Availability Balance Columns',
+                    'Pie Charts',
+                ],
+                'outageObjectsOptions' => [
+                    'Hosts and Services',
+                    'Hosts',
+                    'Services',
+                ],
+                'outageServiceStateOptions' => [
+                    'Critical',
+                    'Critical and Warning',
                 ],
                 'notes' => [
                     'Template is also available in the report form.',
