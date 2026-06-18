@@ -37,7 +37,7 @@ class IcingaAgentToolbox
      *
      * @return array<string, mixed>
      */
-    public function inspect($message, array $intent)
+    public function inspect($message, array $intent, array $options = [])
     {
         if (! $this->isAvailable()) {
             return [
@@ -65,48 +65,61 @@ class IcingaAgentToolbox
         $normalizedMessage = mb_strtolower(trim((string) $message), 'UTF-8');
         $wantsHistory = $this->isHistoryIntent($normalizedMessage) || $routePath === 'icingadb/history';
         $wantsDashboard = $this->isDashboardIntent($normalizedMessage) || $routePath === 'dashboard';
+        $fetchSummaries = array_key_exists('fetchSummaries', $options) ? (bool) $options['fetchSummaries'] : true;
+        $fetchItems = array_key_exists('fetchItems', $options) ? (bool) $options['fetchItems'] : true;
+        $fetchHistory = array_key_exists('fetchHistory', $options) ? (bool) $options['fetchHistory'] : $wantsHistory;
+        $fetchDashboards = array_key_exists('fetchDashboards', $options) ? (bool) $options['fetchDashboards'] : $wantsDashboard;
+        $fetchDashboardDraft = array_key_exists('fetchDashboardDraft', $options) ? (bool) $options['fetchDashboardDraft'] : $wantsDashboard;
 
-        try {
-            $summaries = [
-                'hosts' => $this->fetchHostSummary(),
-                'services' => $this->fetchServiceSummary(),
-            ];
-        } catch (\Throwable $e) {
-            $summaries = [];
+        if ($fetchSummaries) {
+            try {
+                $summaries = [
+                    'hosts' => $this->fetchHostSummary(),
+                    'services' => $this->fetchServiceSummary(),
+                ];
+            } catch (\Throwable $e) {
+                $summaries = [];
+            }
         }
 
-        try {
-            if ($wantsHistory) {
+        if ($fetchItems) {
+            try {
+                if ($wantsHistory) {
+                    $items = [];
+                } elseif ($target === 'host') {
+                    $items['hosts'] = $this->fetchHosts($message, $query, $state, $routeParams);
+                } elseif ($target === 'service') {
+                    $items['services'] = $this->fetchServices($message, $query, $state, $routeParams);
+                } elseif ($query !== '' || $state !== null) {
+                    $items['hosts'] = $this->fetchHosts($message, $query, $state, $routeParams, 4);
+                    $items['services'] = $this->fetchServices($message, $query, $state, $routeParams, 4);
+                }
+            } catch (\Throwable $e) {
                 $items = [];
-            } elseif ($target === 'host') {
-                $items['hosts'] = $this->fetchHosts($message, $query, $state, $routeParams);
-            } elseif ($target === 'service') {
-                $items['services'] = $this->fetchServices($message, $query, $state, $routeParams);
-            } else {
-                $items['hosts'] = $this->fetchHosts($message, $query, $state, $routeParams, 4);
-                $items['services'] = $this->fetchServices($message, $query, $state, $routeParams, 4);
             }
-        } catch (\Throwable $e) {
-            $items = [];
         }
 
-        try {
-            if ($wantsHistory) {
-                $history = $this->fetchHistory($target, $state);
+        if ($fetchHistory) {
+            try {
+                if ($wantsHistory) {
+                    $history = $this->fetchHistory($target, $state);
+                }
+            } catch (\Throwable $e) {
+                $history = [];
             }
-        } catch (\Throwable $e) {
-            $history = [];
         }
 
-        try {
-            if ($wantsDashboard) {
-                $dashboards = $this->listDashboards();
+        if ($fetchDashboards) {
+            try {
+                if ($wantsDashboard) {
+                    $dashboards = $this->listDashboards();
+                }
+            } catch (\Throwable $e) {
+                $dashboards = [];
             }
-        } catch (\Throwable $e) {
-            $dashboards = [];
         }
 
-        $dashboardDraft = $wantsDashboard ? $this->buildDashboardDraft($message, $intent) : null;
+        $dashboardDraft = $fetchDashboardDraft && $wantsDashboard ? $this->buildDashboardDraft($message, $intent) : null;
 
         return [
             'available' => true,

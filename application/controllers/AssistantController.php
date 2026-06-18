@@ -59,19 +59,14 @@ class AssistantController extends ActionController
         $reportUrl = null;
         $dashboardUrl = null;
         $actions = [];
+        $toolData = $this->emptyToolData();
         $toolbox = new IcingaAgentToolbox();
-        try {
-            $toolData = $toolbox->inspect($message, $intent);
-        } catch (\Throwable $e) {
-            $toolData = [
-                'available' => false,
-                'scope' => [],
-                'summaries' => [],
-                'items' => [],
-                'history' => [],
-                'dashboards' => [],
-                'dashboardDraft' => null,
-            ];
+        if ($this->shouldInspectWithToolbox($message, $intent)) {
+            try {
+                $toolData = $toolbox->inspect($message, $intent, $this->buildToolboxOptions($message, $intent));
+            } catch (\Throwable $e) {
+                $toolData = $this->emptyToolData();
+            }
         }
         $agentReply = $this->buildAgentReply($message, $intent, $toolData, $assistantContext);
 
@@ -322,6 +317,120 @@ class AssistantController extends ActionController
 
         if (! empty($toolData['dashboardDraft'])) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $message
+     * @param array<string, mixed> $intent
+     *
+     * @return bool
+     */
+    private function shouldInspectWithToolbox($message, array $intent)
+    {
+        $routePath = isset($intent['routePath']) ? (string) $intent['routePath'] : '';
+        $mode = isset($intent['mode']) ? (string) $intent['mode'] : '';
+        $source = isset($intent['source']) ? (string) $intent['source'] : '';
+        $confidence = isset($intent['confidence']) ? (string) $intent['confidence'] : '';
+
+        if ($routePath === 'dashboard' || $this->isDashboardIntent($message)) {
+            return true;
+        }
+
+        if ($routePath === 'icingadb/history' || $this->isHistoryIntent($message)) {
+            return true;
+        }
+
+        if ($mode === 'report' || $mode === 'chart') {
+            return true;
+        }
+
+        if ($routePath !== '' && $source === 'local' && $confidence === 'high') {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param string $message
+     * @param array<string, mixed> $intent
+     *
+     * @return array<string, bool>
+     */
+    private function buildToolboxOptions($message, array $intent)
+    {
+        $routePath = isset($intent['routePath']) ? (string) $intent['routePath'] : '';
+        $mode = isset($intent['mode']) ? (string) $intent['mode'] : '';
+        $query = isset($intent['query']) ? trim((string) $intent['query']) : '';
+        $target = isset($intent['target']) ? (string) $intent['target'] : '';
+        $source = isset($intent['source']) ? (string) $intent['source'] : '';
+        $confidence = isset($intent['confidence']) ? (string) $intent['confidence'] : '';
+        $isHistory = $routePath === 'icingadb/history' || $this->isHistoryIntent($message);
+        $isDashboard = $routePath === 'dashboard' || $this->isDashboardIntent($message);
+        $isDirectHighConfidenceRoute = $routePath !== '' && $source === 'local' && $confidence === 'high';
+
+        return [
+            'fetchSummaries' => ! $isDashboard,
+            'fetchItems' => ! $isHistory
+                && ! $isDashboard
+                && ! $isDirectHighConfidenceRoute
+                && ($query !== '' || $target !== '' || $mode === 'mixed' || $mode === 'answer'),
+            'fetchHistory' => $isHistory,
+            'fetchDashboards' => $isDashboard,
+            'fetchDashboardDraft' => $isDashboard,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyToolData()
+    {
+        return [
+            'available' => false,
+            'scope' => [],
+            'summaries' => [],
+            'items' => [],
+            'history' => [],
+            'dashboards' => [],
+            'dashboardDraft' => null,
+        ];
+    }
+
+    /**
+     * @param string $message
+     *
+     * @return bool
+     */
+    private function isHistoryIntent($message)
+    {
+        $normalized = mb_strtolower((string) $message, 'UTF-8');
+
+        foreach (['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'zdarzeń', 'event', 'events'] as $token) {
+            if (mb_strpos($normalized, $token) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $message
+     *
+     * @return bool
+     */
+    private function isDashboardIntent($message)
+    {
+        $normalized = mb_strtolower((string) $message, 'UTF-8');
+
+        foreach (['dashboard', 'dashlet', 'pulpit', 'panel'] as $token) {
+            if (mb_strpos($normalized, $token) !== false) {
+                return true;
+            }
         }
 
         return false;

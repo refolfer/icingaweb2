@@ -1190,7 +1190,138 @@ class NaturalLanguageSearchTranslator
             }
         }
 
+        foreach ($this->buildActionPathFollowUps($normalized, $target, $state, $query, $route, $reportContext, $context) as $followUp) {
+            $followUps[] = $followUp;
+        }
+
         return $this->uniqueFollowUps($followUps);
+    }
+
+    /**
+     * @param string $normalized
+     * @param ?string $target
+     * @param ?string $state
+     * @param ?string $query
+     * @param ?array{path:string,params:array<string,mixed>} $route
+     * @param bool $reportContext
+     * @param array<string, mixed> $context
+     *
+     * @return array<int, mixed>
+     */
+    private function buildActionPathFollowUps(
+        $normalized,
+        $target,
+        $state,
+        $query,
+        $route,
+        $reportContext,
+        array $context = []
+    ) {
+        $followUps = [];
+        $routePath = is_array($route) && isset($route['path']) ? (string) $route['path'] : '';
+        $reportingEnabled = ! empty($context['capabilities']['reporting']);
+        $dashboardEnabled = ! empty($context['capabilities']['dashboards']['supportsDraftDashlets']);
+
+        if ($routePath === 'icingadb/history') {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Co chcesz zrobić z historią zdarzeń?',
+                [
+                    $this->makeFollowUpOption('Tylko hosty', 'Pokaż historię zdarzeń tylko dla hostów.'),
+                    $this->makeFollowUpOption('Tylko serwisy', 'Pokaż historię zdarzeń tylko dla serwisów.'),
+                    $this->makeFollowUpOption('Tylko krytyczne', 'Pokaż tylko krytyczne zdarzenia.'),
+                    $this->makeFollowUpOption('Ostatnie 7 dni', 'Pokaż historię zdarzeń z ostatnich 7 dni.'),
+                ]
+            );
+
+            if ($dashboardEnabled) {
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Jaką ścieżkę wybrać dalej?',
+                    [
+                        $this->makeFollowUpOption('Zrób dashboard', 'Utwórz dashboard na podstawie tej historii zdarzeń.'),
+                        $this->makeFollowUpOption('Zrób raport', 'Przygotuj raport na podstawie tej historii zdarzeń.'),
+                    ]
+                );
+            }
+
+            return $followUps;
+        }
+
+        if ($routePath === 'icingadb/hosts' || $routePath === 'icingadb/services' || $routePath === 'icingadb/services/grid') {
+            $noun = $routePath === 'icingadb/hosts' ? 'hostów' : 'serwisów';
+            $followUps[] = $this->makeFollowUpGroup(
+                'Co chcesz zrobić z tym widokiem?',
+                [
+                    $this->makeFollowUpOption('Tylko problemy', 'Pokaż tylko obiekty z problemami.'),
+                    $this->makeFollowUpOption('Dodaj kontekst', 'Zawęź wynik do konkretnej nazwy lub środowiska.'),
+                    $this->makeFollowUpOption('Pokaż historię', 'Pokaż historię zdarzeń dla tych ' . $noun . '.'),
+                    $this->makeFollowUpOption('Zrób dashboard', 'Utwórz dashboard na podstawie tego widoku ' . $noun . '.'),
+                ]
+            );
+
+            if ($reportingEnabled) {
+                $followUps[] = $this->makeFollowUpGroup(
+                    'Jaka ścieżka raportowa będzie najlepsza?',
+                    [
+                        $this->makeFollowUpOption('Raport SLA', 'Przygotuj raport SLA dla tego widoku.'),
+                        $this->makeFollowUpOption('Raport outage', 'Przygotuj raport outage dla tego widoku.'),
+                    ]
+                );
+            }
+
+            return $followUps;
+        }
+
+        if ($dashboardEnabled && $this->isDashboardRequest($normalized)) {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jak przygotować dashboard?',
+                [
+                    $this->makeFollowUpOption('Dashboard hostów', 'Utwórz dashboard dla hostów.'),
+                    $this->makeFollowUpOption('Dashboard serwisów', 'Utwórz dashboard dla serwisów.'),
+                    $this->makeFollowUpOption('Tylko problemy', 'Utwórz dashboard tylko dla obiektów z problemami.'),
+                    $this->makeFollowUpOption('Dodaj nazwę', 'Ustaw krótką nazwę dashboardu na podstawie tego widoku.'),
+                ]
+            );
+        }
+
+        if ($reportContext) {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jaką ścieżkę tworzenia raportu wybrać dalej?',
+                [
+                    $this->makeFollowUpOption('Ustaw Name', 'Ustaw Name raportu.'),
+                    $this->makeFollowUpOption('Ustaw Timeframe', 'Ustaw Timeframe raportu.'),
+                    $this->makeFollowUpOption('Ustaw Filter', 'Ustaw Filter raportu.'),
+                    $this->makeFollowUpOption('Przejdź do formularza', 'Otwórz formularz tworzenia raportu z obecnymi ustawieniami.'),
+                ]
+            );
+
+            return $followUps;
+        }
+
+        if ($query !== null && $query !== '') {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jak doprecyzować wyszukiwanie?',
+                [
+                    $this->makeFollowUpOption('Szukaj hostów', 'Szukaj hostów dla tego zapytania.'),
+                    $this->makeFollowUpOption('Szukaj serwisów', 'Szukaj serwisów dla tego zapytania.'),
+                    $this->makeFollowUpOption('Tylko krytyczne', 'Zawęź wyszukiwanie do stanu krytycznego.'),
+                    $this->makeFollowUpOption('Pokaż historię', 'Pokaż historię zdarzeń dla tego zapytania.'),
+                ]
+            );
+        }
+
+        if ($this->hasAnyWord($normalized, ['wykres', 'chart', 'trend', 'graficznie'])) {
+            $followUps[] = $this->makeFollowUpGroup(
+                'Jak przygotować wykres?',
+                [
+                    $this->makeFollowUpOption('Trend hostów', 'Pokaż trend hostów z problemami.'),
+                    $this->makeFollowUpOption('Trend serwisów', 'Pokaż trend serwisów z problemami.'),
+                    $this->makeFollowUpOption('Ostatnie 24h', 'Pokaż wykres dla ostatnich 24 godzin.'),
+                    $this->makeFollowUpOption('Ostatnie 7 dni', 'Pokaż wykres dla ostatnich 7 dni.'),
+                ]
+            );
+        }
+
+        return $followUps;
     }
 
     /**
