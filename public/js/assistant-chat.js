@@ -4,6 +4,8 @@
 (function (window, document) {
     'use strict';
 
+    var STORAGE_KEY = 'icinga.assistant.draft';
+
     function parseConfig(root) {
         try {
             return JSON.parse(root.getAttribute('data-assistant-config') || '{}');
@@ -303,9 +305,34 @@
         var busy = false;
         var history = [];
         var draftMessage = '';
+        var restoredDraft = '';
 
         if (! chat || ! form || ! input) {
             return;
+        }
+
+        function loadDraft() {
+            try {
+                return window.sessionStorage ? (window.sessionStorage.getItem(STORAGE_KEY) || '') : '';
+            } catch (error) {
+                return '';
+            }
+        }
+
+        function saveDraft(value) {
+            try {
+                if (! window.sessionStorage) {
+                    return;
+                }
+
+                if (value) {
+                    window.sessionStorage.setItem(STORAGE_KEY, value);
+                } else {
+                    window.sessionStorage.removeItem(STORAGE_KEY);
+                }
+            } catch (error) {
+                return;
+            }
         }
 
         function setBusy(value) {
@@ -369,6 +396,7 @@
             }
 
             draftMessage = text;
+            saveDraft(draftMessage);
             appendMessage(chat, 'user', 'You', text);
             addHistory('user', text);
             setBusy(true);
@@ -382,11 +410,13 @@
                 renderAssistantPayload(pending, data);
                 setBusy(false);
                 input.value = draftMessage;
+                saveDraft(draftMessage);
                 input.focus();
             }, function () {
                 pending.body.textContent = config.labels.error || 'Unable to reach the assistant.';
                 setBusy(false);
                 input.value = draftMessage;
+                saveDraft(draftMessage);
             });
         }
 
@@ -395,12 +425,26 @@
             submitMessage(input.value);
         });
 
+        input.addEventListener('input', function () {
+            draftMessage = input.value;
+            saveDraft(draftMessage);
+        });
+
         for (var i = 0; i < examples.length; i++) {
-            examples[i].addEventListener('click', function () {
+            examples[i].addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
                 input.value = this.getAttribute('data-assistant-example') || '';
                 draftMessage = input.value;
+                saveDraft(draftMessage);
                 input.focus();
             });
+        }
+
+        restoredDraft = loadDraft();
+        if (restoredDraft && ! input.value) {
+            input.value = restoredDraft;
+            draftMessage = restoredDraft;
         }
 
         if (chat.getAttribute('data-assistant-chat') !== null) {
@@ -408,10 +452,21 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function initAllAssistants() {
         var roots = document.querySelectorAll('[data-assistant-root]');
         for (var i = 0; i < roots.length; i++) {
+            if (roots[i].getAttribute('data-assistant-initialized') === 'y') {
+                continue;
+            }
+
+            roots[i].setAttribute('data-assistant-initialized', 'y');
             initAssistant(roots[i]);
         }
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAllAssistants);
+    } else {
+        initAllAssistants();
+    }
 })(window, document);

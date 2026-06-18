@@ -71,6 +71,41 @@ class OpenAiCompatibleClient
     }
 
     /**
+     * Build a grounded assistant reply from a sanitized Icinga data snapshot.
+     *
+     * @param string $message
+     * @param array<string, mixed> $intent
+     * @param array<string, mixed> $toolData
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>
+     */
+    public function answerWithData($message, array $intent, array $toolData, array $context = [])
+    {
+        if (! $this->isConfigured()) {
+            throw new IcingaException('Assistant LLM is not configured');
+        }
+
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => $this->agentSystemPrompt()
+            ],
+            ...$this->historyMessages($context),
+            [
+                'role' => 'user',
+                'content' => $this->agentUserPrompt($message, $intent, $toolData, $context)
+            ],
+        ];
+
+        $response = $this->request($this->buildPayload($messages, [
+            'num_predict' => 160,
+        ]));
+
+        return $this->decodeContent($this->extractContent($response));
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function loadConfig()
@@ -109,17 +144,19 @@ class OpenAiCompatibleClient
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(array $messages)
+    private function buildPayload(array $messages, array $optionsOverrides = [])
     {
         if ($this->usesNativeChatApi()) {
+            $options = array_merge([
+                'temperature' => $this->config['temperature'],
+            ], $optionsOverrides);
+
             $payload = [
                 'model' => $this->config['model'],
                 'messages' => $messages,
                 'stream' => false,
                 'format' => 'json',
-                'options' => [
-                    'temperature' => $this->config['temperature'],
-                ],
+                'options' => $options,
             ];
 
             if ($this->shouldDisableThinking()) {
@@ -163,16 +200,44 @@ class OpenAiCompatibleClient
             'For SLA reports, SLA Visualization is a meaningful option. For outage reports, object filters are especially relevant.',
             'query should be a short text search string only when there is no better direct route.',
             'Prefer routePath + routeParams over query whenever the intent maps to a known Icinga grid or list.',
-            'For problem-focused queries, use direct IcingaDB views such as icingadb/services/grid with problems=true or icingadb/hosts with host.state.is_problem=y.',
+            'For problem-focused queries, use direct IcingaDB views such as icingadb/services with service.state.is_problem=y or icingadb/hosts with host.state.is_problem=y.',
+            'For event history requests, prefer routePath="icingadb/history".',
+            'For dashboard requests, prefer routePath="dashboard".',
             'Do not invent routeParams like service.state or host.state for grid views.',
             'Examples:',
-            '  - "Serwisy krytyczne" -> {"reply":"Rozumiem to jako aktywne problemy serwisów.","routePath":"icingadb/services/grid","routeParams":{"problems":true},"target":"service","state":"critical","mode":"open","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":[]}',
+            '  - "Serwisy krytyczne" -> {"reply":"Rozumiem to jako aktywne problemy serwisów.","routePath":"icingadb/services","routeParams":{"service.state.is_problem":"y"},"target":"service","state":"critical","mode":"open","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":[]}',
             '  - "Hosty z awarią" -> {"reply":"Rozumiem to jako hosty z problemami.","routePath":"icingadb/hosts","routeParams":{"host.state.is_problem":"y"},"target":"host","state":"down","mode":"open","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":[]}',
+            '  - "Pokaż historię zdarzeń" -> {"reply":"Mogę otworzyć historię zdarzeń i ją podsumować.","routePath":"icingadb/history","routeParams":{},"target":null,"state":null,"mode":"open","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":[]}',
+            '  - "Utwórz dashboard z krytycznymi serwisami" -> {"reply":"Mogę przygotować dashboard z widokiem krytycznych serwisów.","routePath":"icingadb/services","routeParams":{"service.state.is_problem":"y"},"target":"service","state":"critical","mode":"mixed","actions":[{"type":"open","label":"Open result"}],"confidence":"high","tokens":["dashboard"]}',
             '  - "Zrób raport o problemach hostów" -> {"reply":"Mogę przygotować raport z problemów hostów.","mode":"report","reportUrl":"reporting/reports/new?report=host&filter=host.state.is_problem=y","target":"host","state":"problem","confidence":"high","tokens":["raport","problemy","hostow"]}',
             '  - "Stwórz raport SLA dla serwisów" -> {"reply":"Mogę przygotować raport SLA dla serwisów i doprecyzować jego pola.","mode":"report","reportUrl":"reporting/reports/new?report=service","target":"service","state":null,"followUps":["Jak ma się nazywać raport?","Jaki Timeframe mam ustawić?","Którą SLA Visualization chcesz: tabela, bars, columns, balance czy pie chart?"],"confidence":"high","tokens":["raport","sla","serwisy"]}',
             '  - "Hosty prod" -> {"reply":"Rozumiem to jako hosty z etykietą prod.","query":"prod","target":"host","state":null,"mode":"search","confidence":"medium","tokens":["prod"]}',
             'confidence must be one of: low, medium, high.',
             'Do not output markdown or prose outside the JSON object.',
+        ]);
+    }
+
+    /**
+     * @return string
+     */
+    private function agentSystemPrompt()
+    {
+        return implode("\n", [
+            'You are a grounded Icinga Web 2 assistant.',
+            'Answer only from the sanitized data snapshot and the listed enabled modules.',
+            'Never claim to have accessed secrets, raw configuration files, credentials, custom variables, command lines, plugin long output, performance data, contacts, users, notification history, or the operating system.',
+            'You may use current dashboard pane names, dashlet titles, aggregated status counts, sanitized host/service snapshots, and recent event history entries if they are present in the snapshot.',
+            'If the snapshot is insufficient, say what is missing and ask a focused follow-up.',
+            'Stay strictly inside Icinga Web 2, IcingaDB, reporting, and enabled modules.',
+            'Return JSON with the keys: reply, followUps, confidence, chart.',
+            'reply must be plain text without markdown tables.',
+            'followUps should be an array, and when useful should use structured options like [{"question":"...","options":[{"label":"...","message":"..."}]}].',
+            'confidence must be one of: low, medium, high.',
+            'chart should be omitted unless the user explicitly asks for a chart and you can describe it based on the snapshot.',
+            'When there are matching objects, summarize counts first and then mention the most relevant matching host or service names.',
+            'When there are no matching objects, say that clearly.',
+            'Keep reply concise, usually 1 to 3 sentences.',
+            'Do not output any prose outside the JSON object.',
         ]);
     }
 
@@ -193,11 +258,38 @@ class OpenAiCompatibleClient
         }
 
         if (! empty($context['history']) && is_array($context['history'])) {
-            $parts[] = 'Conversation history: ' . Json::encode($context['history']);
+            $parts[] = 'Conversation history: ' . Json::encode(array_slice($context['history'], -4));
         }
 
         if (! empty($context)) {
             $parts[] = 'Known context: ' . Json::encode($context);
+        }
+
+        return implode("\n", $parts);
+    }
+
+    /**
+     * @param string $message
+     * @param array<string, mixed> $intent
+     * @param array<string, mixed> $toolData
+     * @param array<string, mixed> $context
+     *
+     * @return string
+     */
+    private function agentUserPrompt($message, array $intent, array $toolData, array $context)
+    {
+        $parts = [
+            'User request: ' . $message,
+            'Interpreted intent: ' . Json::encode($intent),
+            'Sanitized Icinga snapshot: ' . Json::encode($toolData),
+        ];
+
+        if (! empty($context['capabilities'])) {
+            $parts[] = 'Enabled capabilities: ' . Json::encode($context['capabilities']);
+        }
+
+        if (! empty($context['history']) && is_array($context['history'])) {
+            $parts[] = 'Conversation history: ' . Json::encode($context['history']);
         }
 
         return implode("\n", $parts);

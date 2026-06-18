@@ -9,7 +9,10 @@ use GuzzleHttp\Psr7\ServerRequest;
 use Icinga\Application\Icinga;
 require_once __DIR__ . '/../../library/Icinga/Web/Assistant/OpenAiCompatibleClient.php';
 require_once __DIR__ . '/../../library/Icinga/Web/Assistant/NaturalLanguageSearchTranslator.php';
+require_once __DIR__ . '/../../library/Icinga/Web/Assistant/IcingaAgentToolbox.php';
 
+use Icinga\Web\Assistant\IcingaAgentToolbox;
+use Icinga\Web\Assistant\OpenAiCompatibleClient;
 use Icinga\Web\Assistant\NaturalLanguageSearchTranslator;
 use Icinga\Web\Controller\ActionController;
 use Icinga\Web\Url;
@@ -48,15 +51,66 @@ class AssistantController extends ActionController
         }
 
         $history = $this->decodeHistory((string) $this->getRequest()->getPost('history', ''));
+        $assistantContext = $this->getAssistantContext($history);
         $translator = new NaturalLanguageSearchTranslator();
-        $intent = $translator->translate($message, $this->getAssistantContext($history));
+        $intent = $translator->translate($message, $assistantContext);
         $searchUrl = null;
         $openUrl = null;
         $reportUrl = null;
+        $dashboardUrl = null;
         $actions = [];
+        $toolbox = new IcingaAgentToolbox();
+        try {
+            $toolData = $toolbox->inspect($message, $intent);
+        } catch (\Throwable $e) {
+            $toolData = [
+                'available' => false,
+                'scope' => [],
+                'summaries' => [],
+                'items' => [],
+                'history' => [],
+                'dashboards' => [],
+                'dashboardDraft' => null,
+            ];
+        }
+        $agentReply = $this->buildAgentReply($message, $intent, $toolData, $assistantContext);
+
+        if (! empty($agentReply['reply'])) {
+            $intent['reply'] = $agentReply['reply'];
+        }
+
+        if (! empty($agentReply['followUps']) && is_array($agentReply['followUps'])) {
+            $intent['followUps'] = $agentReply['followUps'];
+        }
+
+        if (! empty($agentReply['chart']) && is_array($agentReply['chart'])) {
+            $intent['chart'] = $agentReply['chart'];
+        }
+
+        if (! empty($agentReply['confidence']) && is_string($agentReply['confidence'])) {
+            $intent['confidence'] = $agentReply['confidence'];
+        }
+
+        if (! empty($toolData['available'])) {
+            $intent['source'] = $intent['source'] . '+tools';
+        }
+
+        if (! empty($toolData['dashboardDraft']['draftPath'])) {
+            $dashboardUrl = Url::fromPath(
+                $toolData['dashboardDraft']['draftPath'],
+                isset($toolData['dashboardDraft']['draftParams']) && is_array($toolData['dashboardDraft']['draftParams'])
+                    ? $toolData['dashboardDraft']['draftParams']
+                    : []
+            )->getAbsoluteUrl();
+        }
 
         if (! empty($intent['routePath'])) {
-            $openUrl = Url::fromPath($intent['routePath'], $intent['routeParams'])->getAbsoluteUrl();
+            if (! empty($intent['routeQuery']) && is_string($intent['routeQuery'])) {
+                $openUrl = Url::fromPath($intent['routePath'])->getAbsoluteUrl()
+                    . '?' . ltrim((string) $intent['routeQuery'], '?');
+            } else {
+                $openUrl = Url::fromPath($intent['routePath'], $intent['routeParams'])->getAbsoluteUrl();
+            }
         } elseif (! empty($intent['query'])) {
             $searchUrl = Url::fromPath('search', ['q' => $intent['query']])->getAbsoluteUrl();
             $openUrl = $searchUrl;
@@ -80,6 +134,14 @@ class AssistantController extends ActionController
             ];
         }
 
+        if ($dashboardUrl !== null) {
+            $actions[] = [
+                'type' => 'open',
+                'label' => t('Create dashboard'),
+                'url' => $dashboardUrl,
+            ];
+        }
+
         if ($openUrl !== null) {
             $actions[] = [
                 'type' => ! empty($intent['query']) ? 'search' : 'open',
@@ -97,8 +159,10 @@ class AssistantController extends ActionController
                 'searchUrl' => $searchUrl,
                 'openUrl'   => $openUrl,
                 'reportUrl' => $reportUrl,
+                'dashboardUrl' => $dashboardUrl,
                 'routePath' => $intent['routePath'],
                 'routeParams' => $intent['routeParams'],
+                'routeQuery' => isset($intent['routeQuery']) ? $intent['routeQuery'] : null,
                 'mode'      => $intent['mode'],
                 'actions'   => $actions,
                 'chart'     => $intent['chart'],
@@ -108,6 +172,7 @@ class AssistantController extends ActionController
                 'tokens'    => $intent['tokens'],
                 'confidence'=> $intent['confidence'],
                 'source'    => $intent['source'],
+                'agentScope'=> isset($toolData['scope']) ? $toolData['scope'] : [],
             ])
             ->sendResponse();
     }
@@ -198,6 +263,224 @@ class AssistantController extends ActionController
     }
 
     /**
+     * @param string $message
+     * @param array<string, mixed> $intent
+     * @param array<string, mixed> $toolData
+     * @param array<string, mixed> $assistantContext
+     *
+     * @return array<string, mixed>
+     */
+    private function buildAgentReply($message, array $intent, array $toolData, array $assistantContext)
+    {
+        if (empty($toolData['available'])) {
+            return [];
+        }
+
+        $fallback = $this->buildDeterministicAgentReply($message, $intent, $toolData);
+        if ($this->shouldPreferDeterministicAgentReply($intent, $toolData)) {
+            return $fallback;
+        }
+
+        try {
+            $client = new OpenAiCompatibleClient();
+            $reply = $client->answerWithData(
+                $message,
+                $intent,
+                $this->compactToolDataForLlm($toolData, $intent),
+                $this->compactAssistantContextForLlm($assistantContext)
+            );
+
+            if (empty($reply['reply']) || ! is_string($reply['reply'])) {
+                return $fallback;
+            }
+
+            return $reply + $fallback;
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $intent
+     * @param array<string, mixed> $toolData
+     *
+     * @return bool
+     */
+    private function shouldPreferDeterministicAgentReply(array $intent, array $toolData)
+    {
+        $routePath = isset($intent['routePath']) ? (string) $intent['routePath'] : '';
+        $source = isset($intent['source']) ? (string) $intent['source'] : '';
+        $confidence = isset($intent['confidence']) ? (string) $intent['confidence'] : '';
+
+        if ($routePath !== '' && $source === 'local' && $confidence === 'high') {
+            return true;
+        }
+
+        if ($routePath === 'icingadb/history' || $routePath === 'dashboard') {
+            return true;
+        }
+
+        if (! empty($toolData['dashboardDraft'])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $message
+     * @param array<string, mixed> $intent
+     * @param array<string, mixed> $toolData
+     *
+     * @return array<string, mixed>
+     */
+    private function buildDeterministicAgentReply($message, array $intent, array $toolData)
+    {
+        $routePath = isset($intent['routePath']) ? (string) $intent['routePath'] : '';
+        $target = isset($intent['target']) ? (string) $intent['target'] : '';
+        $state = isset($intent['state']) ? (string) $intent['state'] : '';
+        $items = isset($toolData['items']) && is_array($toolData['items']) ? $toolData['items'] : [];
+        $history = isset($toolData['history']) && is_array($toolData['history']) ? $toolData['history'] : [];
+
+        if ($routePath === 'icingadb/history') {
+            $count = count($history);
+            $latest = $count > 0 ? $history[0] : null;
+            $reply = $count > 0
+                ? sprintf(
+                    'Mogę otworzyć historię zdarzeń. Widzę %d ostatnich wpisów%s.',
+                    $count,
+                    $latest && ! empty($latest['host_name'])
+                        ? sprintf('; najnowszy dotyczy obiektu %s', (string) $latest['host_name'])
+                        : ''
+                )
+                : 'Mogę otworzyć historię zdarzeń. W podglądzie nie widzę teraz żadnych dopasowanych wpisów.';
+
+            return [
+                'reply' => $reply,
+                'confidence' => 'high',
+                'followUps' => [],
+            ];
+        }
+
+        if (! empty($toolData['dashboardDraft'])) {
+            return [
+                'reply' => 'Mogę przygotować dashboard na podstawie tego zapytania. Otworzę gotowy szkic dashletu, żeby dało się go od razu zapisać w Icinga Web.',
+                'confidence' => 'high',
+                'followUps' => [],
+            ];
+        }
+
+        $matches = [];
+        if ($target === 'host' && ! empty($items['hosts']) && is_array($items['hosts'])) {
+            $matches = $items['hosts'];
+        } elseif ($target === 'service' && ! empty($items['services']) && is_array($items['services'])) {
+            $matches = $items['services'];
+        } elseif (! empty($items['services']) && is_array($items['services'])) {
+            $matches = $items['services'];
+        } elseif (! empty($items['hosts']) && is_array($items['hosts'])) {
+            $matches = $items['hosts'];
+        }
+
+        if (! empty($matches)) {
+            $names = [];
+            foreach (array_slice($matches, 0, 3) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                if (! empty($item['host_name']) && ! empty($item['display_name'])) {
+                    $names[] = sprintf('%s / %s', (string) $item['host_name'], (string) $item['display_name']);
+                } elseif (! empty($item['display_name'])) {
+                    $names[] = (string) $item['display_name'];
+                } elseif (! empty($item['name'])) {
+                    $names[] = (string) $item['name'];
+                }
+            }
+
+            $reply = sprintf(
+                'Znalazłem %d pasujących %s%s.',
+                count($matches),
+                $target === 'host' ? 'hostów' : ($target === 'service' ? 'serwisów' : 'obiektów'),
+                ! empty($names) ? ' Przykłady: ' . implode(', ', $names) . '.' : ''
+            );
+
+            return [
+                'reply' => $reply,
+                'confidence' => 'high',
+                'followUps' => [],
+            ];
+        }
+
+        return [
+            'reply' => 'Mogę otworzyć wynik w Icinga Web i dalej go doprecyzować, ale w szybkim podglądzie nie widzę teraz jednoznacznego dopasowania do zapytania: ' . trim((string) $message),
+            'confidence' => 'medium',
+            'followUps' => [],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $toolData
+     * @param array<string, mixed> $intent
+     *
+     * @return array<string, mixed>
+     */
+    private function compactToolDataForLlm(array $toolData, array $intent)
+    {
+        $target = isset($intent['target']) ? (string) $intent['target'] : '';
+        $isHistory = isset($intent['routePath']) && $intent['routePath'] === 'icingadb/history';
+        $isDashboard = ! empty($toolData['dashboardDraft']);
+
+        $items = [];
+        if ($target === 'host' && ! empty($toolData['items']['hosts'])) {
+            $items['hosts'] = array_slice($toolData['items']['hosts'], 0, 3);
+        } elseif ($target === 'service' && ! empty($toolData['items']['services'])) {
+            $items['services'] = array_slice($toolData['items']['services'], 0, 3);
+        } else {
+            if (! empty($toolData['items']['hosts'])) {
+                $items['hosts'] = array_slice($toolData['items']['hosts'], 0, 2);
+            }
+            if (! empty($toolData['items']['services'])) {
+                $items['services'] = array_slice($toolData['items']['services'], 0, 2);
+            }
+        }
+
+        return [
+            'available' => ! empty($toolData['available']),
+            'scope' => array_slice(isset($toolData['scope']) && is_array($toolData['scope']) ? $toolData['scope'] : [], 0, 8),
+            'summaries' => isset($toolData['summaries']) && is_array($toolData['summaries']) ? $toolData['summaries'] : [],
+            'items' => $items,
+            'history' => $isHistory && ! empty($toolData['history']) && is_array($toolData['history'])
+                ? array_slice($toolData['history'], 0, 5)
+                : [],
+            'dashboards' => $isDashboard && ! empty($toolData['dashboards']) && is_array($toolData['dashboards'])
+                ? array_slice($toolData['dashboards'], 0, 3)
+                : [],
+            'dashboardDraft' => $isDashboard ? $toolData['dashboardDraft'] : null,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $assistantContext
+     *
+     * @return array<string, mixed>
+     */
+    private function compactAssistantContextForLlm(array $assistantContext)
+    {
+        return [
+            'history' => ! empty($assistantContext['history']) && is_array($assistantContext['history'])
+                ? array_slice($assistantContext['history'], -4)
+                : [],
+            'capabilities' => [
+                'modules' => ! empty($assistantContext['capabilities']['modules'])
+                    ? array_values(array_slice($assistantContext['capabilities']['modules'], 0, 10))
+                    : [],
+                'reporting' => ! empty($assistantContext['capabilities']['reporting']),
+                'icingadb' => ! empty($assistantContext['capabilities']['icingadb']),
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function getAssistantCapabilities()
@@ -229,6 +512,12 @@ class AssistantController extends ActionController
             'modules' => $modules,
             'icingadb' => in_array('icingadb', $modules, true),
             'reporting' => $reportingEnabled,
+            'history' => in_array('icingadb', $modules, true),
+            'dashboards' => [
+                'openPath' => 'dashboard',
+                'createPath' => 'dashboard/new-dashlet',
+                'supportsDraftDashlets' => true,
+            ],
             'reportingBuilder' => [
                 'fields' => [
                     'Name',

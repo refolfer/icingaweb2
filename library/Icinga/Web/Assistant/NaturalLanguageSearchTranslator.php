@@ -37,6 +37,9 @@ class NaturalLanguageSearchTranslator
         'services' => 'service',
         'serwis' => 'service',
         'serwisy' => 'service',
+        'serwisie' => 'service',
+        'serwisach' => 'service',
+        'serwisami' => 'service',
         'servicegroup' => 'servicegroup',
         'servicegroupy' => 'servicegroup',
         'servicegrupa' => 'servicegroup',
@@ -66,6 +69,7 @@ class NaturalLanguageSearchTranslator
         'krytyczny' => 'critical',
         'krytyczna' => 'critical',
         'krytycznym' => 'critical',
+        'krytycznymi' => 'critical',
         'warning' => 'warning',
         'warn' => 'warning',
         'ostrzezenie' => 'warning',
@@ -113,6 +117,7 @@ class NaturalLanguageSearchTranslator
         'prosze', 'przez', 'sie', 'się', 'ten', 'tego', 'tej', 'to', 'w', 'we',
         'z', 'za', 'znajdz', 'znajdź', 'wyszukaj', 'jak', 'and', 'or', 'the',
         'a', 'an', 'in', 'on', 'of', 'for', 'with', 'show', 'find', 'search',
+        'historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'zdarzeń', 'event', 'events',
         'look', 'please', 'all', 'every'
     ];
 
@@ -134,6 +139,7 @@ class NaturalLanguageSearchTranslator
      *     query: ?string,
      *     routePath: ?string,
      *     routeParams: array<string, mixed>,
+     *     routeQuery: ?string,
      *     mode: string,
      *     actions: array<int, array<string, mixed>>,
      *     reportUrl: ?string,
@@ -153,6 +159,11 @@ class NaturalLanguageSearchTranslator
             return $this->emptyResult();
         }
 
+        $ruleBased = $this->fromRules($message, $context);
+        if ($this->shouldPreferRuleResult($ruleBased, $message, $context)) {
+            return $ruleBased;
+        }
+
         try {
             if ($this->client->isConfigured()) {
                 $result = $this->fromLlm($message, $context);
@@ -164,7 +175,48 @@ class NaturalLanguageSearchTranslator
             // Fall back to deterministic parsing.
         }
 
-        return $this->fromRules($message, $context);
+        return $ruleBased;
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     * @param string $message
+     * @param array<string, mixed> $context
+     *
+     * @return bool
+     */
+    private function shouldPreferRuleResult(array $result, $message, array $context = [])
+    {
+        $normalized = $this->normalize($message);
+        $routePath = isset($result['routePath']) ? (string) $result['routePath'] : '';
+        $mode = isset($result['mode']) ? (string) $result['mode'] : '';
+        $confidence = isset($result['confidence']) ? (string) $result['confidence'] : '';
+
+        if ($routePath !== '' && $confidence === 'high') {
+            return true;
+        }
+
+        if ($routePath === 'icingadb/history' || $routePath === 'dashboard') {
+            return true;
+        }
+
+        if ($mode === 'report' && ! empty($result['reportUrl'])) {
+            return true;
+        }
+
+        if ($this->hasAnyWord($normalized, ['dashboard', 'dashlet', 'pulpit', 'panel'])) {
+            return true;
+        }
+
+        if ($this->hasAnyWord($normalized, ['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'event', 'events'])) {
+            return true;
+        }
+
+        if ($this->isReportConversation($normalized, $context)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -177,6 +229,7 @@ class NaturalLanguageSearchTranslator
             'query'      => null,
             'routePath'  => null,
             'routeParams'=> [],
+            'routeQuery' => null,
             'mode'       => 'answer',
             'actions'    => [],
             'reportUrl'  => null,
@@ -216,7 +269,7 @@ class NaturalLanguageSearchTranslator
         $normalized = $this->normalize($message);
         $target = $this->detectTarget($normalized);
         $state = $this->detectState($normalized);
-        $route = $this->buildRouteIntent($normalized, $target, $state);
+        $route = $this->buildRouteIntent($normalized, $target, $state, $message);
         $tokens = $route !== null
             ? []
             : $this->extractTokens($message, $normalized, $target, $state);
@@ -234,6 +287,7 @@ class NaturalLanguageSearchTranslator
             'query'      => $query ?: null,
             'routePath'  => $route !== null ? $route['path'] : null,
             'routeParams'=> $route !== null ? $route['params'] : [],
+            'routeQuery' => $route !== null && isset($route['query']) ? (string) $route['query'] : null,
             'mode'       => $mode,
             'actions'    => $this->buildActions($route, $query, $reportUrl),
             'reportUrl'  => $reportUrl,
@@ -288,6 +342,7 @@ class NaturalLanguageSearchTranslator
         $query = isset($result['query']) ? trim((string) $result['query']) : '';
         $routePath = isset($result['routePath']) ? trim((string) $result['routePath']) : '';
         $routeParams = isset($result['routeParams']) && is_array($result['routeParams']) ? $result['routeParams'] : [];
+        $routeQuery = isset($result['routeQuery']) ? trim((string) $result['routeQuery']) : '';
         $target = isset($result['target']) ? $this->normalizeNullableWord((string) $result['target'], $this->targetWords) : null;
         $state = isset($result['state']) ? $this->normalizeNullableWord((string) $result['state'], $this->stateWords) : null;
         $confidence = isset($result['confidence']) ? strtolower(trim((string) $result['confidence'])) : 'medium';
@@ -331,10 +386,11 @@ class NaturalLanguageSearchTranslator
             $mode = 'report';
         }
 
-        $route = $this->buildRouteIntent($normalizedMessage, $target, $state);
+        $route = $this->buildRouteIntent($normalizedMessage, $target, $state, $message);
         if ($route !== null) {
             $routePath = $route['path'];
             $routeParams = $route['params'];
+            $routeQuery = isset($route['query']) ? (string) $route['query'] : '';
             if ($reply === '') {
                 $reply = $this->buildReply($message, null, $target, $state, $tokens, $route, $mode);
             }
@@ -383,6 +439,7 @@ class NaturalLanguageSearchTranslator
             'query'      => $query !== '' ? $query : null,
             'routePath'  => $routePath !== '' ? $routePath : null,
             'routeParams'=> $routeParams,
+            'routeQuery' => $routeQuery !== '' ? $routeQuery : null,
             'mode'       => $mode,
             'actions'    => $actions,
             'reportUrl'  => $reportUrl,
@@ -473,12 +530,20 @@ class NaturalLanguageSearchTranslator
      */
     private function humanRoute($path, $target)
     {
-        if ($path === 'icingadb/services/grid') {
+        if ($path === 'icingadb/services/grid' || $path === 'icingadb/services') {
             return 'widoku aktywnych problemów serwisów';
         }
 
         if ($path === 'icingadb/hosts') {
             return 'widoku hostów z problemami';
+        }
+
+        if ($path === 'icingadb/history') {
+            return 'widoku historii zdarzeń';
+        }
+
+        if ($path === 'dashboard') {
+            return 'widoku dashboardów';
         }
 
         return $this->humanTarget($target ?: 'service');
@@ -489,15 +554,72 @@ class NaturalLanguageSearchTranslator
      * @param ?string $target
      * @param ?string $state
      *
-     * @return ?array{path:string,params:array<string,mixed>}
+     * @return ?array{path:string,params:array<string,mixed>,query?:string}
      */
-    private function buildRouteIntent($normalized, $target, $state)
+    private function buildRouteIntent($normalized, $target, $state, $message = '')
     {
+        if ($this->isHistoryRequest($normalized)) {
+            $params = [
+                'history.event_type' => 'state_change',
+            ];
+            $tokens = $this->extractTokens($message !== '' ? $message : $normalized, $normalized, $target, $state);
+
+            if ($target !== null && in_array($target, ['host', 'service'], true)) {
+                $params['history.object_type'] = $target;
+            }
+
+            $stateMap = [
+                'up' => 0,
+                'down' => 1,
+                'warning' => 1,
+                'critical' => 2,
+                'unknown' => 3,
+                'pending' => 99,
+            ];
+
+            if ($state !== null && isset($stateMap[$state])) {
+                $params['history.state.soft_state'] = (string) $stateMap[$state];
+            }
+
+            $since = $this->extractHistorySince($normalized);
+            if ($since !== null || ! empty($tokens)) {
+                $queryParts = [];
+                foreach ($params as $key => $value) {
+                    $queryParts[] = rawurlencode($key) . '=' . rawurlencode((string) $value);
+                }
+                if ($since !== null) {
+                    $queryParts[] = 'history.event_time>=' . rawurlencode($since);
+                }
+
+                foreach ($this->buildHistoryTokenFilters($tokens) as $tokenFilter) {
+                    $queryParts[] = $tokenFilter;
+                }
+
+                return [
+                    'path' => 'icingadb/history',
+                    'params' => [],
+                    'query' => implode('&', $queryParts)
+                ];
+            }
+
+            return [
+                'path' => 'icingadb/history',
+                'params' => $params
+            ];
+        }
+
+        if ($this->isDashboardRequest($normalized)) {
+            return [
+                'path' => 'dashboard',
+                'params' => []
+            ];
+        }
+
         if ($this->isProblemIntent($normalized, $state)) {
-            $route = $target === 'host' ? 'icingadb/hosts' : 'icingadb/services/grid';
+            $route = $target === 'host' ? 'icingadb/hosts' : 'icingadb/services';
             $params = $target === 'host'
                 ? ['host.state.is_problem' => 'y']
-                : ['problems' => true];
+                : ['service.state.is_problem' => 'y'];
             return [
                 'path' => $route,
                 'params' => $params
@@ -508,6 +630,31 @@ class NaturalLanguageSearchTranslator
     }
 
     /**
+     * @param array<int, string> $tokens
+     *
+     * @return array<int, string>
+     */
+    private function buildHistoryTokenFilters(array $tokens)
+    {
+        $filters = [];
+
+        foreach ($tokens as $token) {
+            $token = trim((string) $token);
+            if ($token === '') {
+                continue;
+            }
+
+            $encoded = rawurlencode('*' . $token . '*');
+            $filters[] = sprintf(
+                '(host.name~%1$s|host.display_name~%1$s|service.name~%1$s|service.display_name~%1$s|hostgroup.name~%1$s)',
+                $encoded
+            );
+        }
+
+        return $filters;
+    }
+
+    /**
      * @param string $routePath
      * @param array<string, mixed> $routeParams
      *
@@ -515,10 +662,10 @@ class NaturalLanguageSearchTranslator
      */
     private function normalizeRouteParams($routePath, array $routeParams)
     {
-        if ($routePath === 'icingadb/services/grid') {
+        if ($routePath === 'icingadb/services/grid' || $routePath === 'icingadb/services') {
             $params = [];
-            if (isset($routeParams['problems'])) {
-                $params['problems'] = (bool) $routeParams['problems'];
+            if (isset($routeParams['service.state.is_problem'])) {
+                $params['service.state.is_problem'] = (string) $routeParams['service.state.is_problem'];
             }
 
             return $params;
@@ -528,6 +675,21 @@ class NaturalLanguageSearchTranslator
             $params = [];
             if (isset($routeParams['host.state.is_problem'])) {
                 $params['host.state.is_problem'] = (string) $routeParams['host.state.is_problem'];
+            }
+
+            return $params;
+        }
+
+        if ($routePath === 'icingadb/history' || $routePath === 'dashboard') {
+            if ($routePath === 'dashboard') {
+                return [];
+            }
+
+            $params = [];
+            foreach (['history.event_type', 'history.object_type', 'history.state.soft_state'] as $key) {
+                if (isset($routeParams[$key]) && $routeParams[$key] !== '') {
+                    $params[$key] = (string) $routeParams[$key];
+                }
             }
 
             return $params;
@@ -559,6 +721,54 @@ class NaturalLanguageSearchTranslator
     }
 
     /**
+     * @param string $normalized
+     *
+     * @return bool
+     */
+    private function isHistoryRequest($normalized)
+    {
+        $normalized = $this->foldText($normalized);
+
+        return $this->hasAnyWord($normalized, ['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'event', 'events']);
+    }
+
+    /**
+     * @param string $normalized
+     *
+     * @return bool
+     */
+    private function isDashboardRequest($normalized)
+    {
+        $normalized = $this->foldText($normalized);
+
+        return $this->hasAnyWord($normalized, ['dashboard', 'dashboardy', 'dashboardow', 'dashlet', 'dashlety', 'kokpit']);
+    }
+
+    /**
+     * @param string $normalized
+     *
+     * @return ?string
+     */
+    private function extractHistorySince($normalized)
+    {
+        $normalized = $this->foldText($normalized);
+
+        if (strpos($normalized, 'ostatnich 24 godzin') !== false || strpos($normalized, 'last 24 hours') !== false) {
+            return date(DATE_ATOM, strtotime('-24 hours'));
+        }
+
+        if (strpos($normalized, 'ostatnich 7 dni') !== false || strpos($normalized, 'last 7 days') !== false) {
+            return date(DATE_ATOM, strtotime('-7 days'));
+        }
+
+        if (strpos($normalized, 'ostatnich 30 dni') !== false || strpos($normalized, 'last 30 days') !== false) {
+            return date(DATE_ATOM, strtotime('-30 days'));
+        }
+
+        return null;
+    }
+
+    /**
      * @param ?string $target
      * @param ?string $state
      * @param array<int, string> $tokens
@@ -568,6 +778,10 @@ class NaturalLanguageSearchTranslator
      */
     private function confidence($target, $state, array $tokens, $query)
     {
+        if ($query === null && ($target !== null || $state !== null)) {
+            return 'high';
+        }
+
         if ($query === null || $query === '') {
             return 'low';
         }
@@ -792,6 +1006,10 @@ class NaturalLanguageSearchTranslator
         $normalized = $this->foldText($normalized);
         if ($this->hasAnyWord($normalized, ['raport', 'report', 'zestawienie', 'podsumuj'])) {
             return 'report';
+        }
+
+        if ($this->isDashboardRequest($normalized)) {
+            return 'open';
         }
 
         if ($this->hasAnyWord($normalized, ['wykres', 'chart', 'trend', 'graficznie'])) {
@@ -1397,7 +1615,7 @@ class NaturalLanguageSearchTranslator
         }
 
         if (is_array($route) && isset($route['path'])) {
-            if ($route['path'] === 'icingadb/services/grid') {
+            if ($route['path'] === 'icingadb/services/grid' || $route['path'] === 'icingadb/services') {
                 return 'service';
             }
 
@@ -1535,7 +1753,7 @@ class NaturalLanguageSearchTranslator
                 return 'host.state.is_problem=y';
             }
 
-            if ($route['path'] === 'icingadb/services/grid') {
+            if ($route['path'] === 'icingadb/services/grid' || $route['path'] === 'icingadb/services') {
                 return 'service.state.is_problem=y';
             }
         }
