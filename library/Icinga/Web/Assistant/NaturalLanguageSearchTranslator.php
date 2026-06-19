@@ -1221,8 +1221,7 @@ class NaturalLanguageSearchTranslator
             }
         }
 
-        foreach (
-            $this->buildActionPathFollowUps(
+        foreach ($this->buildActionPathFollowUps(
                 $normalized,
                 $target,
                 $state,
@@ -1230,8 +1229,7 @@ class NaturalLanguageSearchTranslator
                 $route,
                 $reportContext,
                 $context
-            ) as $followUp
-        ) {
+            ) as $followUp) {
             $followUps[] = $followUp;
         }
 
