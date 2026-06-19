@@ -547,6 +547,7 @@ if ($this->layout()->inlineLayout) {
     data-summary-label="<?= $this->escape($this->translate('audit events')) ?>"
     data-clear-label="<?= $this->escape($this->translate('Clear log')) ?>"
     data-all-label="<?= $this->escape($this->translate('All')) ?>"
+    data-no-match-label="<?= $this->escape($this->translate('No audit events match the current filters')) ?>"
 >
     <div class="operator-activity-backdrop" data-close-operator-activity></div>
     <section
@@ -592,7 +593,21 @@ if ($this->layout()->inlineLayout) {
                     <dd data-operator-audit-latest>—</dd>
                 </div>
             </dl>
-            <div class="operator-audit-filters" data-operator-audit-filters></div>
+            <div class="operator-audit-controls">
+                <label class="operator-audit-search">
+                    <span class="sr-only"><?= $this->translate('Search audit timeline') ?></span>
+                    <input
+                        type="search"
+                        placeholder="<?= $this->escape($this->translate('Search audit timeline')) ?>"
+                        autocomplete="off"
+                        data-operator-audit-search
+                    >
+                </label>
+                <button type="button" data-operator-audit-reset disabled>
+                    <?= $this->translate('Clear filters') ?>
+                </button>
+                <div class="operator-audit-filters" data-operator-audit-filters></div>
+            </div>
         </div>
         <ol class="operator-activity-list" data-operator-activity-list></ol>
         <p class="operator-activity-empty" data-operator-activity-empty hidden></p>
