@@ -42,7 +42,8 @@ class IncidentAssignmentController extends AuthBackendController
             return;
         }
 
-        $canAssign = $this->Auth()->isAuthenticated() && $this->Auth()->getUser()->can('application/critical-assignments');
+        $canAssign = $this->Auth()->isAuthenticated()
+            && $this->Auth()->getUser()->can('application/critical-assignments');
 
         $this->respondWithJson([
             'ok' => true,
@@ -69,7 +70,11 @@ class IncidentAssignmentController extends AuthBackendController
 
         if ($assignee === '') {
             try {
-                IncidentAssignmentStore::create()->remove($object['type'], $object['host_name'], $object['service_name']);
+                IncidentAssignmentStore::create()->remove(
+                    $object['type'],
+                    $object['host_name'],
+                    $object['service_name']
+                );
             } catch (Exception $e) {
                 $this->respondWithJson(['error' => $e->getMessage()], 500);
                 return;

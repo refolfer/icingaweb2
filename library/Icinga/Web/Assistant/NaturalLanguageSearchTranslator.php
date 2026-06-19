@@ -208,7 +208,10 @@ class NaturalLanguageSearchTranslator
             return true;
         }
 
-        if ($this->hasAnyWord($normalized, ['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'event', 'events'])) {
+        if ($this->hasAnyWord(
+            $normalized,
+            ['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'event', 'events']
+        )) {
             return true;
         }
 
@@ -343,15 +346,23 @@ class NaturalLanguageSearchTranslator
         $routePath = isset($result['routePath']) ? trim((string) $result['routePath']) : '';
         $routeParams = isset($result['routeParams']) && is_array($result['routeParams']) ? $result['routeParams'] : [];
         $routeQuery = isset($result['routeQuery']) ? trim((string) $result['routeQuery']) : '';
-        $target = isset($result['target']) ? $this->normalizeNullableWord((string) $result['target'], $this->targetWords) : null;
-        $state = isset($result['state']) ? $this->normalizeNullableWord((string) $result['state'], $this->stateWords) : null;
+        $target = isset($result['target'])
+            ? $this->normalizeNullableWord((string) $result['target'], $this->targetWords)
+            : null;
+        $state = isset($result['state'])
+            ? $this->normalizeNullableWord((string) $result['state'], $this->stateWords)
+            : null;
         $confidence = isset($result['confidence']) ? strtolower(trim((string) $result['confidence'])) : 'medium';
-        $tokens = isset($result['tokens']) && is_array($result['tokens']) ? $this->normalizeTokens($result['tokens']) : [];
+        $tokens = isset($result['tokens']) && is_array($result['tokens'])
+            ? $this->normalizeTokens($result['tokens'])
+            : [];
         $mode = isset($result['mode']) ? strtolower(trim((string) $result['mode'])) : 'answer';
         $reportUrl = isset($result['reportUrl']) ? trim((string) $result['reportUrl']) : '';
         $chart = isset($result['chart']) && is_array($result['chart']) ? $result['chart'] : null;
         $actions = isset($result['actions']) && is_array($result['actions']) ? $result['actions'] : [];
-        $followUps = isset($result['followUps']) && is_array($result['followUps']) ? $this->normalizeFollowUps($result['followUps']) : [];
+        $followUps = isset($result['followUps']) && is_array($result['followUps'])
+            ? $this->normalizeFollowUps($result['followUps'])
+            : [];
 
         if ($mode === '' || ! in_array($mode, ['answer', 'open', 'search', 'report', 'chart', 'mixed'], true)) {
             $mode = 'answer';
@@ -404,7 +415,9 @@ class NaturalLanguageSearchTranslator
         if ($reportUrl === null) {
             $reportUrl = $this->buildReportUrl(
                 $mode,
-                $route !== null ? $route : ($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null),
+                $route !== null
+                    ? $route
+                    : ($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null),
                 $context,
                 $message,
                 $target,
@@ -412,7 +425,11 @@ class NaturalLanguageSearchTranslator
             );
         }
         if (empty($actions)) {
-            $actions = $this->buildActions($routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null, $query !== '' ? $query : null, $reportUrl);
+            $actions = $this->buildActions(
+                $routePath !== '' ? ['path' => $routePath, 'params' => $routeParams] : null,
+                $query !== '' ? $query : null,
+                $reportUrl
+            );
         }
         if ($reportContext) {
             $followUps = $this->buildFollowUps(
@@ -486,7 +503,8 @@ class NaturalLanguageSearchTranslator
 
         if ($mode === 'report') {
             $reply = 'Mogę przygotować raport dla ' . implode(' ', $pieces) . '.';
-            $reply .= ' Mogę przeprowadzić Cię przez pola raportu: Name, Timeframe, Report, Filter, Breakdown i SLA Visualization.';
+            $reply .= ' Mogę przeprowadzić Cię przez pola raportu: Name, Timeframe, '
+                . 'Report, Filter, Breakdown i SLA Visualization.';
         } else {
             $reply = is_array($route) && isset($route['path'])
                 ? 'Rozumiem to jako otwarcie ' . implode(' ', $pieces) . '.'
@@ -646,7 +664,8 @@ class NaturalLanguageSearchTranslator
 
             $encoded = rawurlencode('*' . $token . '*');
             $filters[] = sprintf(
-                '(host.name~%1$s|host.display_name~%1$s|service.name~%1$s|service.display_name~%1$s|hostgroup.name~%1$s)',
+                '(host.name~%1$s|host.display_name~%1$s|service.name~%1$s'
+                . '|service.display_name~%1$s|hostgroup.name~%1$s)',
                 $encoded
             );
         }
@@ -729,7 +748,10 @@ class NaturalLanguageSearchTranslator
     {
         $normalized = $this->foldText($normalized);
 
-        return $this->hasAnyWord($normalized, ['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'event', 'events']);
+        return $this->hasAnyWord(
+            $normalized,
+            ['historia', 'historie', 'history', 'zdarzen', 'zdarzenia', 'event', 'events']
+        );
     }
 
     /**
@@ -741,7 +763,10 @@ class NaturalLanguageSearchTranslator
     {
         $normalized = $this->foldText($normalized);
 
-        return $this->hasAnyWord($normalized, ['dashboard', 'dashboardy', 'dashboardow', 'dashlet', 'dashlety', 'kokpit']);
+        return $this->hasAnyWord(
+            $normalized,
+            ['dashboard', 'dashboardy', 'dashboardow', 'dashlet', 'dashlety', 'kokpit']
+        );
     }
 
     /**
@@ -1164,8 +1189,14 @@ class NaturalLanguageSearchTranslator
                 'Jaki Filter zastosować?',
                 [
                     $this->makeFollowUpOption('Bez filtra', 'Nie ustawiaj Filter.'),
-                    $this->makeFollowUpOption('hostgroup.name=linux-servers', 'Ustaw Filter na hostgroup.name=linux-servers.'),
-                    $this->makeFollowUpOption('servicegroup.name=core-services', 'Ustaw Filter na servicegroup.name=core-services.'),
+                    $this->makeFollowUpOption(
+                        'hostgroup.name=linux-servers',
+                        'Ustaw Filter na hostgroup.name=linux-servers.'
+                    ),
+                    $this->makeFollowUpOption(
+                        'servicegroup.name=core-services',
+                        'Ustaw Filter na servicegroup.name=core-services.'
+                    ),
                 ]
             );
 
@@ -1190,7 +1221,17 @@ class NaturalLanguageSearchTranslator
             }
         }
 
-        foreach ($this->buildActionPathFollowUps($normalized, $target, $state, $query, $route, $reportContext, $context) as $followUp) {
+        foreach (
+            $this->buildActionPathFollowUps(
+                $normalized,
+                $target,
+                $state,
+                $query,
+                $route,
+                $reportContext,
+                $context
+            ) as $followUp
+        ) {
             $followUps[] = $followUp;
         }
 
@@ -1237,8 +1278,14 @@ class NaturalLanguageSearchTranslator
                 $followUps[] = $this->makeFollowUpGroup(
                     'Jaką ścieżkę wybrać dalej?',
                     [
-                        $this->makeFollowUpOption('Zrób dashboard', 'Utwórz dashboard na podstawie tej historii zdarzeń.'),
-                        $this->makeFollowUpOption('Zrób raport', 'Przygotuj raport na podstawie tej historii zdarzeń.'),
+                        $this->makeFollowUpOption(
+                            'Zrób dashboard',
+                            'Utwórz dashboard na podstawie tej historii zdarzeń.'
+                        ),
+                        $this->makeFollowUpOption(
+                            'Zrób raport',
+                            'Przygotuj raport na podstawie tej historii zdarzeń.'
+                        ),
                     ]
                 );
             }
@@ -1246,15 +1293,24 @@ class NaturalLanguageSearchTranslator
             return $followUps;
         }
 
-        if ($routePath === 'icingadb/hosts' || $routePath === 'icingadb/services' || $routePath === 'icingadb/services/grid') {
+        if ($routePath === 'icingadb/hosts'
+            || $routePath === 'icingadb/services'
+            || $routePath === 'icingadb/services/grid'
+        ) {
             $noun = $routePath === 'icingadb/hosts' ? 'hostów' : 'serwisów';
             $followUps[] = $this->makeFollowUpGroup(
                 'Co chcesz zrobić z tym widokiem?',
                 [
                     $this->makeFollowUpOption('Tylko problemy', 'Pokaż tylko obiekty z problemami.'),
                     $this->makeFollowUpOption('Dodaj kontekst', 'Zawęź wynik do konkretnej nazwy lub środowiska.'),
-                    $this->makeFollowUpOption('Pokaż historię', 'Pokaż historię zdarzeń dla tych ' . $noun . '.'),
-                    $this->makeFollowUpOption('Zrób dashboard', 'Utwórz dashboard na podstawie tego widoku ' . $noun . '.'),
+                    $this->makeFollowUpOption(
+                        'Pokaż historię',
+                        'Pokaż historię zdarzeń dla tych ' . $noun . '.'
+                    ),
+                    $this->makeFollowUpOption(
+                        'Zrób dashboard',
+                        'Utwórz dashboard na podstawie tego widoku ' . $noun . '.'
+                    ),
                 ]
             );
 
@@ -1278,7 +1334,10 @@ class NaturalLanguageSearchTranslator
                     $this->makeFollowUpOption('Dashboard hostów', 'Utwórz dashboard dla hostów.'),
                     $this->makeFollowUpOption('Dashboard serwisów', 'Utwórz dashboard dla serwisów.'),
                     $this->makeFollowUpOption('Tylko problemy', 'Utwórz dashboard tylko dla obiektów z problemami.'),
-                    $this->makeFollowUpOption('Dodaj nazwę', 'Ustaw krótką nazwę dashboardu na podstawie tego widoku.'),
+                    $this->makeFollowUpOption(
+                        'Dodaj nazwę',
+                        'Ustaw krótką nazwę dashboardu na podstawie tego widoku.'
+                    ),
                 ]
             );
         }
@@ -1290,7 +1349,10 @@ class NaturalLanguageSearchTranslator
                     $this->makeFollowUpOption('Ustaw Name', 'Ustaw Name raportu.'),
                     $this->makeFollowUpOption('Ustaw Timeframe', 'Ustaw Timeframe raportu.'),
                     $this->makeFollowUpOption('Ustaw Filter', 'Ustaw Filter raportu.'),
-                    $this->makeFollowUpOption('Przejdź do formularza', 'Otwórz formularz tworzenia raportu z obecnymi ustawieniami.'),
+                    $this->makeFollowUpOption(
+                        'Przejdź do formularza',
+                        'Otwórz formularz tworzenia raportu z obecnymi ustawieniami.'
+                    ),
                 ]
             );
 
@@ -1454,7 +1516,10 @@ class NaturalLanguageSearchTranslator
             } elseif ($normalized === 'columns') {
                 $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na columns.');
             } elseif ($normalized === 'availability balance columns') {
-                $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na availability balance columns.');
+                $options[] = $this->makeFollowUpOption(
+                    $label,
+                    'Ustaw SLA Visualization na availability balance columns.'
+                );
             } elseif ($normalized === 'pie charts') {
                 $options[] = $this->makeFollowUpOption($label, 'Ustaw SLA Visualization na pie chart.');
             }
@@ -1513,8 +1578,7 @@ class NaturalLanguageSearchTranslator
      */
     private function reportingBuilderOptions(array $context, $key, array $defaults)
     {
-        if (
-            isset($context['capabilities']['reportingBuilder'][$key])
+        if (isset($context['capabilities']['reportingBuilder'][$key])
             && is_array($context['capabilities']['reportingBuilder'][$key])
         ) {
             $values = [];
@@ -1912,7 +1976,9 @@ class NaturalLanguageSearchTranslator
         }
 
         foreach (['hour', 'day', 'week', 'month'] as $value) {
-            if (strpos($normalized, 'ustaw breakdown na ' . $value) !== false || preg_match('/\bbreakdown\b.*\b' . $value . '\b/u', $normalized)) {
+            if (strpos($normalized, 'ustaw breakdown na ' . $value) !== false
+                || preg_match('/\bbreakdown\b.*\b' . $value . '\b/u', $normalized)
+            ) {
                 return $value;
             }
         }
@@ -1931,11 +1997,15 @@ class NaturalLanguageSearchTranslator
             return 'table';
         }
 
-        if (strpos($normalized, 'sla visualization na horizontal bars') !== false || preg_match('/\bbars\b/u', $normalized)) {
+        if (strpos($normalized, 'sla visualization na horizontal bars') !== false
+            || preg_match('/\bbars\b/u', $normalized)
+        ) {
             return 'bars';
         }
 
-        if (strpos($normalized, 'sla visualization na availability balance columns') !== false || strpos($normalized, 'balance') !== false) {
+        if (strpos($normalized, 'sla visualization na availability balance columns') !== false
+            || strpos($normalized, 'balance') !== false
+        ) {
             return 'balance_columns';
         }
 
@@ -1943,7 +2013,9 @@ class NaturalLanguageSearchTranslator
             return 'columns';
         }
 
-        if (strpos($normalized, 'sla visualization na pie chart') !== false || strpos($normalized, 'pie chart') !== false) {
+        if (strpos($normalized, 'sla visualization na pie chart') !== false
+            || strpos($normalized, 'pie chart') !== false
+        ) {
             return 'gauge';
         }
 
@@ -1976,7 +2048,9 @@ class NaturalLanguageSearchTranslator
      */
     private function extractOutageObjectType($normalized, $target)
     {
-        if (strpos($normalized, 'objects na hosts and services') !== false || strpos($normalized, 'hosts and services') !== false) {
+        if (strpos($normalized, 'objects na hosts and services') !== false
+            || strpos($normalized, 'hosts and services') !== false
+        ) {
             return 'all';
         }
 
@@ -2009,7 +2083,9 @@ class NaturalLanguageSearchTranslator
      */
     private function extractOutageServiceState($normalized, $state)
     {
-        if (strpos($normalized, 'service outage state na critical and warning') !== false || strpos($normalized, 'critical and warning') !== false) {
+        if (strpos($normalized, 'service outage state na critical and warning') !== false
+            || strpos($normalized, 'critical and warning') !== false
+        ) {
             return 'warning';
         }
 
@@ -2065,7 +2141,11 @@ class NaturalLanguageSearchTranslator
                 continue;
             }
 
-            if (! is_array($followUp) || empty($followUp['question']) || empty($followUp['options']) || ! is_array($followUp['options'])) {
+            if (! is_array($followUp)
+                || empty($followUp['question'])
+                || empty($followUp['options'])
+                || ! is_array($followUp['options'])
+            ) {
                 continue;
             }
 

@@ -7,10 +7,6 @@ namespace Icinga\Controllers;
 
 use GuzzleHttp\Psr7\ServerRequest;
 use Icinga\Application\Icinga;
-require_once __DIR__ . '/../../library/Icinga/Web/Assistant/OpenAiCompatibleClient.php';
-require_once __DIR__ . '/../../library/Icinga/Web/Assistant/NaturalLanguageSearchTranslator.php';
-require_once __DIR__ . '/../../library/Icinga/Web/Assistant/IcingaAgentToolbox.php';
-
 use Icinga\Web\Assistant\IcingaAgentToolbox;
 use Icinga\Web\Assistant\OpenAiCompatibleClient;
 use Icinga\Web\Assistant\NaturalLanguageSearchTranslator;
@@ -93,7 +89,8 @@ class AssistantController extends ActionController
         if (! empty($toolData['dashboardDraft']['draftPath'])) {
             $dashboardUrl = Url::fromPath(
                 $toolData['dashboardDraft']['draftPath'],
-                isset($toolData['dashboardDraft']['draftParams']) && is_array($toolData['dashboardDraft']['draftParams'])
+                isset($toolData['dashboardDraft']['draftParams'])
+                    && is_array($toolData['dashboardDraft']['draftParams'])
                     ? $toolData['dashboardDraft']['draftParams']
                     : []
             )->getAbsoluteUrl();
@@ -182,9 +179,11 @@ class AssistantController extends ActionController
         require_once '/usr/share/icingaweb2/modules/reporting/application/controllers/ReportsController.php';
         require_once '/usr/share/icingaweb2/modules/reporting/library/Reporting/Database.php';
         require_once '/usr/share/icingaweb2/modules/reporting/library/Reporting/Web/Forms/ReportForm.php';
-        require_once '/usr/share/icingaweb2/modules/reporting/library/Reporting/Reports/OutageReport.php';
+        require_once '/usr/share/icingaweb2/modules/reporting/library/Reporting/Reports/'
+            . 'OutageReport.php';
         require_once '/usr/share/icingaweb2/modules/icingadb/library/Icingadb/ProvidedHook/Reporting/HostSlaReport.php';
-        require_once '/usr/share/icingaweb2/modules/icingadb/library/Icingadb/ProvidedHook/Reporting/ServiceSlaReport.php';
+        require_once '/usr/share/icingaweb2/modules/icingadb/library/Icingadb/ProvidedHook/Reporting/'
+            . 'ServiceSlaReport.php';
 
         $this->assertPermission('reporting/reports');
         $this->view->title = t('AI Prefilled Report');
@@ -197,7 +196,9 @@ class AssistantController extends ActionController
 
         $timeframeId = trim((string) $this->params->get('timeframe', ''));
         if ($timeframeId === '') {
-            $timeframeId = (string) $this->resolveAssistantTimeframeId((string) $this->params->get('timeframe_name', ''));
+            $timeframeId = (string) $this->resolveAssistantTimeframeId(
+                (string) $this->params->get('timeframe_name', '')
+            );
         }
 
         $prefill = [
@@ -220,21 +221,24 @@ class AssistantController extends ActionController
             ->setAction((string) Url::fromRequest())
             ->setRenderCreateAndShowButton($reportletClass !== null)
             ->populate($prefill)
-            ->on(\Icinga\Module\Reporting\Web\Forms\ReportForm::ON_SUCCESS, function (\Icinga\Module\Reporting\Web\Forms\ReportForm $form) {
-                \Icinga\Web\Notification::success(t('Created report successfully'));
+            ->on(
+                \Icinga\Module\Reporting\Web\Forms\ReportForm::ON_SUCCESS,
+                function (\Icinga\Module\Reporting\Web\Forms\ReportForm $form) {
+                    \Icinga\Web\Notification::success(t('Created report successfully'));
 
-                $pressedButton = $form->getPressedSubmitElement();
-                if ($pressedButton && $pressedButton->getName() !== 'create_show') {
-                    $this->closeModalAndRefreshRelatedView(Url::fromPath('reporting/reports'));
-                } else {
-                    $this->redirectNow(
-                        Url::fromPath(sprintf(
-                            'reporting/reports#!%s',
-                            Url::fromPath('reporting/report', ['id' => $form->getId()])->getAbsoluteUrl()
-                        ))
-                    );
+                    $pressedButton = $form->getPressedSubmitElement();
+                    if ($pressedButton && $pressedButton->getName() !== 'create_show') {
+                        $this->closeModalAndRefreshRelatedView(Url::fromPath('reporting/reports'));
+                    } else {
+                        $this->redirectNow(
+                            Url::fromPath(sprintf(
+                                'reporting/reports#!%s',
+                                Url::fromPath('reporting/report', ['id' => $form->getId()])->getAbsoluteUrl()
+                            ))
+                        );
+                    }
                 }
-            })
+            )
             ->handleRequest(ServerRequest::fromGlobals());
 
         $this->view->prefillHint = t(
@@ -473,7 +477,9 @@ class AssistantController extends ActionController
 
         if (! empty($toolData['dashboardDraft'])) {
             return [
-                'reply' => 'Mogę przygotować dashboard na podstawie tego zapytania. Otworzę gotowy szkic dashletu, żeby dało się go od razu zapisać w Icinga Web.',
+                'reply' => 'Mogę przygotować dashboard na podstawie tego zapytania. '
+                    . 'Otworzę gotowy szkic dashletu, żeby dało się go od razu '
+                    . 'zapisać w Icinga Web.',
                 'confidence' => 'high',
                 'followUps' => [],
             ];
@@ -521,7 +527,9 @@ class AssistantController extends ActionController
         }
 
         return [
-            'reply' => 'Mogę otworzyć wynik w Icinga Web i dalej go doprecyzować, ale w szybkim podglądzie nie widzę teraz jednoznacznego dopasowania do zapytania: ' . trim((string) $message),
+            'reply' => 'Mogę otworzyć wynik w Icinga Web i dalej go doprecyzować, '
+                . 'ale w szybkim podglądzie nie widzę teraz jednoznacznego '
+                . 'dopasowania do zapytania: ' . trim((string) $message),
             'confidence' => 'medium',
             'followUps' => [],
         ];
@@ -553,10 +561,17 @@ class AssistantController extends ActionController
             }
         }
 
+        $scope = isset($toolData['scope']) && is_array($toolData['scope'])
+            ? $toolData['scope']
+            : [];
+        $summaries = isset($toolData['summaries']) && is_array($toolData['summaries'])
+            ? $toolData['summaries']
+            : [];
+
         return [
             'available' => ! empty($toolData['available']),
-            'scope' => array_slice(isset($toolData['scope']) && is_array($toolData['scope']) ? $toolData['scope'] : [], 0, 8),
-            'summaries' => isset($toolData['summaries']) && is_array($toolData['summaries']) ? $toolData['summaries'] : [],
+            'scope' => array_slice($scope, 0, 8),
+            'summaries' => $summaries,
             'items' => $items,
             'history' => $isHistory && ! empty($toolData['history']) && is_array($toolData['history'])
                 ? array_slice($toolData['history'], 0, 5)
@@ -801,5 +816,4 @@ class AssistantController extends ActionController
 
         return $value;
     }
-
 }

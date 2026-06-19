@@ -68,8 +68,12 @@ class IcingaAgentToolbox
         $fetchSummaries = array_key_exists('fetchSummaries', $options) ? (bool) $options['fetchSummaries'] : true;
         $fetchItems = array_key_exists('fetchItems', $options) ? (bool) $options['fetchItems'] : true;
         $fetchHistory = array_key_exists('fetchHistory', $options) ? (bool) $options['fetchHistory'] : $wantsHistory;
-        $fetchDashboards = array_key_exists('fetchDashboards', $options) ? (bool) $options['fetchDashboards'] : $wantsDashboard;
-        $fetchDashboardDraft = array_key_exists('fetchDashboardDraft', $options) ? (bool) $options['fetchDashboardDraft'] : $wantsDashboard;
+        $fetchDashboards = array_key_exists('fetchDashboards', $options)
+            ? (bool) $options['fetchDashboards']
+            : $wantsDashboard;
+        $fetchDashboardDraft = array_key_exists('fetchDashboardDraft', $options)
+            ? (bool) $options['fetchDashboardDraft']
+            : $wantsDashboard;
 
         if ($fetchSummaries) {
             try {
@@ -119,7 +123,9 @@ class IcingaAgentToolbox
             }
         }
 
-        $dashboardDraft = $fetchDashboardDraft && $wantsDashboard ? $this->buildDashboardDraft($message, $intent) : null;
+        $dashboardDraft = $fetchDashboardDraft && $wantsDashboard
+            ? $this->buildDashboardDraft($message, $intent)
+            : null;
 
         return [
             'available' => true,
@@ -314,8 +320,12 @@ class IcingaAgentToolbox
                 'event_time' => $this->stringifyDate($entry->event_time),
                 'event_type' => (string) $entry->event_type,
                 'object_type' => (string) $entry->object_type,
-                'host_name' => $entry->host ? (string) ($entry->host->display_name ?: $entry->host->name) : null,
-                'service_name' => $entry->service ? (string) ($entry->service->display_name ?: $entry->service->name) : null,
+                'host_name' => $entry->host
+                    ? (string) ($entry->host->display_name ?: $entry->host->name)
+                    : null,
+                'service_name' => $entry->service
+                    ? (string) ($entry->service->display_name ?: $entry->service->name)
+                    : null,
                 'state' => $entry->state ? (int) $entry->state->soft_state : null,
             ];
         }
@@ -495,9 +505,11 @@ class IcingaAgentToolbox
      */
     private function applyServiceFilters($query, $message, $search, $state, array $routeParams)
     {
-        if (
-            (isset($routeParams['problems']) && $routeParams['problems'])
-            || (isset($routeParams['service.state.is_problem']) && $routeParams['service.state.is_problem'] === 'y')
+        if ((isset($routeParams['problems']) && $routeParams['problems'])
+            || (
+                isset($routeParams['service.state.is_problem'])
+                && $routeParams['service.state.is_problem'] === 'y'
+            )
         ) {
             $query->filter(Filter::equal('service.state.is_problem', 'y'));
         }
@@ -814,7 +826,14 @@ class IcingaAgentToolbox
             return 'Serwisy z problemami';
         }
 
-        if ($target === 'host' && ($state === 'down' || $state === 'problem' || $state === 'critical' || strpos($clean, 'problem') !== false)) {
+        if ($target === 'host'
+            && (
+                $state === 'down'
+                || $state === 'problem'
+                || $state === 'critical'
+                || strpos($clean, 'problem') !== false
+            )
+        ) {
             return 'Hosty z problemami';
         }
 
