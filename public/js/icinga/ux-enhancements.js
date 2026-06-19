@@ -76,8 +76,10 @@
         abortController: null,
         timelineAbortController: null,
         object: null,
+        assignment: null,
         focusTimeline: false
     };
+    var incidentAssignmentCache = {};
 
     var lastFocusedElement = null;
     var topWidgetResizeState = null;
@@ -1900,18 +1902,11 @@
     }
 
     function isTriageEvent(item) {
-        var triageStates = {
-            critical: true,
-            warning: true,
-            unknown: true,
-            pending: true
-        };
-
         if (! item || ! item.url || item.handled || isIncidentSeen(item.url)) {
             return false;
         }
 
-        return Boolean(triageStates[item.state]);
+        return item.state === 'critical';
     }
 
     function getTopEventsTriageStats(items) {
@@ -1967,10 +1962,7 @@
 
     function getOperatorFocusStateWeight(state) {
         var weights = {
-            critical: 100,
-            warning: 70,
-            unknown: 55,
-            pending: 40
+            critical: 100
         };
 
         return weights[state] || 0;
@@ -2038,6 +2030,14 @@
         };
     }
 
+    function formatIncidentAssigneeText(object) {
+        var assignee = getIncidentAssignmentCache(object);
+
+        return assignee.length
+            ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignee
+            : '';
+    }
+
     function setOperatorFocusText(selector, value) {
         var element = document.querySelector(selector);
 
@@ -2088,7 +2088,7 @@
             setOperatorFocusText('[data-operator-focus-score]', '0');
             setOperatorFocusText('[data-operator-focus-state]', getOperatorFocusLabel('emptyLabel', 'Queue clear'));
             setOperatorFocusText('[data-operator-focus-kicker]', getOperatorFocusLabel('nextLabel', 'Next focus'));
-            setOperatorFocusText('[data-operator-focus-title]', getOperatorFocusLabel('emptyDetailLabel', 'No active triage events need operator focus.'));
+            setOperatorFocusText('[data-operator-focus-title]', getOperatorFocusLabel('emptyDetailLabel', 'No active critical events need operator focus.'));
             setOperatorFocusText('[data-operator-focus-detail]', '');
             return;
         }
@@ -2096,13 +2096,17 @@
         state = next.state || 'pending';
         title = normalizeText(next.title || 'Untitled event');
         detail = normalizeText(next.meta || next.preview || '');
+        var assigneeDetail = formatIncidentAssigneeText(getIcingadbObjectFromUrl(next.url));
         board.classList.add('priority-' + state);
 
         setOperatorFocusText('[data-operator-focus-score]', String(snapshot.score));
         setOperatorFocusText('[data-operator-focus-state]', state);
         setOperatorFocusText('[data-operator-focus-kicker]', getOperatorFocusLabel('nextLabel', 'Next focus') + ' - ' + getOperatorFocusLabel('workloadLabel', 'workload') + ' ' + String(snapshot.counts.active));
         setOperatorFocusText('[data-operator-focus-title]', title);
-        setOperatorFocusText('[data-operator-focus-detail]', detail);
+        setOperatorFocusText(
+            '[data-operator-focus-detail]',
+            [detail, assigneeDetail].filter(function (value) { return value && value.length; }).join(' · ')
+        );
 
         actionButtons.forEach(function (button) {
             var action = button.getAttribute('data-operator-focus-action') || '';
@@ -2171,13 +2175,9 @@
                 return;
             }
 
-            if (item.state === 'critical' || item.state === 'warning') {
+            if (item.state === 'critical') {
                 lanes.now.push(item);
                 return;
-            }
-
-            if (item.state === 'unknown' || item.state === 'pending') {
-                lanes.watch.push(item);
             }
         });
 
@@ -2385,6 +2385,7 @@
 
         events.forEach(function (item, index) {
             var preview = normalizeText(item.preview || '');
+            var assignee = getIncidentAssignmentCache(getIcingadbObjectFromUrl(item.url));
 
             lines.push('');
             lines.push(String(index + 1) + '. ' + normalizeText(item.title || 'Untitled event'));
@@ -2396,6 +2397,9 @@
             }
             if (preview.length && preview !== normalizeText(item.title || '') && preview !== normalizeText(item.meta || '')) {
                 lines.push('Preview: ' + preview);
+            }
+            if (assignee.length) {
+                lines.push('Assignee: ' + assignee);
             }
             lines.push('URL: ' + normalizeIncidentUrl(item.url));
         });
@@ -2415,7 +2419,7 @@
         }
 
         summary.textContent = String(events.length) + ' ' + getTriageDeskLabel('summaryLabel', 'active events');
-        empty.textContent = getTriageDeskLabel('emptyLabel', 'No active triage events');
+        empty.textContent = getTriageDeskLabel('emptyLabel', 'No active critical events');
         empty.hidden = events.length > 0;
         list.hidden = ! events.length;
 
@@ -2424,6 +2428,7 @@
             var title = normalizeText(item.title || 'Untitled event');
             var meta = normalizeText(item.meta || '');
             var preview = normalizeText(item.preview || '');
+            var assignee = formatIncidentAssigneeText(getIcingadbObjectFromUrl(item.url));
             var pinned = isIncidentPinned(url);
             var pinLabel = pinned
                 ? getTriageDeskLabel('unpinLabel', 'Unpin')
@@ -2434,6 +2439,7 @@
                 + '<div class="triage-desk-row-main">'
                 + '<h3>' + escapeHtml(title) + '</h3>'
                 + (meta.length ? '<p>' + escapeHtml(meta) + '</p>' : '')
+                + (assignee.length ? '<p class="triage-desk-assignee">' + escapeHtml(assignee) + '</p>' : '')
                 + (preview.length && preview !== title && preview !== meta ? '<p>' + escapeHtml(preview) + '</p>' : '')
                 + '</div>'
                 + '<div class="triage-desk-row-actions">'
@@ -3083,8 +3089,8 @@
             visibleItems = visibleItems.filter(isTriageEvent);
             if (! visibleItems.length && items.length) {
                 visibleItems = [{
-                    title: 'No active triage events',
-                    meta: 'Seen, handled and snoozed entries are hidden',
+                    title: 'No active critical events',
+                    meta: 'Seen, handled, snoozed and non-critical entries are hidden',
                     preview: 'Disable triage mode to review the full latest event feed',
                     url: getTopEventsHistoryUrl(),
                     state: ''
@@ -3100,6 +3106,8 @@
             var linkEl = slots[i].querySelector('.top-event-link');
             var stateClass;
             var url = normalizeTopEventUrl(getTopEventsHistoryUrl());
+            var object = null;
+            var assignedTo = '';
 
             if (! titleEl || ! metaEl || ! previewEl || ! linkEl) {
                 continue;
@@ -3119,7 +3127,14 @@
 
             if (item) {
                 titleEl.textContent = item.title;
+                object = getIcingadbObjectFromUrl(item.url);
+                assignedTo = getIncidentAssignmentCache(object);
                 metaEl.textContent = item.meta || '—';
+                if (assignedTo.length) {
+                    metaEl.textContent = metaEl.textContent.length
+                        ? (metaEl.textContent + ' · ' + getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo)
+                        : (getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo);
+                }
                 previewEl.textContent = item.preview || item.meta || item.title;
                 url = normalizeTopEventUrl(item.url);
                 if (url && isTopEventDetailsUrl(url)) {
@@ -3499,6 +3514,35 @@
         }
 
         return object.hostName;
+    }
+
+    function getIcingadbObjectSignature(object) {
+        if (! object) {
+            return '';
+        }
+
+        return object.type + '|' + object.hostName + '|' + (object.serviceName || '');
+    }
+
+    function setIncidentAssignmentCache(object, assignee) {
+        var signature = getIcingadbObjectSignature(object);
+
+        if (! signature.length) {
+            return;
+        }
+
+        if (! assignee) {
+            delete incidentAssignmentCache[signature];
+            return;
+        }
+
+        incidentAssignmentCache[signature] = String(assignee);
+    }
+
+    function getIncidentAssignmentCache(object) {
+        var signature = getIcingadbObjectSignature(object);
+
+        return signature.length ? (incidentAssignmentCache[signature] || '') : '';
     }
 
     function setIncidentQuickActions(object) {
@@ -4093,6 +4137,256 @@
         setIncidentNoteStatus(note.trim().length ? getIncidentDrawerLabel('note-saved-label', 'Saved locally') : '');
     }
 
+    function getIncidentAssignmentSection() {
+        return document.querySelector('[data-incident-assignment-section]');
+    }
+
+    function getIncidentAssignmentApiUrl() {
+        var drawer = getIncidentDrawer();
+
+        return drawer ? (drawer.dataset.assignmentUrl || '') : '';
+    }
+
+    function getIncidentAssignmentSaveUrl() {
+        var drawer = getIncidentDrawer();
+
+        return drawer ? (drawer.dataset.assignmentSaveUrl || '') : '';
+    }
+
+    function getIncidentAssignmentLabel(name, fallback) {
+        return getIncidentDrawerLabel(name, fallback);
+    }
+
+    function setIncidentAssignmentStatus(message, isError) {
+        var status = document.querySelector('[data-incident-assignment-status]');
+
+        if (status) {
+            status.textContent = message || '';
+            status.classList.toggle('error', !! isError);
+        }
+    }
+
+    function renderIncidentAssignment() {
+        var section = getIncidentAssignmentSection();
+        var title = document.querySelector('[data-incident-assignment-title]');
+        var assignee = document.querySelector('[data-incident-assignee]');
+        var form = document.querySelector('[data-incident-assignment-form]');
+        var select = document.querySelector('[data-incident-assignee-select]');
+        var save = document.querySelector('[data-save-incident-assignment]');
+        var assignment = incidentDrawerState.assignment || null;
+        var canAssign = !! (assignment && assignment.canAssign);
+        var users = assignment && Array.isArray(assignment.users) ? assignment.users : [];
+        var currentAssignee = assignment && assignment.assignment
+            ? String(assignment.assignment.assignee || '')
+            : getIncidentAssignmentCache(incidentDrawerState.object);
+        var statusMessage = assignment && assignment.statusMessage ? String(assignment.statusMessage) : '';
+        var statusError = !! (assignment && assignment.statusError);
+
+        if (! section || ! assignee || ! form || ! select) {
+            return;
+        }
+
+        section.hidden = ! incidentDrawerState.object;
+
+        if (! incidentDrawerState.object) {
+            setIncidentAssignmentStatus('');
+            return;
+        }
+
+        if (title) {
+            title.textContent = getIncidentAssignmentLabel('assignee-label', 'Assignee');
+        }
+
+        assignee.textContent = currentAssignee.length
+            ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
+            : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+
+        form.hidden = ! canAssign;
+        if (save) {
+            save.textContent = getIncidentAssignmentLabel('assignment-save-label', 'Save assignee');
+        }
+
+        if (canAssign) {
+            var options = ['<option value="">'
+                + escapeHtml(getIncidentAssignmentLabel('assignment-placeholder-label', 'Choose a registered user'))
+                + '</option>'];
+
+            users.forEach(function (userName) {
+                options.push('<option value="' + escapeHtml(userName) + '"'
+                    + (userName === currentAssignee ? ' selected' : '')
+                    + '>' + escapeHtml(userName) + '</option>');
+            });
+
+            select.innerHTML = options.join('');
+            select.disabled = false;
+        } else {
+            select.innerHTML = '<option value="">'
+                + escapeHtml(getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
+                + '</option>';
+            select.disabled = true;
+        }
+
+        setIncidentAssignmentStatus(statusMessage, statusError);
+    }
+
+    function loadIncidentAssignment(object) {
+        var url = getIncidentAssignmentApiUrl();
+        var params;
+        var signature = getIcingadbObjectSignature(object);
+
+        if (! object || ! url.length || typeof window.fetch !== 'function') {
+            incidentDrawerState.assignment = null;
+            renderIncidentAssignment();
+            return;
+        }
+
+        params = new URLSearchParams();
+        params.set('type', object.type);
+        params.set('host.name', object.hostName);
+        if (object.type === 'service') {
+            params.set('service.name', object.serviceName);
+        }
+
+        incidentDrawerState.assignment = {
+            loading: true,
+            assignment: null,
+            canAssign: false,
+            users: [],
+            objectSignature: signature,
+            statusMessage: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
+            statusError: false
+        };
+        renderIncidentAssignment();
+
+        window.fetch(url + '?' + params.toString(), {
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Unable to load incident assignment');
+                }
+
+                return response.json();
+            })
+            .then(function (payload) {
+                if (! incidentDrawerState.assignment
+                    || incidentDrawerState.assignment.objectSignature !== signature
+                ) {
+                    return;
+                }
+
+                incidentDrawerState.assignment = {
+                    loading: false,
+                    assignment: payload ? payload.assignment : null,
+                    canAssign: !! (payload && payload.canAssign),
+                    users: payload && Array.isArray(payload.users) ? payload.users : [],
+                    objectSignature: signature,
+                    statusMessage: '',
+                    statusError: false
+                };
+                setIncidentAssignmentCache(
+                    object,
+                    payload && payload.assignment ? payload.assignment.assignee : ''
+                );
+                rerenderCachedTopEvents();
+                renderIncidentAssignment();
+            })
+            .catch(function () {
+                if (! incidentDrawerState.assignment
+                    || incidentDrawerState.assignment.objectSignature !== signature
+                ) {
+                    return;
+                }
+
+                incidentDrawerState.assignment = {
+                    loading: false,
+                    assignment: null,
+                    canAssign: false,
+                    users: [],
+                    objectSignature: signature,
+                    statusMessage: getIncidentAssignmentLabel('assignment-error-label', 'Unable to load assignee.'),
+                    statusError: true
+                };
+                renderIncidentAssignment();
+            });
+    }
+
+    function saveIncidentAssignmentFromDom() {
+        var url = getIncidentAssignmentSaveUrl();
+        var select = document.querySelector('[data-incident-assignee-select]');
+        var object = incidentDrawerState.object;
+        var params;
+        var signature = getIcingadbObjectSignature(object);
+
+        if (! object || ! url.length || ! select || typeof window.fetch !== 'function') {
+            return;
+        }
+
+        params = new URLSearchParams();
+        params.set('type', object.type);
+        params.set('host.name', object.hostName);
+        if (object.type === 'service') {
+            params.set('service.name', object.serviceName);
+        }
+        params.set('assignee', String(select.value || ''));
+
+        setIncidentAssignmentStatus(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'));
+
+        window.fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: params.toString()
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Unable to save incident assignment');
+                }
+
+                return response.json();
+            })
+            .then(function (payload) {
+                if (! incidentDrawerState.assignment
+                    || incidentDrawerState.assignment.objectSignature !== signature
+                ) {
+                    return;
+                }
+
+                incidentDrawerState.assignment = {
+                    loading: false,
+                    assignment: payload ? payload.assignment : null,
+                    canAssign: !! (payload && payload.canAssign),
+                    users: payload && Array.isArray(payload.users) ? payload.users : [],
+                    objectSignature: signature,
+                    statusMessage: getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'),
+                    statusError: false
+                };
+                setIncidentAssignmentCache(
+                    object,
+                    payload && payload.assignment ? payload.assignment.assignee : ''
+                );
+                rerenderCachedTopEvents();
+                renderIncidentAssignment();
+            })
+            .catch(function () {
+                if (! incidentDrawerState.assignment
+                    || incidentDrawerState.assignment.objectSignature !== signature
+                ) {
+                    return;
+                }
+
+                incidentDrawerState.assignment.statusMessage = getIncidentAssignmentLabel(
+                    'assignment-error-label',
+                    'Unable to load assignee.'
+                );
+                incidentDrawerState.assignment.statusError = true;
+                renderIncidentAssignment();
+            });
+    }
+
     function saveIncidentNoteFromDom() {
         var textarea = document.querySelector('[data-incident-note]');
         var clear = document.querySelector('[data-clear-incident-note]');
@@ -4187,9 +4481,15 @@
                 }
 
                 if (parsed.object) {
+                    incidentDrawerState.object = parsed.object;
                     setIncidentQuickActions(parsed.object);
                     setIncidentObjectContext(parsed.object);
                     loadIncidentTimeline(parsed.object);
+                    if (! incidentDrawerState.assignment
+                        || incidentDrawerState.assignment.objectSignature !== getIcingadbObjectSignature(parsed.object)
+                    ) {
+                        loadIncidentAssignment(parsed.object);
+                    }
                 }
 
                 if (parsed.details.length) {
@@ -4240,6 +4540,8 @@
 
         incidentDrawerState.url = url;
         incidentDrawerState.focusTimeline = !! focusTimeline;
+        incidentDrawerState.object = object;
+        incidentDrawerState.assignment = null;
         lastFocusedElement = document.activeElement;
         markIncidentSeen(url);
         refreshSeenTopEventStates();
@@ -4279,12 +4581,16 @@
         updatePinIncidentButton();
         updateSnoozeIncidentButton();
         loadIncidentNote();
+        renderIncidentAssignment();
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
         if (object) {
             loadIncidentTimeline(object);
+            loadIncidentAssignment(object);
         } else {
             setIncidentTimelineState('hidden');
+            incidentDrawerState.assignment = null;
+            renderIncidentAssignment();
         }
         setIncidentDrawerBody(
             previewText || getIncidentDrawerLabel('loading-label', 'Loading incident details...'),
@@ -4477,6 +4783,10 @@
             lines.push('URL: ' + snapshot.url);
         }
 
+        if (snapshot.assignee.length) {
+            lines.push('Assignee: ' + snapshot.assignee);
+        }
+
         if (getIncidentNote(snapshot.url).trim().length) {
             lines.push('Note: ' + getIncidentNote(snapshot.url).trim());
         }
@@ -4516,11 +4826,16 @@
     function getCurrentIncidentSnapshot() {
         var title = document.getElementById('incident-drawer-title');
         var meta = document.querySelector('[data-incident-meta]');
+        var assignment = incidentDrawerState.assignment && incidentDrawerState.assignment.assignment
+            ? incidentDrawerState.assignment.assignment
+            : null;
+        var cachedAssignee = getIncidentAssignmentCache(incidentDrawerState.object);
 
         return {
             title: title ? normalizeText(title.textContent || '') : '',
             meta: meta && ! meta.hidden ? normalizeText(meta.textContent || '') : '',
-            url: incidentDrawerState.url
+            url: incidentDrawerState.url,
+            assignee: assignment ? normalizeText(assignment.assignee || '') : normalizeText(cachedAssignee || '')
         };
     }
 
@@ -5871,6 +6186,12 @@
     function onSubmit(event) {
         var form = event.target;
         var input;
+
+        if (form.matches('[data-incident-assignment-form]')) {
+            event.preventDefault();
+            saveIncidentAssignmentFromDom();
+            return;
+        }
 
         if (! form.matches('form.search-control')) {
             return;

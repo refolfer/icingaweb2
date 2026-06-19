@@ -689,6 +689,15 @@ if ($this->layout()->inlineLayout) {
     data-note-placeholder="<?= $this->escape($this->translate('Add local operator note...')) ?>"
     data-note-saved-label="<?= $this->escape($this->translate('Saved locally')) ?>"
     data-note-clear-label="<?= $this->escape($this->translate('Clear note')) ?>"
+    data-assignee-label="<?= $this->escape($this->translate('Assignee')) ?>"
+    data-no-assignee-label="<?= $this->escape($this->translate('Unassigned')) ?>"
+    data-assignment-loading-label="<?= $this->escape($this->translate('Loading assignee...')) ?>"
+    data-assignment-error-label="<?= $this->escape($this->translate('Unable to load assignee.')) ?>"
+    data-assignment-save-label="<?= $this->escape($this->translate('Save assignee')) ?>"
+    data-assignment-saved-label="<?= $this->escape($this->translate('Assignee saved')) ?>"
+    data-assignment-placeholder-label="<?= $this->escape($this->translate('Choose a registered user')) ?>"
+    data-assignment-url="<?= $this->href('incident-assignment/get') ?>"
+    data-assignment-save-url="<?= $this->href('incident-assignment/set') ?>"
 >
     <div class="incident-drawer-backdrop" data-close-incident-drawer></div>
     <aside
@@ -726,6 +735,22 @@ if ($this->layout()->inlineLayout) {
                 <?= $this->translate('Add comment') ?>
             </a>
         </div>
+        <section class="incident-drawer-assignment" data-incident-assignment-section hidden>
+            <header>
+                <h3 data-incident-assignment-title><?= $this->translate('Assignee') ?></h3>
+            </header>
+            <p data-incident-assignee></p>
+            <form data-incident-assignment-form hidden>
+                <label>
+                    <span><?= $this->translate('Assign to') ?></span>
+                    <select data-incident-assignee-select></select>
+                </label>
+                <button type="submit" data-save-incident-assignment>
+                    <?= $this->translate('Save assignee') ?>
+                </button>
+            </form>
+            <p data-incident-assignment-status></p>
+        </section>
         <section class="incident-drawer-context" data-incident-context hidden>
             <h3 data-incident-context-title><?= $this->translate('Object context') ?></h3>
             <div class="incident-drawer-context-links">
