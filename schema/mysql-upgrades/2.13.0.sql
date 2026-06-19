@@ -1,7 +1,7 @@
 -- SPDX-FileCopyrightText: 2026 Icinga GmbH <https://icinga.com>
 -- SPDX-License-Identifier: GPL-3.0-or-later
 
-CREATE TABLE `icingaweb_incident_assignment`(
+CREATE TABLE IF NOT EXISTS `icingaweb_incident_assignment`(
   `object_type`  varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
   `host_name`    varchar(254) COLLATE utf8mb4_unicode_ci NOT NULL,
   `service_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
