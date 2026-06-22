@@ -4542,7 +4542,7 @@
                     users: [],
                     objectSignature: signature,
                     requestId: requestId,
-                    statusMessage: String(error && error.message ? error.message : getIncidentAssignmentLabel('assignment-error-label', 'Unable to load assignee.')),
+                    statusMessage: String(error && error.message ? error.message : 'Unable to load assignee.'),
                     statusError: true
                 };
                 renderIncidentAssignment();
@@ -4697,9 +4697,8 @@
                     return;
                 }
 
-                incidentDrawerState.assignment.statusMessage = getIncidentAssignmentLabel(
-                    'assignment-error-label',
-                    String(error && error.message ? error.message : 'Unable to save assignee.')
+                incidentDrawerState.assignment.statusMessage = String(
+                    error && error.message ? error.message : 'Unable to save assignee.'
                 );
                 incidentDrawerState.assignment.statusError = true;
                 renderIncidentAssignment();
