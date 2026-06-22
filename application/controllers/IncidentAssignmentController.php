@@ -63,7 +63,8 @@ class IncidentAssignmentController extends AuthBackendController
         $this->assertHttpMethod('POST');
 
         $object = $this->getObjectFromRequest();
-        $assignee = trim((string) $this->params->get('assignee', ''));
+        $rawParams = $this->getRawRequestParams();
+        $assignee = trim((string) $this->getRequestValue('assignee', '', $rawParams));
 
         if ($object === null) {
             $this->respondWithJson(['error' => 'Missing object identifiers'], 400);
