@@ -3732,6 +3732,75 @@
         return null;
     }
 
+    function getIcingadbObjectAssignmentBanner() {
+        var col1 = document.getElementById('col1');
+        var banner;
+
+        if (! col1) {
+            return null;
+        }
+
+        banner = col1.querySelector('[data-object-assignee-banner]');
+        if (! banner) {
+            banner = document.createElement('div');
+            banner.setAttribute('data-object-assignee-banner', '');
+            banner.className = 'object-assignee-banner';
+            col1.insertBefore(banner, col1.firstChild || null);
+        }
+
+        return banner;
+    }
+
+    function renderIcingadbObjectAssignmentBanner(object) {
+        var banner = getIcingadbObjectAssignmentBanner();
+        var label;
+        var value;
+        var text = '';
+        var assignee = '';
+
+        if (! banner || ! object) {
+            return;
+        }
+
+        label = banner.querySelector('[data-object-assignee-label]');
+        value = banner.querySelector('[data-object-assignee-value]');
+
+        if (! label) {
+            label = document.createElement('span');
+            label.setAttribute('data-object-assignee-label', '');
+            label.className = 'object-assignee-banner-label';
+            label.textContent = getIncidentAssignmentLabel('assignee-label', 'Assignee');
+            banner.appendChild(label);
+        }
+
+        if (! value) {
+            value = document.createElement('span');
+            value.setAttribute('data-object-assignee-value', '');
+            value.className = 'object-assignee-banner-value';
+            banner.appendChild(value);
+        }
+
+        assignee = getIncidentAssignmentCache(object);
+        if (! assignee.length && ! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
+            prefetchIncidentAssignment(object);
+        }
+
+        if (isIncidentAssignmentLoading(object)) {
+            text = getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...');
+            banner.classList.add('loading');
+        } else if (assignee.length) {
+            text = assignee;
+            banner.classList.remove('loading');
+        } else {
+            text = getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+            banner.classList.remove('loading');
+        }
+
+        value.textContent = text;
+        banner.classList.toggle('assigned', !! assignee.length);
+        banner.hidden = false;
+    }
+
     function buildIcingadbActionUrl(object, action) {
         var params;
         var path;
@@ -5162,7 +5231,14 @@
         var blocks = scope.querySelectorAll(
             '.header-item-layout.host, .header-item-layout.service, .item-layout.host, .item-layout.service'
         );
+        var pageObject = getIcingadbObjectFromUrl(window.location.href);
+        var detailRoot = document.getElementById('col1');
         var i;
+
+        if (pageObject && detailRoot && detailRoot.querySelector('.object-detail')) {
+            renderIcingadbObjectAssignmentBanner(pageObject);
+            return;
+        }
 
         for (i = 0; i < blocks.length; i++) {
             var block = blocks[i];

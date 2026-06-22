@@ -1269,6 +1269,42 @@ body.modal-open {
   opacity: 0.9;
 }
 
+.object-assignee-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35em;
+  margin: 0 0 0.7em;
+  padding: 0.4em 0.7em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 0.3em solid var(--to-critical);
+  border-radius: 0.4em;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--to-text-muted);
+}
+
+.object-assignee-banner.assigned {
+  border-left-color: var(--to-ok);
+}
+
+.object-assignee-banner.loading {
+  border-left-color: var(--to-warning);
+}
+
+.object-assignee-banner-label {
+  color: var(--to-text-muted);
+  font-size: 0.76em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.object-assignee-banner-value {
+  color: var(--to-text-strong);
+  font-size: 0.88em;
+  font-weight: 600;
+}
+
 .top-event-assignment-controls {
   display: flex;
   flex-wrap: wrap;
