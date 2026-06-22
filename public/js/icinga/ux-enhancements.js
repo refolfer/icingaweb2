@@ -120,8 +120,7 @@
         dirty: false,
         drag: null
     };
-    var currentObjectAssignmentObserver = null;
-    var currentObjectAssignmentTimer = null;
+    var incidentAssignmentRequestCounter = 0;
 
     function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -4461,6 +4460,7 @@
         var url = getIncidentAssignmentApiUrl();
         var params;
         var signature = getIcingadbObjectSignature(object);
+        var requestId;
 
         if (! object || ! url.length || typeof window.fetch !== 'function') {
             incidentDrawerState.assignment = null;
@@ -4481,9 +4481,12 @@
             canAssign: false,
             users: [],
             objectSignature: signature,
+            requestId: 0,
             statusMessage: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
             statusError: false
         };
+        requestId = ++incidentAssignmentRequestCounter;
+        incidentDrawerState.assignment.requestId = requestId;
         setIncidentAssignmentFetchState(object, true, false);
         renderIncidentAssignment();
 
@@ -4500,6 +4503,7 @@
             .then(function (payload) {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
+                    || incidentDrawerState.assignment.requestId !== requestId
                 ) {
                     return;
                 }
@@ -4510,6 +4514,7 @@
                     canAssign: !! (payload && payload.canAssign),
                     users: payload && Array.isArray(payload.users) ? payload.users : [],
                     objectSignature: signature,
+                    requestId: requestId,
                     statusMessage: '',
                     statusError: false
                 };
@@ -4524,6 +4529,7 @@
             .catch(function () {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
+                    || incidentDrawerState.assignment.requestId !== requestId
                 ) {
                     return;
                 }
@@ -4535,6 +4541,7 @@
                     canAssign: false,
                     users: [],
                     objectSignature: signature,
+                    requestId: requestId,
                     statusMessage: getIncidentAssignmentLabel('assignment-error-label', 'Unable to load assignee.'),
                     statusError: true
                 };
@@ -4627,12 +4634,17 @@
         var select = document.querySelector('[data-incident-assignee-select]');
         var object = incidentDrawerState.object;
         var signature = getIcingadbObjectSignature(object);
+        var requestId;
 
         if (! object || ! select) {
             return;
         }
 
         setIncidentAssignmentStatus(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'));
+        requestId = ++incidentAssignmentRequestCounter;
+        if (incidentDrawerState.assignment) {
+            incidentDrawerState.assignment.requestId = requestId;
+        }
 
         var request = submitIncidentAssignment(object, select.value);
 
@@ -4644,6 +4656,7 @@
             .then(function (payload) {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
+                    || incidentDrawerState.assignment.requestId !== requestId
                 ) {
                     return;
                 }
@@ -4654,6 +4667,7 @@
                     canAssign: !! (payload && payload.canAssign),
                     users: payload && Array.isArray(payload.users) ? payload.users : [],
                     objectSignature: signature,
+                    requestId: requestId,
                     statusMessage: getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'),
                     statusError: false
                 };
@@ -4668,6 +4682,7 @@
             .catch(function () {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
+                    || incidentDrawerState.assignment.requestId !== requestId
                 ) {
                     return;
                 }
@@ -6027,120 +6042,6 @@
                 entry[1]
             );
         });
-    }
-
-    function hasCurrentObjectActionLinks(container, object) {
-        var expected = [
-            buildIcingadbActionUrl(object, 'acknowledge'),
-            buildIcingadbActionUrl(object, 'check-now'),
-            buildIcingadbActionUrl(object, 'schedule-downtime'),
-            buildIcingadbActionUrl(object, 'add-comment')
-        ].map(normalizeTopEventUrl).filter(function (url) {
-            return url.length;
-        });
-        var anchors;
-        var i;
-        var j;
-        var href;
-
-        if (! container || ! object || ! expected.length) {
-            return false;
-        }
-
-        anchors = container.querySelectorAll('a[href]');
-        for (i = 0; i < anchors.length; i++) {
-            href = normalizeTopEventUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
-            for (j = 0; j < expected.length; j++) {
-                if (href === expected[j]) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    function addCurrentObjectAssignmentAction(container, object) {
-        var wrapper;
-        var link;
-        var isList = container.tagName && /^(ul|ol)$/i.test(container.tagName);
-
-        if (! container || ! object || container.querySelector('[data-object-assignment-action]')) {
-            return;
-        }
-
-        wrapper = isList ? document.createElement('li') : document.createElement('div');
-        wrapper.className = 'object-assignment-action icinga-module module-ux-enhancements';
-        wrapper.setAttribute('data-icinga-module', 'ux-enhancements');
-        link = document.createElement('a');
-        link.href = '#';
-        link.setAttribute('data-object-assignment-action', '');
-        link.setAttribute('data-base-target', '_main');
-        link.textContent = 'Assign';
-        wrapper.appendChild(link);
-        container.appendChild(wrapper);
-    }
-
-    function injectCurrentObjectAssignmentActions() {
-        var object = getIcingadbObjectFromUrl(window.location.href);
-        var containers;
-        var i;
-
-        if (! object) {
-            return;
-        }
-
-        containers = document.querySelectorAll(
-            '.object-detail-actions, .quick-actions, .action-list, [data-action-list], .object-actions, .actions'
-        );
-        for (i = 0; i < containers.length; i++) {
-            addCurrentObjectAssignmentAction(containers[i], object);
-        }
-    }
-
-    function scheduleCurrentObjectAssignmentInjection() {
-        if (currentObjectAssignmentTimer !== null) {
-            return;
-        }
-
-        currentObjectAssignmentTimer = window.setTimeout(function () {
-            currentObjectAssignmentTimer = null;
-            injectCurrentObjectAssignmentActions();
-        }, 0);
-    }
-
-    function startCurrentObjectAssignmentObserver() {
-        var object = getIcingadbObjectFromUrl(window.location.href);
-
-        if (! object || typeof MutationObserver === 'undefined' || ! document.body) {
-            return;
-        }
-
-        if (currentObjectAssignmentObserver) {
-            return;
-        }
-
-        currentObjectAssignmentObserver = new MutationObserver(function () {
-            scheduleCurrentObjectAssignmentInjection();
-        });
-        currentObjectAssignmentObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-        scheduleCurrentObjectAssignmentInjection();
-    }
-
-    function stopCurrentObjectAssignmentObserver() {
-        if (currentObjectAssignmentObserver) {
-            currentObjectAssignmentObserver.disconnect();
-            currentObjectAssignmentObserver = null;
-        }
-
-        if (currentObjectAssignmentTimer !== null) {
-            window.clearTimeout(currentObjectAssignmentTimer);
-            currentObjectAssignmentTimer = null;
-        }
     }
 
     function commandMatches(command, query) {
@@ -8142,7 +8043,6 @@
     applyDensityMode(readDensityMode());
     updateTriageModeToggle();
     window.addEventListener('pagehide', persistQuickNotebookDraftFromDom);
-    window.addEventListener('pagehide', stopCurrentObjectAssignmentObserver);
     window.addEventListener('beforeunload', persistQuickNotebookDraftFromDom);
     window.addEventListener('resize', function () {
         if (quickNotebookState.visible && quickNotebookState.initialized) {
@@ -8154,8 +8054,6 @@
         initQuickMenu();
         initQuickNotebook();
         updateTriageModeToggle();
-        injectCurrentObjectAssignmentActions();
-        startCurrentObjectAssignmentObserver();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
@@ -8174,16 +8072,12 @@
         window.jQuery(document).on('rendered', '#col1', function () {
             updateQuickNotebookVisibility();
             renderEventDetailMetroTimeline();
-            injectCurrentObjectAssignmentActions();
-            startCurrentObjectAssignmentObserver();
         });
     }
 
     renderRecentSearches();
     initQuickMenu();
     initQuickNotebook();
-    injectCurrentObjectAssignmentActions();
-    startCurrentObjectAssignmentObserver();
     refreshTacticalOverview(true);
     renderEventDetailMetroTimeline();
 })();
