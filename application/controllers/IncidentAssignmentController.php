@@ -6,6 +6,8 @@
 namespace Icinga\Controllers;
 
 use Exception;
+use Icinga\Authentication\User\DomainAwareInterface;
+use Icinga\User;
 use Icinga\Web\Controller\AuthBackendController;
 use Icinga\Web\IncidentAssignment\IncidentAssignmentStore;
 use Icinga\Util\Json;
@@ -141,9 +143,23 @@ class IncidentAssignmentController extends AuthBackendController
         $users = [];
         foreach ($this->loadUserBackends('Icinga\Data\Selectable') as $backend) {
             try {
+                if ($backend instanceof DomainAwareInterface) {
+                    $domain = $backend->getDomain();
+                } else {
+                    $domain = null;
+                }
                 $query = $backend->select(['user_name']);
                 foreach ($query as $row) {
-                    $userName = (string) $row->user_name;
+                    $userObj = new User((string) $row->user_name);
+                    if ($domain !== null) {
+                        if ($userObj->hasDomain() && $userObj->getDomain() !== $domain) {
+                            continue;
+                        }
+
+                        $userObj->setDomain($domain);
+                    }
+
+                    $userName = $userObj->getUsername();
                     if ($userName !== '') {
                         $users[$userName] = $userName;
                     }

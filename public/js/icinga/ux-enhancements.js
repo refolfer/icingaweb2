@@ -4526,7 +4526,7 @@
                 rerenderCachedTopEvents();
                 renderIncidentAssignment();
             })
-            .catch(function () {
+            .catch(function (error) {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
                     || incidentDrawerState.assignment.requestId !== requestId
@@ -4542,7 +4542,7 @@
                     users: [],
                     objectSignature: signature,
                     requestId: requestId,
-                    statusMessage: getIncidentAssignmentLabel('assignment-error-label', 'Unable to load assignee.'),
+                    statusMessage: String(error && error.message ? error.message : getIncidentAssignmentLabel('assignment-error-label', 'Unable to load assignee.')),
                     statusError: true
                 };
                 renderIncidentAssignment();
@@ -4622,11 +4622,21 @@
             body: params.toString()
         })
             .then(function (response) {
-                if (! response.ok) {
-                    throw new Error('Unable to save incident assignment');
-                }
+                return response.text().then(function (text) {
+                    var payload;
 
-                return response.json();
+                    try {
+                        payload = text.length ? JSON.parse(text) : {};
+                    } catch (error) {
+                        payload = {};
+                    }
+
+                    if (! response.ok) {
+                        throw new Error(payload && payload.error ? payload.error : 'Unable to save incident assignment');
+                    }
+
+                    return payload;
+                });
             });
     }
 
@@ -4679,7 +4689,7 @@
                 rerenderCachedTopEvents();
                 renderIncidentAssignment();
             })
-            .catch(function () {
+            .catch(function (error) {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
                     || incidentDrawerState.assignment.requestId !== requestId
@@ -4689,7 +4699,7 @@
 
                 incidentDrawerState.assignment.statusMessage = getIncidentAssignmentLabel(
                     'assignment-error-label',
-                    'Unable to save assignee.'
+                    String(error && error.message ? error.message : 'Unable to save assignee.')
                 );
                 incidentDrawerState.assignment.statusError = true;
                 renderIncidentAssignment();
