@@ -120,8 +120,31 @@ class IncidentAssignmentController extends AuthBackendController
     protected function getObjectFromRequest()
     {
         $type = trim((string) $this->params->get('type', ''));
+        if ($type === '') {
+            $type = trim((string) $this->params->get('object_type', ''));
+        }
+
         $hostName = trim((string) $this->params->get('host.name', $this->params->get('host_name', '')));
+        if ($hostName === '') {
+            $hostName = trim((string) $this->params->get('object_host_name', ''));
+        }
+
         $serviceName = trim((string) $this->params->get('service.name', $this->params->get('service_name', '')));
+        if ($serviceName === '') {
+            $serviceName = trim((string) $this->params->get('object_service_name', ''));
+        }
+
+        if ($type === '' && $hostName === '') {
+            $rawObject = $this->params->get('object', '');
+            if (is_string($rawObject) && $rawObject !== '') {
+                $decoded = json_decode($rawObject, true);
+                if (is_array($decoded)) {
+                    $type = trim((string) ($decoded['type'] ?? ''));
+                    $hostName = trim((string) ($decoded['hostName'] ?? $decoded['host_name'] ?? ''));
+                    $serviceName = trim((string) ($decoded['serviceName'] ?? $decoded['service_name'] ?? ''));
+                }
+            }
+        }
 
         if (! in_array($type, ['host', 'service'], true) || $hostName === '') {
             return null;

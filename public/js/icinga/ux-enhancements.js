@@ -4420,6 +4420,11 @@
         form.dataset.incidentAssignmentServiceName = incidentDrawerState.object && incidentDrawerState.object.type === 'service'
             ? incidentDrawerState.object.serviceName
             : '';
+        form.querySelector('input[name="object_type"]').value = incidentDrawerState.object ? incidentDrawerState.object.type : '';
+        form.querySelector('input[name="object_host_name"]').value = incidentDrawerState.object ? incidentDrawerState.object.hostName : '';
+        form.querySelector('input[name="object_service_name"]').value = incidentDrawerState.object && incidentDrawerState.object.type === 'service'
+            ? incidentDrawerState.object.serviceName
+            : '';
 
         if (! incidentDrawerState.object) {
             setIncidentAssignmentStatus('');
@@ -4651,10 +4656,16 @@
 
         params = new URLSearchParams();
         params.set('type', object.type);
+        params.set('object_type', object.type);
         params.set('host.name', object.hostName);
+        params.set('host_name', object.hostName);
+        params.set('object_host_name', object.hostName);
         if (object.type === 'service') {
             params.set('service.name', object.serviceName);
+            params.set('service_name', object.serviceName);
+            params.set('object_service_name', object.serviceName);
         }
+        params.set('object', JSON.stringify(object));
         params.set('assignee', String(assignee || ''));
 
         return window.fetch(url, {
