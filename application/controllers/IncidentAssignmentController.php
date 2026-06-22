@@ -119,23 +119,24 @@ class IncidentAssignmentController extends AuthBackendController
 
     protected function getObjectFromRequest()
     {
-        $type = trim((string) $this->params->get('type', ''));
+        $rawParams = $this->getRawRequestParams();
+        $type = trim((string) $this->getRequestValue('type', '', $rawParams));
         if ($type === '') {
-            $type = trim((string) $this->params->get('object_type', ''));
+            $type = trim((string) $this->getRequestValue('object_type', '', $rawParams));
         }
 
-        $hostName = trim((string) $this->params->get('host.name', $this->params->get('host_name', '')));
+        $hostName = trim((string) $this->getRequestValue('host.name', $this->getRequestValue('host_name', '', $rawParams), $rawParams));
         if ($hostName === '') {
-            $hostName = trim((string) $this->params->get('object_host_name', ''));
+            $hostName = trim((string) $this->getRequestValue('object_host_name', '', $rawParams));
         }
 
-        $serviceName = trim((string) $this->params->get('service.name', $this->params->get('service_name', '')));
+        $serviceName = trim((string) $this->getRequestValue('service.name', $this->getRequestValue('service_name', '', $rawParams), $rawParams));
         if ($serviceName === '') {
-            $serviceName = trim((string) $this->params->get('object_service_name', ''));
+            $serviceName = trim((string) $this->getRequestValue('object_service_name', '', $rawParams));
         }
 
         if ($type === '' && $hostName === '') {
-            $rawObject = $this->params->get('object', '');
+            $rawObject = $this->getRequestValue('object', '', $rawParams);
             if (is_string($rawObject) && $rawObject !== '') {
                 $decoded = json_decode($rawObject, true);
                 if (is_array($decoded)) {
@@ -159,6 +160,41 @@ class IncidentAssignmentController extends AuthBackendController
             'host_name' => $hostName,
             'service_name' => $type === 'service' ? $serviceName : null
         ];
+    }
+
+    protected function getRequestValue($key, $default = '', array $rawParams = [])
+    {
+        $value = $default;
+
+        if ($this->params->get($key, null) !== null) {
+            $value = $this->params->get($key, $default);
+        } elseif (array_key_exists($key, $rawParams)) {
+            $value = $rawParams[$key];
+        } elseif ($key === 'host.name' && array_key_exists('host_name', $rawParams)) {
+            $value = $rawParams['host_name'];
+        } elseif ($key === 'service.name' && array_key_exists('service_name', $rawParams)) {
+            $value = $rawParams['service_name'];
+        }
+
+        return $value;
+    }
+
+    protected function getRawRequestParams()
+    {
+        $rawBody = '';
+        $request = $this->getRequest();
+
+        if (method_exists($request, 'getRawBody')) {
+            $rawBody = (string) $request->getRawBody();
+        }
+
+        if ($rawBody === '') {
+            return [];
+        }
+
+        parse_str($rawBody, $parsed);
+
+        return is_array($parsed) ? $parsed : [];
     }
 
     protected function collectAssignableUsers()
