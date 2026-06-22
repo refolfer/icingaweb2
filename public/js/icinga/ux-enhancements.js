@@ -3700,6 +3700,38 @@
         return null;
     }
 
+    function findIcingadbObjectInNode(node) {
+        var anchors;
+        var i;
+        var object;
+
+        if (! node) {
+            return null;
+        }
+
+        if (typeof node.closest === 'function' && node.closest('.object-detail')) {
+            return getIcingadbObjectFromUrl(window.location.href);
+        }
+
+        anchors = node.querySelectorAll('a[href*="icingadb/service"], a[href*="icingadb/host"]');
+
+        for (i = 0; i < anchors.length; i++) {
+            object = getIcingadbObjectFromUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
+            if (object && object.type === 'service') {
+                return object;
+            }
+        }
+
+        for (i = 0; i < anchors.length; i++) {
+            object = getIcingadbObjectFromUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
+            if (object) {
+                return object;
+            }
+        }
+
+        return null;
+    }
+
     function buildIcingadbActionUrl(object, action) {
         var params;
         var path;
@@ -3814,6 +3846,7 @@
 
         incidentAssignmentCache[signature] = String(assignee || '');
         setIncidentAssignmentFetchState(object, false, true);
+        renderIcingadbObjectAssignmentLabels();
     }
 
     function setIncidentAssignmentDetailsCache(object, payload) {
@@ -5122,6 +5155,51 @@
             .catch(function () {
                 clearIncidentAssignmentCaches(object);
             });
+    }
+
+    function renderIcingadbObjectAssignmentLabels(root) {
+        var scope = root || document;
+        var blocks = scope.querySelectorAll(
+            '.header-item-layout.host, .header-item-layout.service, .item-layout.host, .item-layout.service'
+        );
+        var i;
+
+        for (i = 0; i < blocks.length; i++) {
+            var block = blocks[i];
+            var info = block.querySelector('.extended-info');
+            var label = info ? info.querySelector('[data-object-assignee]') : null;
+            var object = findIcingadbObjectInNode(block);
+            var assignee = object ? getIncidentAssignmentCache(object) : '';
+            var text = '';
+
+            if (! info || ! object) {
+                continue;
+            }
+
+            if (! assignee.length && ! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
+                prefetchIncidentAssignment(object);
+            }
+
+            if (isIncidentAssignmentLoading(object)) {
+                text = getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...');
+            } else if (assignee.length) {
+                text = getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignee;
+            } else {
+                text = getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+            }
+
+            if (! label) {
+                label = document.createElement('span');
+                label.setAttribute('data-object-assignee', '');
+                label.className = 'object-assignee';
+                info.appendChild(label);
+            }
+
+            label.textContent = text;
+            label.classList.toggle('assigned', !! assignee.length);
+            label.classList.toggle('unassigned', ! assignee.length);
+            label.classList.toggle('loading', isIncidentAssignmentLoading(object));
+        }
     }
 
     function submitIncidentAssignment(object, assignee) {
@@ -8604,6 +8682,7 @@
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
         initIncidentDrawerWidthResizer();
+        renderIcingadbObjectAssignmentLabels();
         startTopEventsPolling();
         renderEventDetailMetroTimeline();
     });
@@ -8619,6 +8698,7 @@
         window.jQuery(document).on('rendered', '#col1', function () {
             updateQuickNotebookVisibility();
             initIncidentDrawerWidthResizer();
+            renderIcingadbObjectAssignmentLabels();
             renderEventDetailMetroTimeline();
         });
     }
@@ -8628,5 +8708,6 @@
     initQuickNotebook();
     refreshTacticalOverview(true);
     initIncidentDrawerWidthResizer();
+    renderIcingadbObjectAssignmentLabels();
     renderEventDetailMetroTimeline();
 })();

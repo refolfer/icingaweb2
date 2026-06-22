@@ -1252,6 +1252,23 @@ body.modal-open {
   font-weight: 700;
 }
 
+.object-assignee {
+  display: block;
+  margin-top: 0.2em;
+  color: var(--to-text-muted);
+  font-size: 0.8em;
+  line-height: 1.25;
+}
+
+.object-assignee.assigned {
+  color: var(--to-text-strong);
+  font-weight: 600;
+}
+
+.object-assignee.loading {
+  opacity: 0.9;
+}
+
 .top-event-assignment-controls {
   display: flex;
   flex-wrap: wrap;
