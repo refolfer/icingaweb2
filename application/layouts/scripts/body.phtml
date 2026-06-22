@@ -259,6 +259,7 @@ if ($this->layout()->inlineLayout) {
                         <p class="top-event-assignee"></p>
                         <p class="top-event-preview"></p>
                     </a>
+                    <div class="top-event-assignment-controls"></div>
                 </li>
                 <li class="top-event-item" data-top-event-item="1">
                     <a
@@ -271,6 +272,7 @@ if ($this->layout()->inlineLayout) {
                         <p class="top-event-assignee"></p>
                         <p class="top-event-preview"></p>
                     </a>
+                    <div class="top-event-assignment-controls"></div>
                 </li>
             </ul>
         </section>
@@ -700,6 +702,9 @@ if ($this->layout()->inlineLayout) {
     data-assignment-save-label="<?= $this->escape($this->translate('Save assignee')) ?>"
     data-assignment-saved-label="<?= $this->escape($this->translate('Assignee saved')) ?>"
     data-assignment-placeholder-label="<?= $this->escape($this->translate('Choose a registered user')) ?>"
+    data-assignment-assign-to-label="<?= $this->escape($this->translate('Assign to')) ?>"
+    data-assignment-assigned-by-label="<?= $this->escape($this->translate('Assigned by')) ?>"
+    data-assignment-open-label="<?= $this->escape($this->translate('Open drawer')) ?>"
     data-assignment-url="<?= $this->href('incident-assignment/get') ?>"
     data-assignment-save-url="<?= $this->href('incident-assignment/set') ?>"
 >

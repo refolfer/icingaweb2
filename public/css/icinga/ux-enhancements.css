@@ -1252,6 +1252,66 @@ body.modal-open {
   font-weight: 700;
 }
 
+.top-event-assignment-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em 0.45em;
+  margin-top: 0.28em;
+}
+
+.top-event-assignment-loading,
+.top-event-assignment-note {
+  color: var(--to-text-muted);
+  font-size: 0.75em;
+  line-height: 1.25;
+}
+
+.top-event-assignment-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  flex-wrap: wrap;
+}
+
+.top-event-assignment-select {
+  display: inline-flex;
+  align-items: center;
+}
+
+.top-event-assignment-select select {
+  min-width: 12.5em;
+  max-width: 18em;
+  min-height: 1.9em;
+  margin: 0;
+  padding: 0.18em 0.35em;
+  border: 1px solid var(--to-border);
+  border-radius: 0.25em;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--to-text-strong);
+  font-size: 0.78em;
+}
+
+.top-event-assignment-save,
+.top-event-assignment-open {
+  min-height: 1.9em;
+  padding: 0.18em 0.5em;
+  border: 1px solid var(--to-border);
+  border-radius: 0.3em;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--to-text-muted);
+  font-size: 0.78em;
+  line-height: 1.2;
+}
+
+.top-event-assignment-save:hover,
+.top-event-assignment-save:focus-visible,
+.top-event-assignment-open:hover,
+.top-event-assignment-open:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--to-text-strong);
+}
+
 #top-events-resizer {
   position: absolute;
   top: var(--top-widget-height);

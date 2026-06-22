@@ -78,9 +78,11 @@
         timelineAbortController: null,
         object: null,
         assignment: null,
-        focusTimeline: false
+        focusTimeline: false,
+        focusAssignment: false
     };
     var incidentAssignmentCache = {};
+    var incidentAssignmentDetailsCache = {};
     var incidentAssignmentFetchState = {};
 
     var lastFocusedElement = null;
@@ -3075,6 +3077,104 @@
         });
     }
 
+    function renderTopEventAssignmentControls(item, object, controlsEl) {
+        var details = getIncidentAssignmentDetailsCache(object);
+        var currentAssignee = details && details.assignment
+            ? String(details.assignment.assignee || '')
+            : getIncidentAssignmentCache(object);
+        var isLoading = isIncidentAssignmentLoading(object) && ! details;
+        var canAssign = !! (details && details.canAssign);
+        var users = details && Array.isArray(details.users) ? details.users : [];
+        var html = '';
+        var options = [];
+
+        if (! controlsEl) {
+            return;
+        }
+
+        controlsEl.innerHTML = '';
+
+        if (! object || ! item || ! item.url) {
+            controlsEl.hidden = true;
+            return;
+        }
+
+        controlsEl.hidden = false;
+
+        if (isLoading) {
+            controlsEl.innerHTML = '<span class="top-event-assignment-loading">'
+                + escapeHtml(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'))
+                + '</span>';
+            return;
+        }
+
+        if (canAssign) {
+            options.push('<option value="">'
+                + escapeHtml(getIncidentAssignmentLabel('assignment-placeholder-label', 'Choose a registered user'))
+                + '</option>');
+
+            if (currentAssignee.length && users.indexOf(currentAssignee) === -1) {
+                options.push('<option value="' + escapeHtml(currentAssignee) + '" selected>'
+                    + escapeHtml(currentAssignee)
+                    + '</option>');
+            }
+
+            users.forEach(function (userName) {
+                options.push('<option value="' + escapeHtml(userName) + '"'
+                    + (userName === currentAssignee ? ' selected' : '')
+                    + '>' + escapeHtml(userName) + '</option>');
+            });
+
+            html = ''
+                + '<form class="top-event-assignment-form" data-top-event-assignment-form>'
+                + '<label class="top-event-assignment-select">'
+                + '<span class="sr-only">' + escapeHtml(getIncidentAssignmentLabel('assign-to-label', 'Assign to')) + '</span>'
+                + '<select data-top-event-assignee-select'
+                + ' data-assignment-object-type="' + escapeHtml(object.type) + '"'
+                + ' data-assignment-host-name="' + escapeHtml(object.hostName) + '"'
+                + ' data-assignment-service-name="' + escapeHtml(object.serviceName || '') + '"'
+                + '>'
+                + options.join('')
+                + '</select>'
+                + '</label>'
+                + '<button type="submit" class="top-event-assignment-save">'
+                + escapeHtml(getIncidentAssignmentLabel('assignment-save-label', 'Save assignee'))
+                + '</button>'
+                + '</form>';
+
+            if (! users.length) {
+                html += '<span class="top-event-assignment-note">'
+                    + escapeHtml(getIncidentAssignmentLabel(
+                        'assignment-no-users-label',
+                        'No registered users are available for assignment.'
+                    ))
+                    + '</span>';
+            }
+
+            controlsEl.innerHTML = html;
+            return;
+        }
+
+        html = '<span class="top-event-assignment-note">'
+            + escapeHtml(currentAssignee.length
+                ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
+                : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
+            + '</span>';
+
+        if (details && details.assignment && details.assignment.assignedBy) {
+            html += '<span class="top-event-assignment-note">'
+                + escapeHtml(getIncidentAssignmentLabel('assigned-by-label', 'Assigned by'))
+                + ': ' + escapeHtml(details.assignment.assignedBy)
+                + '</span>';
+        }
+
+        html += '<button type="button" class="top-event-assignment-open" data-open-incident-assignment>'
+            + escapeHtml(getIncidentAssignmentLabel('assignment-open-label', 'Open drawer'))
+            + '</button>';
+
+        controlsEl.innerHTML = html;
+    }
+
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var triageMode = isTriageModeEnabled();
@@ -3105,6 +3205,7 @@
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
             var assigneeEl = slots[i].querySelector('.top-event-assignee');
+            var assignmentControlsEl = slots[i].querySelector('.top-event-assignment-controls');
             var previewEl = slots[i].querySelector('.top-event-preview');
             var linkEl = slots[i].querySelector('.top-event-link');
             var stateClass;
@@ -3129,6 +3230,9 @@
             linkEl.removeAttribute('role');
             previewEl.textContent = '';
             assigneeEl.textContent = '';
+            if (assignmentControlsEl) {
+                assignmentControlsEl.innerHTML = '';
+            }
 
             if (item) {
                 titleEl.textContent = item.title;
@@ -3142,6 +3246,7 @@
                         ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo
                         : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'));
                 assigneeEl.textContent = assigneeText;
+                renderTopEventAssignmentControls(item, object, assignmentControlsEl);
                 previewEl.textContent = item.preview || item.meta || item.title;
                 url = normalizeTopEventUrl(item.url);
                 if (url && isTopEventDetailsUrl(url)) {
@@ -3540,6 +3645,41 @@
 
         incidentAssignmentCache[signature] = String(assignee || '');
         setIncidentAssignmentFetchState(object, false, true);
+    }
+
+    function setIncidentAssignmentDetailsCache(object, payload) {
+        var signature = getIcingadbObjectSignature(object);
+
+        if (! signature.length) {
+            return;
+        }
+
+        incidentAssignmentDetailsCache[signature] = {
+            assignment: payload && payload.assignment ? {
+                assignee: String(payload.assignment.assignee || ''),
+                assignedBy: String(payload.assignment.assignedBy || ''),
+                assignedAt: String(payload.assignment.assignedAt || '')
+            } : null,
+            canAssign: !! (payload && payload.canAssign),
+            users: payload && Array.isArray(payload.users) ? payload.users.slice() : [],
+            loadedAt: Date.now()
+        };
+    }
+
+    function getIncidentAssignmentDetailsCache(object) {
+        var signature = getIcingadbObjectSignature(object);
+
+        return signature.length ? (incidentAssignmentDetailsCache[signature] || null) : null;
+    }
+
+    function clearIncidentAssignmentCaches(object) {
+        var signature = getIcingadbObjectSignature(object);
+
+        if (signature.length) {
+            delete incidentAssignmentCache[signature];
+            delete incidentAssignmentDetailsCache[signature];
+            delete incidentAssignmentFetchState[signature];
+        }
     }
 
     function getIncidentAssignmentCache(object) {
@@ -4243,19 +4383,26 @@
             title.textContent = getIncidentAssignmentLabel('assignee-label', 'Assignee');
         }
 
+        form.hidden = false;
         assignee.textContent = currentAssignee.length
             ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
             : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
 
-        form.hidden = ! canAssign;
         if (save) {
             save.textContent = getIncidentAssignmentLabel('assignment-save-label', 'Save assignee');
+            save.disabled = ! canAssign;
         }
 
         if (canAssign) {
             var options = ['<option value="">'
                 + escapeHtml(getIncidentAssignmentLabel('assignment-placeholder-label', 'Choose a registered user'))
                 + '</option>'];
+
+            if (currentAssignee.length && users.indexOf(currentAssignee) === -1) {
+                options.push('<option value="' + escapeHtml(currentAssignee) + '" selected>'
+                    + escapeHtml(currentAssignee)
+                    + '</option>');
+            }
 
             users.forEach(function (userName) {
                 options.push('<option value="' + escapeHtml(userName) + '"'
@@ -4266,6 +4413,10 @@
             select.innerHTML = options.join('');
             select.disabled = false;
 
+            if (save) {
+                save.disabled = ! users.length;
+            }
+
             if (! users.length && ! statusMessage.length) {
                 statusMessage = getIncidentAssignmentLabel(
                     'assignment-no-users-label',
@@ -4273,10 +4424,15 @@
                 );
             }
         } else {
-            select.innerHTML = '<option value="">'
-                + escapeHtml(getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
+            select.innerHTML = '<option value="' + escapeHtml(currentAssignee) + '">'
+                + escapeHtml(currentAssignee.length
+                    ? currentAssignee
+                    : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
                 + '</option>';
             select.disabled = true;
+            if (save) {
+                save.disabled = true;
+            }
 
             if (! statusMessage.length) {
                 statusMessage = getIncidentAssignmentLabel(
@@ -4287,6 +4443,15 @@
         }
 
         setIncidentAssignmentStatus(statusMessage, statusError);
+
+        if (incidentDrawerState.focusAssignment && canAssign && select && ! select.disabled) {
+            incidentDrawerState.focusAssignment = false;
+            window.setTimeout(function () {
+                if (select && typeof select.focus === 'function') {
+                    select.focus();
+                }
+            }, 0);
+        }
     }
 
     function loadIncidentAssignment(object) {
@@ -4349,6 +4514,7 @@
                     object,
                     payload && payload.assignment ? payload.assignment.assignee : ''
                 );
+                setIncidentAssignmentDetailsCache(object, payload || null);
                 rerenderCachedTopEvents();
                 renderIncidentAssignment();
             })
@@ -4359,7 +4525,7 @@
                     return;
                 }
 
-                clearIncidentAssignmentFetchState(object);
+                clearIncidentAssignmentCaches(object);
                 incidentDrawerState.assignment = {
                     loading: false,
                     assignment: null,
@@ -4410,24 +4576,22 @@
                 } else {
                     setIncidentAssignmentCache(object, '');
                 }
+                setIncidentAssignmentDetailsCache(object, payload || null);
 
                 setIncidentAssignmentFetchState(object, false, true);
                 rerenderCachedTopEvents();
             })
             .catch(function () {
-                clearIncidentAssignmentFetchState(object);
+                clearIncidentAssignmentCaches(object);
             });
     }
 
-    function saveIncidentAssignmentFromDom() {
+    function submitIncidentAssignment(object, assignee) {
         var url = getIncidentAssignmentSaveUrl();
-        var select = document.querySelector('[data-incident-assignee-select]');
-        var object = incidentDrawerState.object;
         var params;
-        var signature = getIcingadbObjectSignature(object);
 
-        if (! object || ! url.length || ! select || typeof window.fetch !== 'function') {
-            return;
+        if (! object || ! url.length || typeof window.fetch !== 'function') {
+            return null;
         }
 
         params = new URLSearchParams();
@@ -4436,11 +4600,9 @@
         if (object.type === 'service') {
             params.set('service.name', object.serviceName);
         }
-        params.set('assignee', String(select.value || ''));
+        params.set('assignee', String(assignee || ''));
 
-        setIncidentAssignmentStatus(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'));
-
-        window.fetch(url, {
+        return window.fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -4455,7 +4617,27 @@
                 }
 
                 return response.json();
-            })
+            });
+    }
+
+    function saveIncidentAssignmentFromDom() {
+        var select = document.querySelector('[data-incident-assignee-select]');
+        var object = incidentDrawerState.object;
+        var signature = getIcingadbObjectSignature(object);
+
+        if (! object || ! select) {
+            return;
+        }
+
+        setIncidentAssignmentStatus(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'));
+
+        var request = submitIncidentAssignment(object, select.value);
+
+        if (! request) {
+            return;
+        }
+
+        request
             .then(function (payload) {
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
@@ -4476,6 +4658,7 @@
                     object,
                     payload && payload.assignment ? payload.assignment.assignee : ''
                 );
+                setIncidentAssignmentDetailsCache(object, payload || null);
                 rerenderCachedTopEvents();
                 renderIncidentAssignment();
             })
@@ -4488,10 +4671,73 @@
 
                 incidentDrawerState.assignment.statusMessage = getIncidentAssignmentLabel(
                     'assignment-error-label',
-                    'Unable to load assignee.'
+                    'Unable to save assignee.'
                 );
                 incidentDrawerState.assignment.statusError = true;
                 renderIncidentAssignment();
+            });
+    }
+
+    function saveTopEventAssignmentFromDom(form) {
+        var select = form ? form.querySelector('[data-top-event-assignee-select]') : null;
+        var object;
+        var signature;
+
+        if (! form || ! select) {
+            return;
+        }
+
+        object = {
+            type: String(form.dataset.assignmentObjectType || ''),
+            hostName: String(form.dataset.assignmentHostName || ''),
+            serviceName: String(form.dataset.assignmentServiceName || '')
+        };
+        if (! object.serviceName.length) {
+            object.serviceName = null;
+        }
+        signature = getIcingadbObjectSignature(object);
+
+        form.classList.add('is-saving');
+        var request = submitIncidentAssignment(object, select.value);
+
+        if (! request) {
+            form.classList.remove('is-saving');
+            return;
+        }
+
+        request
+            .then(function (payload) {
+                setIncidentAssignmentCache(
+                    object,
+                    payload && payload.assignment ? payload.assignment.assignee : ''
+                );
+                setIncidentAssignmentDetailsCache(object, payload || null);
+                rerenderCachedTopEvents();
+                showOperatorToast(getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'));
+
+                if (incidentDrawerState.assignment
+                    && incidentDrawerState.assignment.objectSignature === signature
+                ) {
+                    incidentDrawerState.assignment = {
+                        loading: false,
+                        assignment: payload ? payload.assignment : null,
+                        canAssign: !! (payload && payload.canAssign),
+                        users: payload && Array.isArray(payload.users) ? payload.users : [],
+                        objectSignature: signature,
+                        statusMessage: getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'),
+                        statusError: false
+                    };
+                    renderIncidentAssignment();
+                }
+            })
+            .catch(function () {
+                showOperatorToast(getIncidentAssignmentLabel(
+                    'assignment-error-label',
+                    'Unable to save assignee.'
+                ), 'error');
+            })
+            .then(function () {
+                form.classList.remove('is-saving');
             });
     }
 
@@ -4648,6 +4894,7 @@
 
         incidentDrawerState.url = url;
         incidentDrawerState.focusTimeline = !! focusTimeline;
+        incidentDrawerState.focusAssignment = false;
         incidentDrawerState.object = object;
         incidentDrawerState.assignment = null;
         lastFocusedElement = document.activeElement;
@@ -4737,6 +4984,16 @@
         }, false);
     }
 
+    function openIncidentDrawerForAssignment(link) {
+        if (! openIncidentDrawerFromLink(link)) {
+            return false;
+        }
+
+        incidentDrawerState.focusAssignment = true;
+        renderIncidentAssignment();
+        return true;
+    }
+
     function openMetroTimelineForFocusEvent() {
         var event = getOperatorPlaybookEvent();
         var object;
@@ -4803,6 +5060,7 @@
         drawer.hidden = true;
         drawer.setAttribute('aria-hidden', 'true');
         incidentDrawerState.focusTimeline = false;
+        incidentDrawerState.focusAssignment = false;
         document.body.classList.remove('modal-open');
 
         if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
@@ -6295,6 +6553,12 @@
         var form = event.target;
         var input;
 
+        if (form.matches('[data-top-event-assignment-form]')) {
+            event.preventDefault();
+            saveTopEventAssignmentFromDom(form);
+            return;
+        }
+
         if (form.matches('[data-incident-assignment-form]')) {
             event.preventDefault();
             saveIncidentAssignmentFromDom();
@@ -7218,6 +7482,7 @@
         var pinIncidentButton = event.target.closest('[data-pin-incident]');
         var snoozeIncidentButton = event.target.closest('[data-snooze-incident]');
         var clearIncidentNoteButton = event.target.closest('[data-clear-incident-note]');
+        var openIncidentAssignmentButton = event.target.closest('[data-open-incident-assignment]');
         var incidentLink = event.target.closest('.top-event-link');
         var eventMetroRangeButton = event.target.closest('[data-event-metro-range]');
         var eventMetroApplyButton = event.target.closest('[data-event-metro-apply]');
@@ -7412,6 +7677,17 @@
         if (copyIncidentSummaryButton) {
             event.preventDefault();
             copyIncidentSummary(copyIncidentSummaryButton);
+            return;
+        }
+
+        if (openIncidentAssignmentButton) {
+            var topEventItem = openIncidentAssignmentButton.closest('.top-event-item');
+            var topEventLink = topEventItem ? topEventItem.querySelector('.top-event-link') : null;
+
+            event.preventDefault();
+            if (topEventLink) {
+                openIncidentDrawerForAssignment(topEventLink);
+            }
             return;
         }
 
