@@ -4432,7 +4432,10 @@
         }
 
         if (title) {
-            title.textContent = getIncidentAssignmentLabel('assignee-label', 'Assignee');
+            title.textContent = getIncidentDrawerLabel(
+                'assignment-drawer-title-label',
+                'Critical assignment'
+            );
         }
 
         form.hidden = false;
@@ -4980,84 +4983,94 @@
     }
 
     function openIncidentDrawerFromEventData(eventData, focusTimeline) {
+        var object = eventData.object || getIcingadbObjectFromUrl(normalizeIncidentUrl(eventData.url || ''));
+
+        if (! object) {
+            return false;
+        }
+
+        return openAssignmentDrawerForObject(
+            object,
+            normalizeIncidentUrl(eventData.url || ''),
+            true
+        );
+    }
+
+    function openIncidentDrawerFromLink(link) {
+        var item = link ? link.closest('.top-event-item') : null;
+        var url = normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : '');
+        var hasRenderedState = item && /top-event-state-/.test(item.className || '');
+
+        if (! link || ! item || (! hasRenderedState && url.indexOf('/icingadb/history') !== -1)) {
+            return false;
+        }
+
+        item.classList.add('top-event-seen');
+
+        return openIncidentDrawerFromEventData({
+            url: url
+        }, false);
+    }
+
+    function openAssignmentDrawerForObject(object, sourceUrl, focusAssignment) {
+        var url = buildIcingadbObjectUrl(object);
         var drawer = getIncidentDrawer();
         var title = drawer ? drawer.querySelector('#incident-drawer-title') : null;
         var meta = drawer ? drawer.querySelector('[data-incident-meta]') : null;
         var open = drawer ? drawer.querySelector('[data-incident-open]') : null;
-        var copy = drawer ? drawer.querySelector('[data-copy-incident-link]') : null;
-        var titleText = normalizeText(eventData.title || '');
-        var metaText = normalizeText(eventData.meta || '');
-        var previewText = normalizeText(eventData.preview || '');
-        var url = normalizeIncidentUrl(eventData.url || '');
-        var object = eventData.object || getIcingadbObjectFromUrl(url);
-        var skipDetailsLoad = !! eventData.skipDetailsLoad;
+        var drawerTitle = getIncidentDrawerLabel('assignment-drawer-title-label', 'Critical assignment');
+        var drawerMeta = getIcingadbObjectDisplayName(object);
+        var contextUrl = normalizeIncidentUrl(sourceUrl || '');
+        var activityUrl = contextUrl || url;
 
-        if (! drawer || ! titleText.length || ! url.length) {
+        if (! drawer || ! object || ! url.length) {
             return false;
         }
 
-        incidentDrawerState.url = url;
-        incidentDrawerState.focusTimeline = !! focusTimeline;
-        incidentDrawerState.focusAssignment = false;
+        incidentDrawerState.url = activityUrl;
+        incidentDrawerState.focusTimeline = false;
+        incidentDrawerState.focusAssignment = !! focusAssignment || ! contextUrl.length;
         incidentDrawerState.object = object;
         incidentDrawerState.assignment = null;
         lastFocusedElement = document.activeElement;
-        markIncidentSeen(url);
-        refreshSeenTopEventStates();
-        if (isTriageModeEnabled()) {
-            rerenderCachedTopEvents();
+
+        if (contextUrl.length) {
+            markIncidentSeen(contextUrl);
+            refreshSeenTopEventStates();
+            if (isTriageModeEnabled()) {
+                rerenderCachedTopEvents();
+            }
         }
+
         rememberRecentIncident({
-            title: titleText,
-            meta: metaText,
-            url: url
+            title: drawerTitle,
+            meta: drawerMeta,
+            url: activityUrl
         });
-        recordOperatorActivity('Incident', 'Opened incident drawer', titleText, url);
+        recordOperatorActivity('Assignment', 'Opened assignment drawer', drawerMeta, activityUrl);
 
         if (title) {
-            title.textContent = titleText;
+            title.textContent = drawerTitle;
         }
 
         if (meta) {
-            meta.textContent = metaText;
-            meta.hidden = ! metaText.length;
+            meta.textContent = drawerMeta;
+            meta.hidden = ! drawerMeta.length;
         }
 
         if (open) {
             open.href = url || '#';
-            open.textContent = getIncidentDrawerLabel('open-label', 'Open full details');
+            open.textContent = getIncidentDrawerLabel('assignment-open-label', 'Open object');
             open.hidden = ! url.length;
-        }
-
-        if (copy) {
-            copy.textContent = getIncidentDrawerLabel('copy-label', 'Copy link');
-            copy.hidden = ! url.length;
         }
 
         drawer.hidden = false;
         drawer.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
-        updatePinIncidentButton();
-        updateSnoozeIncidentButton();
-        loadIncidentNote();
         renderIncidentAssignment();
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
-        if (object) {
-            loadIncidentTimeline(object);
-            loadIncidentAssignment(object);
-        } else {
-            setIncidentTimelineState('hidden');
-            incidentDrawerState.assignment = null;
-            renderIncidentAssignment();
-        }
-        setIncidentDrawerBody(
-            previewText || getIncidentDrawerLabel('loading-label', 'Loading incident details...'),
-            ! skipDetailsLoad
-        );
-        if (! skipDetailsLoad) {
-            loadIncidentDrawerDetails(url);
-        }
+        loadIncidentAssignment(object);
 
         if (open && ! open.hidden) {
             open.focus();
@@ -5066,59 +5079,14 @@
         return true;
     }
 
-    function openIncidentDrawerFromLink(link) {
-        var item = link ? link.closest('.top-event-item') : null;
-        var titleText = item ? normalizeText((item.querySelector('.top-event-title') || {}).textContent || '') : '';
-        var metaText = item ? normalizeText((item.querySelector('.top-event-meta') || {}).textContent || '') : '';
-        var previewText = item ? normalizeText((item.querySelector('.top-event-preview') || {}).textContent || '') : '';
-        var url = normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : '');
-        var hasRenderedState = item && /top-event-state-/.test(item.className || '');
-
-        if (! link || ! item || ! titleText.length || (! hasRenderedState && url.indexOf('/icingadb/history') !== -1)) {
-            return false;
-        }
-
-        item.classList.add('top-event-seen');
-
-        return openIncidentDrawerFromEventData({
-            title: titleText,
-            meta: metaText,
-            preview: previewText,
-            url: url
-        }, false);
-    }
-
-    function openAssignmentDrawerForObject(object) {
-        var url = buildIcingadbObjectUrl(object);
-        var title = getIcingadbObjectDisplayName(object);
-        var meta = object && object.type === 'service'
-            ? object.hostName
-            : getIncidentDrawerLabel('object-label', 'Open object');
-
-        if (! object || ! url.length) {
-            return false;
-        }
-
-        if (! openIncidentDrawerFromEventData({
-            title: title,
-            meta: meta,
-            preview: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
-            url: url,
-            object: object,
-            skipDetailsLoad: false
-        }, false)) {
-            return false;
-        }
-
-        incidentDrawerState.focusAssignment = true;
-        renderIncidentAssignment();
-        return true;
-    }
-
     function openAssignmentDrawerFromLink(link) {
         var object = link ? getIcingadbObjectFromUrl(link.getAttribute('href') || link.href || '') : null;
 
-        return openAssignmentDrawerForObject(object);
+        return openAssignmentDrawerForObject(
+            object,
+            normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : ''),
+            true
+        );
     }
 
     function openIncidentDrawerForAssignment(link) {

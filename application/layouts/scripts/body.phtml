@@ -695,6 +695,7 @@ if ($this->layout()->inlineLayout) {
     data-note-clear-label="<?= $this->escape($this->translate('Clear note')) ?>"
     data-assignee-label="<?= $this->escape($this->translate('Assignee')) ?>"
     data-no-assignee-label="<?= $this->escape($this->translate('Unassigned')) ?>"
+    data-assignment-drawer-title-label="<?= $this->escape($this->translate('Critical assignment')) ?>"
     data-assignment-no-permission-label="<?= $this->escape($this->translate('You need the "application/critical-assignments" permission in your role to assign incidents.')) ?>"
     data-assignment-no-users-label="<?= $this->escape($this->translate('No registered users are available for assignment.')) ?>"
     data-assignment-loading-label="<?= $this->escape($this->translate('Loading assignee...')) ?>"
@@ -704,7 +705,7 @@ if ($this->layout()->inlineLayout) {
     data-assignment-placeholder-label="<?= $this->escape($this->translate('Choose a registered user')) ?>"
     data-assignment-assign-to-label="<?= $this->escape($this->translate('Assign to')) ?>"
     data-assignment-assigned-by-label="<?= $this->escape($this->translate('Assigned by')) ?>"
-    data-assignment-open-label="<?= $this->escape($this->translate('Open drawer')) ?>"
+    data-assignment-open-label="<?= $this->escape($this->translate('Open object')) ?>"
     data-assignment-url="<?= $this->href('incident-assignment/get') ?>"
     data-assignment-save-url="<?= $this->href('incident-assignment/set') ?>"
 >
@@ -717,8 +718,9 @@ if ($this->layout()->inlineLayout) {
     >
         <header class="incident-drawer-header">
             <div>
-                <p class="incident-drawer-eyebrow"><?= $this->translate('Incident') ?></p>
+                <p class="incident-drawer-eyebrow"><?= $this->translate('Critical assignment') ?></p>
                 <h2 id="incident-drawer-title"></h2>
+                <p class="incident-drawer-meta" data-incident-meta></p>
             </div>
             <button
                 type="button"
@@ -729,7 +731,6 @@ if ($this->layout()->inlineLayout) {
                 <?= $this->icon('cancel', null, ['aria-hidden' => 'true']) ?>
             </button>
         </header>
-        <p class="incident-drawer-meta" data-incident-meta></p>
         <div class="incident-drawer-quick-actions" data-incident-actions hidden>
             <a href="#" data-incident-action="acknowledge" data-base-target="_main">
                 <?= $this->translate('Acknowledge') ?>
@@ -786,42 +787,10 @@ if ($this->layout()->inlineLayout) {
                 </a>
             </div>
         </section>
-        <div class="incident-drawer-body" data-incident-body></div>
-        <section class="incident-drawer-timeline" data-incident-timeline hidden>
-            <h3 data-incident-timeline-title><?= $this->translate('Metro Timeline') ?></h3>
-            <div class="incident-metro-timeline" data-incident-metro-timeline hidden></div>
-            <ol data-incident-timeline-list></ol>
-        </section>
-        <section class="incident-drawer-note" data-incident-note-section hidden>
-            <header>
-                <h3 data-incident-note-title><?= $this->translate('Private note') ?></h3>
-                <button type="button" data-clear-incident-note>
-                    <?= $this->translate('Clear note') ?>
-                </button>
-            </header>
-            <textarea
-                data-incident-note
-                rows="3"
-                placeholder="<?= $this->escape($this->translate('Add local operator note...')) ?>"
-            ></textarea>
-            <p data-incident-note-status></p>
-        </section>
         <footer class="incident-drawer-actions">
             <a href="#" data-incident-open data-base-target="_main">
-                <?= $this->translate('Open full details') ?>
+                <?= $this->translate('Open object') ?>
             </a>
-            <button type="button" data-copy-incident-link>
-                <?= $this->translate('Copy link') ?>
-            </button>
-            <button type="button" data-copy-incident-summary>
-                <?= $this->translate('Copy summary') ?>
-            </button>
-            <button type="button" data-pin-incident>
-                <?= $this->translate('Pin') ?>
-            </button>
-            <button type="button" data-snooze-incident>
-                <?= $this->translate('Snooze 15m') ?>
-            </button>
         </footer>
     </aside>
 </div>
