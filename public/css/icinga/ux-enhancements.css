@@ -1252,6 +1252,13 @@ body.modal-open {
   font-weight: 700;
 }
 
+.top-event-assignee-note {
+  margin: 0.08em 0 0;
+  color: var(--to-text-muted);
+  font-size: 0.74em;
+  line-height: 1.3;
+}
+
 .object-assignee {
   display: block;
   margin-top: 0.2em;
@@ -1267,6 +1274,14 @@ body.modal-open {
 
 .object-assignee.loading {
   opacity: 0.9;
+}
+
+.object-assignee-note {
+  display: block;
+  margin-top: 0.12em;
+  color: var(--to-text-muted);
+  font-size: 0.75em;
+  line-height: 1.25;
 }
 
 .object-assignee-banner {
@@ -1303,6 +1318,13 @@ body.modal-open {
   color: var(--to-text-strong);
   font-size: 0.88em;
   font-weight: 600;
+}
+
+.object-assignee-banner-note {
+  flex: 0 0 100%;
+  color: var(--to-text-muted);
+  font-size: 0.78em;
+  line-height: 1.3;
 }
 
 .top-event-assignment-controls {

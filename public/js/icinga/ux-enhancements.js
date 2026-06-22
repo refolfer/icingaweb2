@@ -3094,6 +3094,9 @@
         var isLoading = isIncidentAssignmentLoading(object) && ! details;
         var canAssign = !! (details && details.canAssign);
         var users = details && Array.isArray(details.users) ? details.users : [];
+        var currentNote = details && details.assignment
+            ? String(details.assignment.note || '')
+            : '';
         var html = '';
         var options = [];
 
@@ -3170,6 +3173,13 @@
                 : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
             + '</span>';
 
+        if (currentNote.trim().length) {
+            html += '<span class="top-event-assignment-note">'
+                + escapeHtml(getIncidentAssignmentLabel('assignment-note-label', 'Note'))
+                + ': ' + escapeHtml(currentNote)
+                + '</span>';
+        }
+
         if (details && details.assignment && details.assignment.assignedBy) {
             html += '<span class="top-event-assignment-note">'
                 + escapeHtml(getIncidentAssignmentLabel('assigned-by-label', 'Assigned by'))
@@ -3214,6 +3224,7 @@
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
             var assigneeEl = slots[i].querySelector('.top-event-assignee');
+            var assigneeNoteEl = slots[i].querySelector('.top-event-assignee-note');
             var assignmentControlsEl = slots[i].querySelector('.top-event-assignment-controls');
             var previewEl = slots[i].querySelector('.top-event-preview');
             var linkEl = slots[i].querySelector('.top-event-link');
@@ -3221,9 +3232,11 @@
             var url = normalizeTopEventUrl(getTopEventsHistoryUrl());
             var object = null;
             var assignedTo = '';
+            var currentNote = '';
             var assigneeText = '';
+            var assignmentDetails = null;
 
-            if (! titleEl || ! metaEl || ! assigneeEl || ! previewEl || ! linkEl) {
+            if (! titleEl || ! metaEl || ! assigneeEl || ! assigneeNoteEl || ! previewEl || ! linkEl) {
                 continue;
             }
 
@@ -3239,6 +3252,8 @@
             linkEl.removeAttribute('role');
             previewEl.textContent = '';
             assigneeEl.textContent = '';
+            assigneeNoteEl.textContent = '';
+            assigneeNoteEl.hidden = true;
             if (assignmentControlsEl) {
                 assignmentControlsEl.innerHTML = '';
             }
@@ -3248,6 +3263,10 @@
                 object = getIcingadbObjectFromUrl(item.url);
                 prefetchIncidentAssignment(object);
                 assignedTo = getIncidentAssignmentCache(object);
+                assignmentDetails = object ? getIncidentAssignmentDetailsCache(object) : null;
+                currentNote = assignmentDetails && assignmentDetails.assignment
+                    ? String(assignmentDetails.assignment.note || '')
+                    : '';
                 metaEl.textContent = item.meta || '—';
                 assigneeText = isIncidentAssignmentLoading(object)
                     ? getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...')
@@ -3255,6 +3274,10 @@
                         ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo
                         : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'));
                 assigneeEl.textContent = assigneeText;
+                if (currentNote.trim().length) {
+                    assigneeNoteEl.hidden = false;
+                    assigneeNoteEl.textContent = getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + currentNote;
+                }
                 renderTopEventAssignmentControls(item, object, assignmentControlsEl);
                 previewEl.textContent = item.preview || item.meta || item.title;
                 url = normalizeTopEventUrl(item.url);
@@ -3755,8 +3778,11 @@
         var banner = getIcingadbObjectAssignmentBanner();
         var label;
         var value;
+        var note;
         var text = '';
         var assignee = '';
+        var currentNote = '';
+        var details = object ? getIncidentAssignmentDetailsCache(object) : null;
 
         if (! banner || ! object) {
             return;
@@ -3764,6 +3790,7 @@
 
         label = banner.querySelector('[data-object-assignee-label]');
         value = banner.querySelector('[data-object-assignee-value]');
+        note = banner.querySelector('[data-object-assignee-note]');
 
         if (! label) {
             label = document.createElement('span');
@@ -3780,7 +3807,15 @@
             banner.appendChild(value);
         }
 
+        if (! note) {
+            note = document.createElement('span');
+            note.setAttribute('data-object-assignee-note', '');
+            note.className = 'object-assignee-banner-note';
+            banner.appendChild(note);
+        }
+
         assignee = getIncidentAssignmentCache(object);
+        currentNote = details && details.assignment ? String(details.assignment.note || '') : '';
         if (! assignee.length && ! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
             prefetchIncidentAssignment(object);
         }
@@ -3797,6 +3832,13 @@
         }
 
         value.textContent = text;
+        if (currentNote.trim().length) {
+            note.hidden = false;
+            note.textContent = getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + currentNote;
+        } else {
+            note.hidden = true;
+            note.textContent = '';
+        }
         banner.classList.toggle('assigned', !! assignee.length);
         banner.hidden = false;
     }
@@ -5296,8 +5338,13 @@
             var block = blocks[i];
             var info = block.querySelector('.extended-info');
             var label = info ? info.querySelector('[data-object-assignee]') : null;
+            var noteLabel = info ? info.querySelector('[data-object-assignee-note]') : null;
             var object = findIcingadbObjectInNode(block);
             var assignee = object ? getIncidentAssignmentCache(object) : '';
+            var assignmentDetails = object ? getIncidentAssignmentDetailsCache(object) : null;
+            var note = assignmentDetails && assignmentDetails.assignment
+                ? String(assignmentDetails.assignment.note || '')
+                : '';
             var text = '';
 
             if (! info || ! object) {
@@ -5323,10 +5370,25 @@
                 info.appendChild(label);
             }
 
+            if (! noteLabel) {
+                noteLabel = document.createElement('span');
+                noteLabel.setAttribute('data-object-assignee-note', '');
+                noteLabel.className = 'object-assignee-note';
+                info.appendChild(noteLabel);
+            }
+
             label.textContent = text;
             label.classList.toggle('assigned', !! assignee.length);
             label.classList.toggle('unassigned', ! assignee.length);
             label.classList.toggle('loading', isIncidentAssignmentLoading(object));
+
+            if (note.trim().length) {
+                noteLabel.hidden = false;
+                noteLabel.textContent = getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + note;
+            } else {
+                noteLabel.hidden = true;
+                noteLabel.textContent = '';
+            }
         }
     }
 
