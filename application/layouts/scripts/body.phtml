@@ -256,6 +256,7 @@ if ($this->layout()->inlineLayout) {
                     >
                         <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
                         <p class="top-event-meta"></p>
+                        <p class="top-event-assignee"></p>
                         <p class="top-event-preview"></p>
                     </a>
                 </li>
@@ -267,6 +268,7 @@ if ($this->layout()->inlineLayout) {
                     >
                         <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
                         <p class="top-event-meta"></p>
+                        <p class="top-event-assignee"></p>
                         <p class="top-event-preview"></p>
                     </a>
                 </li>
@@ -691,6 +693,8 @@ if ($this->layout()->inlineLayout) {
     data-note-clear-label="<?= $this->escape($this->translate('Clear note')) ?>"
     data-assignee-label="<?= $this->escape($this->translate('Assignee')) ?>"
     data-no-assignee-label="<?= $this->escape($this->translate('Unassigned')) ?>"
+    data-assignment-no-permission-label="<?= $this->escape($this->translate('You need the "application/critical-assignments" permission in your role to assign incidents.')) ?>"
+    data-assignment-no-users-label="<?= $this->escape($this->translate('No registered users are available for assignment.')) ?>"
     data-assignment-loading-label="<?= $this->escape($this->translate('Loading assignee...')) ?>"
     data-assignment-error-label="<?= $this->escape($this->translate('Unable to load assignee.')) ?>"
     data-assignment-save-label="<?= $this->escape($this->translate('Save assignee')) ?>"

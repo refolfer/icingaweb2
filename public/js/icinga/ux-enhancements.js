@@ -30,6 +30,7 @@
     var SEEN_INCIDENTS_LIMIT = 200;
     var OPERATOR_ACTIVITY_LIMIT = 80;
     var INCIDENT_SNOOZE_MS = 15 * 60 * 1000;
+    var INCIDENT_ASSIGNMENT_PREFETCH_TTL_MS = 60 * 1000;
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -80,6 +81,7 @@
         focusTimeline: false
     };
     var incidentAssignmentCache = {};
+    var incidentAssignmentFetchState = {};
 
     var lastFocusedElement = null;
     var topWidgetResizeState = null;
@@ -3102,14 +3104,16 @@
             var item = visibleItems[i] || null;
             var titleEl = slots[i].querySelector('.top-event-title');
             var metaEl = slots[i].querySelector('.top-event-meta');
+            var assigneeEl = slots[i].querySelector('.top-event-assignee');
             var previewEl = slots[i].querySelector('.top-event-preview');
             var linkEl = slots[i].querySelector('.top-event-link');
             var stateClass;
             var url = normalizeTopEventUrl(getTopEventsHistoryUrl());
             var object = null;
             var assignedTo = '';
+            var assigneeText = '';
 
-            if (! titleEl || ! metaEl || ! previewEl || ! linkEl) {
+            if (! titleEl || ! metaEl || ! assigneeEl || ! previewEl || ! linkEl) {
                 continue;
             }
 
@@ -3124,17 +3128,20 @@
             linkEl.removeAttribute('aria-expanded');
             linkEl.removeAttribute('role');
             previewEl.textContent = '';
+            assigneeEl.textContent = '';
 
             if (item) {
                 titleEl.textContent = item.title;
                 object = getIcingadbObjectFromUrl(item.url);
+                prefetchIncidentAssignment(object);
                 assignedTo = getIncidentAssignmentCache(object);
                 metaEl.textContent = item.meta || '—';
-                if (assignedTo.length) {
-                    metaEl.textContent = metaEl.textContent.length
-                        ? (metaEl.textContent + ' · ' + getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo)
-                        : (getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo);
-                }
+                assigneeText = isIncidentAssignmentLoading(object)
+                    ? getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...')
+                    : (assignedTo.length
+                        ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignedTo
+                        : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'));
+                assigneeEl.textContent = assigneeText;
                 previewEl.textContent = item.preview || item.meta || item.title;
                 url = normalizeTopEventUrl(item.url);
                 if (url && isTopEventDetailsUrl(url)) {
@@ -3531,18 +3538,57 @@
             return;
         }
 
-        if (! assignee) {
-            delete incidentAssignmentCache[signature];
-            return;
-        }
-
-        incidentAssignmentCache[signature] = String(assignee);
+        incidentAssignmentCache[signature] = String(assignee || '');
+        setIncidentAssignmentFetchState(object, false, true);
     }
 
     function getIncidentAssignmentCache(object) {
         var signature = getIcingadbObjectSignature(object);
 
         return signature.length ? (incidentAssignmentCache[signature] || '') : '';
+    }
+
+    function isIncidentAssignmentLoaded(object) {
+        var signature = getIcingadbObjectSignature(object);
+        var state = signature.length ? incidentAssignmentFetchState[signature] : null;
+
+        return !! (state
+            && state.loaded
+            && state.loadedAt
+            && Date.now() - state.loadedAt < INCIDENT_ASSIGNMENT_PREFETCH_TTL_MS);
+    }
+
+    function isIncidentAssignmentLoading(object) {
+        var signature = getIcingadbObjectSignature(object);
+
+        return !! (signature.length
+            && incidentAssignmentFetchState[signature]
+            && incidentAssignmentFetchState[signature].loading);
+    }
+
+    function setIncidentAssignmentFetchState(object, loading, loaded) {
+        var signature = getIcingadbObjectSignature(object);
+        var state = signature.length ? incidentAssignmentFetchState[signature] : null;
+
+        if (! signature.length) {
+            return;
+        }
+
+        incidentAssignmentFetchState[signature] = {
+            loading: !! loading,
+            loaded: !! loaded,
+            loadedAt: loaded
+                ? (state && state.loadedAt ? state.loadedAt : Date.now())
+                : 0
+        };
+    }
+
+    function clearIncidentAssignmentFetchState(object) {
+        var signature = getIcingadbObjectSignature(object);
+
+        if (signature.length) {
+            delete incidentAssignmentFetchState[signature];
+        }
     }
 
     function setIncidentQuickActions(object) {
@@ -4219,11 +4265,25 @@
 
             select.innerHTML = options.join('');
             select.disabled = false;
+
+            if (! users.length && ! statusMessage.length) {
+                statusMessage = getIncidentAssignmentLabel(
+                    'assignment-no-users-label',
+                    'No registered users are available for assignment.'
+                );
+            }
         } else {
             select.innerHTML = '<option value="">'
                 + escapeHtml(getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
                 + '</option>';
             select.disabled = true;
+
+            if (! statusMessage.length) {
+                statusMessage = getIncidentAssignmentLabel(
+                    'assignment-no-permission-label',
+                    'You need the "application/critical-assignments" permission in your role to assign incidents.'
+                );
+            }
         }
 
         setIncidentAssignmentStatus(statusMessage, statusError);
@@ -4256,6 +4316,7 @@
             statusMessage: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
             statusError: false
         };
+        setIncidentAssignmentFetchState(object, true, false);
         renderIncidentAssignment();
 
         window.fetch(url + '?' + params.toString(), {
@@ -4298,6 +4359,7 @@
                     return;
                 }
 
+                clearIncidentAssignmentFetchState(object);
                 incidentDrawerState.assignment = {
                     loading: false,
                     assignment: null,
@@ -4308,6 +4370,52 @@
                     statusError: true
                 };
                 renderIncidentAssignment();
+            });
+    }
+
+    function prefetchIncidentAssignment(object) {
+        var url = getIncidentAssignmentApiUrl();
+        var params;
+
+        if (! object || ! url.length || typeof window.fetch !== 'function') {
+            return;
+        }
+
+        if (isIncidentAssignmentLoaded(object) || isIncidentAssignmentLoading(object)) {
+            return;
+        }
+
+        setIncidentAssignmentFetchState(object, true, false);
+
+        params = new URLSearchParams();
+        params.set('type', object.type);
+        params.set('host.name', object.hostName);
+        if (object.type === 'service') {
+            params.set('service.name', object.serviceName);
+        }
+
+        window.fetch(url + '?' + params.toString(), {
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Unable to load incident assignment');
+                }
+
+                return response.json();
+            })
+            .then(function (payload) {
+                if (payload && payload.assignment) {
+                    setIncidentAssignmentCache(object, payload.assignment.assignee);
+                } else {
+                    setIncidentAssignmentCache(object, '');
+                }
+
+                setIncidentAssignmentFetchState(object, false, true);
+                rerenderCachedTopEvents();
+            })
+            .catch(function () {
+                clearIncidentAssignmentFetchState(object);
             });
     }
 
