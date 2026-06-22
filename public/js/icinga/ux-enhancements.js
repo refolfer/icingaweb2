@@ -4982,14 +4982,20 @@
         var note = document.querySelector('[data-incident-assignment-note]');
         var save = document.querySelector('[data-save-incident-assignment]');
         var assignment = incidentDrawerState.assignment || null;
+        var cachedDetails = incidentDrawerState.object ? getIncidentAssignmentDetailsCache(incidentDrawerState.object) : null;
         var canAssign = !! (assignment && assignment.canAssign);
         var users = assignment && Array.isArray(assignment.users) ? assignment.users : [];
         var currentAssignee = assignment && assignment.assignment
             ? String(assignment.assignment.assignee || '')
-            : getIncidentAssignmentCache(incidentDrawerState.object);
+            : (cachedDetails && cachedDetails.assignment
+                ? String(cachedDetails.assignment.assignee || '')
+                : getIncidentAssignmentCache(incidentDrawerState.object));
         var currentNote = assignment && assignment.assignment
             ? String(assignment.assignment.note || '')
-            : '';
+            : (cachedDetails && cachedDetails.assignment
+                ? String(cachedDetails.assignment.note || '')
+                : '')
+        ;
         var statusMessage = assignment && assignment.statusMessage ? String(assignment.statusMessage) : '';
         var statusError = !! (assignment && assignment.statusError);
 
@@ -5115,6 +5121,7 @@
         var url = getIncidentAssignmentApiUrl();
         var params;
         var signature = getIcingadbObjectSignature(object);
+        var cachedDetails = getIncidentAssignmentDetailsCache(object);
         var requestId;
 
         if (! object || ! url.length || typeof window.fetch !== 'function') {
@@ -5132,9 +5139,14 @@
 
         incidentDrawerState.assignment = {
             loading: true,
-            assignment: null,
+            assignment: cachedDetails && cachedDetails.assignment ? {
+                assignee: String(cachedDetails.assignment.assignee || ''),
+                assignedBy: String(cachedDetails.assignment.assignedBy || ''),
+                assignedAt: String(cachedDetails.assignment.assignedAt || ''),
+                note: String(cachedDetails.assignment.note || '')
+            } : null,
             canAssign: false,
-            users: [],
+            users: cachedDetails && Array.isArray(cachedDetails.users) ? cachedDetails.users.slice() : [],
             objectSignature: signature,
             requestId: 0,
             statusMessage: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
@@ -5189,8 +5201,21 @@
                     return;
                 }
 
-                clearIncidentAssignmentCaches(object);
-                incidentDrawerState.assignment = {
+                incidentDrawerState.assignment = cachedDetails && cachedDetails.assignment ? {
+                    loading: false,
+                    assignment: {
+                        assignee: String(cachedDetails.assignment.assignee || ''),
+                        assignedBy: String(cachedDetails.assignment.assignedBy || ''),
+                        assignedAt: String(cachedDetails.assignment.assignedAt || ''),
+                        note: String(cachedDetails.assignment.note || '')
+                    },
+                    canAssign: !! cachedDetails.canAssign,
+                    users: Array.isArray(cachedDetails.users) ? cachedDetails.users.slice() : [],
+                    objectSignature: signature,
+                    requestId: requestId,
+                    statusMessage: String(error && error.message ? error.message : 'Unable to load assignee.'),
+                    statusError: true
+                } : {
                     loading: false,
                     assignment: null,
                     canAssign: false,
@@ -5247,7 +5272,9 @@
                 rerenderCachedTopEvents();
             })
             .catch(function () {
-                clearIncidentAssignmentCaches(object);
+                if (! getIncidentAssignmentDetailsCache(object)) {
+                    clearIncidentAssignmentCaches(object);
+                }
             });
     }
 
