@@ -696,6 +696,8 @@ if ($this->layout()->inlineLayout) {
     data-assignee-label="<?= $this->escape($this->translate('Assignee')) ?>"
     data-no-assignee-label="<?= $this->escape($this->translate('Unassigned')) ?>"
     data-assignment-drawer-title-label="<?= $this->escape($this->translate('Critical assignment')) ?>"
+    data-timeline-duration-label="<?= $this->escape($this->translate('Duration')) ?>"
+    data-timeline-ongoing-label="<?= $this->escape($this->translate('Ongoing')) ?>"
     data-assignment-no-permission-label="<?= $this->escape($this->translate('You need the "application/critical-assignments" permission in your role to assign incidents.')) ?>"
     data-assignment-no-users-label="<?= $this->escape($this->translate('No registered users are available for assignment.')) ?>"
     data-assignment-loading-label="<?= $this->escape($this->translate('Loading assignee...')) ?>"
@@ -786,6 +788,11 @@ if ($this->layout()->inlineLayout) {
                     <?= $this->translate('Downtimes') ?>
                 </a>
             </div>
+        </section>
+        <section class="incident-drawer-timeline" data-incident-timeline hidden>
+            <h3 data-incident-timeline-title><?= $this->translate('Metro Timeline') ?></h3>
+            <div class="incident-metro-timeline" data-incident-metro-timeline hidden></div>
+            <ol data-incident-timeline-list></ol>
         </section>
         <footer class="incident-drawer-actions">
             <a href="#" data-incident-open data-base-target="_main">

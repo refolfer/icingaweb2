@@ -3858,6 +3858,106 @@
         return match ? match[1] : '';
     }
 
+    function parseHistoryTimestamp(text) {
+        var value = String(text || '').trim();
+        var match;
+        var dayMatch;
+        var iso;
+        var date;
+
+        if (! value.length) {
+            return null;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?$/.test(value)) {
+            iso = value.replace(' ', 'T');
+            date = new Date(iso);
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        match = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+        if (match) {
+            date = new Date(
+                parseInt(match[3].length === 2 ? '20' + match[3] : match[3], 10),
+                parseInt(match[2], 10) - 1,
+                parseInt(match[1], 10),
+                parseInt(match[4] || '0', 10),
+                parseInt(match[5] || '0', 10),
+                parseInt(match[6] || '0', 10)
+            );
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        match = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+        if (match) {
+            return null;
+        }
+
+        dayMatch = value.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+        if (dayMatch) {
+            date = new Date(dayMatch[1]);
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        return null;
+    }
+
+    function formatHistoryDuration(ms) {
+        var totalMinutes;
+        var hours;
+        var minutes;
+
+        if (! isFinite(ms) || ms <= 0) {
+            return '';
+        }
+
+        totalMinutes = Math.floor(ms / 60000);
+        hours = Math.floor(totalMinutes / 60);
+        minutes = totalMinutes % 60;
+
+        if (hours > 0) {
+            return hours + 'h ' + minutes + 'm';
+        }
+
+        return minutes + 'm';
+    }
+
+    function extractHistoryTimestamp(node, text) {
+        var timeNode = node.querySelector('time[datetime], [datetime], [data-time]');
+        var attrValue = '';
+        var parsed;
+        var label = '';
+        var match;
+
+        if (timeNode) {
+            attrValue = String(
+                timeNode.getAttribute('datetime')
+                || timeNode.getAttribute('data-time')
+                || timeNode.getAttribute('title')
+                || timeNode.textContent
+                || ''
+            ).trim();
+        }
+
+        parsed = parseHistoryTimestamp(attrValue);
+        if (! parsed) {
+            match = String(text || '').match(
+                /(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?|\d{1,2}\.\d{1,2}\.\d{2,4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?)/
+            );
+            if (match) {
+                parsed = parseHistoryTimestamp(match[1]);
+                label = match[1];
+            }
+        } else {
+            label = attrValue;
+        }
+
+        return {
+            date: parsed,
+            label: label
+        };
+    }
+
     function renderIncidentMetroTimeline(entries) {
         var metro = document.querySelector('[data-incident-metro-timeline]');
         var stops = entries.map(function (entry, index) {
@@ -3866,7 +3966,7 @@
             return {
                 index: index,
                 label: getMetroStationLabel(entry.text),
-                time: getMetroStationTime(entry.text),
+                time: entry.timeText || getMetroStationTime(entry.text),
                 state: state,
                 color: getMetroStateColor(state)
             };
@@ -3940,7 +4040,7 @@
             return {
                 index: index,
                 label: getMetroStationLabel(entry.text),
-                time: getMetroStationTime(entry.text),
+                time: entry.timeText || getMetroStationTime(entry.text),
                 state: state,
                 color: getMetroStateColor(state)
             };
@@ -4003,6 +4103,40 @@
             + '</div>';
     }
 
+    function buildHistoryOccurrenceMap(entries) {
+        var openOccurrence = null;
+        var ordered = entries
+            .map(function (entry, index) {
+                return {
+                    entry: entry,
+                    index: index
+                };
+            })
+            .filter(function (item) {
+                return !! (item.entry && item.entry.timestamp);
+            })
+            .sort(function (left, right) {
+                return left.entry.timestamp - right.entry.timestamp;
+            });
+        var i;
+
+        for (i = 0; i < ordered.length; i++) {
+            if (ordered[i].entry.state === 'critical' && openOccurrence === null) {
+                openOccurrence = ordered[i];
+                ordered[i].entry.occurrenceStart = true;
+            } else if (ordered[i].entry.state === 'ok' && openOccurrence !== null) {
+                openOccurrence.entry.durationMs = ordered[i].entry.timestamp - openOccurrence.entry.timestamp;
+                openOccurrence.entry.durationText = formatHistoryDuration(openOccurrence.entry.durationMs);
+                ordered[i].entry.recoveryOf = openOccurrence.index;
+                openOccurrence = null;
+            }
+        }
+
+        if (openOccurrence !== null) {
+            openOccurrence.entry.occurrenceStart = true;
+        }
+    }
+
     function setIncidentTimelineState(state, items) {
         var container = document.querySelector('[data-incident-timeline]');
         var title = document.querySelector('[data-incident-timeline-title]');
@@ -4044,12 +4178,38 @@
 
         renderIncidentMetroTimeline(entries);
         focusIncidentMetroTimelineWhenReady();
+        buildHistoryOccurrenceMap(entries);
         list.innerHTML = entries.map(function (entry) {
-            return '<li><a href="'
+            var meta = [];
+
+            if (entry.timeText) {
+                meta.push('<span class="incident-drawer-timeline-time">'
+                    + escapeHtml(entry.timeText)
+                    + '</span>');
+            }
+
+            if (entry.durationText) {
+                meta.push('<span class="incident-drawer-timeline-duration">'
+                    + escapeHtml(getIncidentDrawerLabel('timeline-duration-label', 'Duration'))
+                    + ': '
+                    + escapeHtml(entry.durationText)
+                    + '</span>');
+            } else if (entry.occurrenceStart && entry.state === 'critical') {
+                meta.push('<span class="incident-drawer-timeline-duration">'
+                    + escapeHtml(getIncidentDrawerLabel('timeline-ongoing-label', 'Ongoing'))
+                    + '</span>');
+            }
+
+            return '<li class="incident-drawer-timeline-entry">'
+                + '<a href="'
                 + escapeHtml(entry.url || '#')
                 + '" data-base-target="_main">'
                 + escapeHtml(entry.text)
-                + '</a></li>';
+                + '</a>'
+                + (meta.length ? '<div class="incident-drawer-timeline-meta">'
+                    + meta.join(' ')
+                    + '</div>' : '')
+                + '</li>';
         }).join('');
     }
 
@@ -4074,12 +4234,15 @@
                 continue;
             }
 
+            var timestamp = extractHistoryTimestamp(node, text);
             entryText = text.length > 180 ? text.slice(0, 180).replace(/\s+\S*$/, '') + '...' : text;
             seen[text] = true;
             items.push({
                 text: entryText,
                 url: url,
-                state: getMetroStateFromText(entryText)
+                state: getMetroStateFromText(entryText),
+                timestamp: timestamp.date ? timestamp.date.getTime() : 0,
+                timeText: timestamp.label || getMetroStationTime(entryText)
             });
         }
 
@@ -4992,7 +5155,8 @@
         return openAssignmentDrawerForObject(
             object,
             normalizeIncidentUrl(eventData.url || ''),
-            true
+            true,
+            !! focusTimeline
         );
     }
 
@@ -5012,7 +5176,7 @@
         }, false);
     }
 
-    function openAssignmentDrawerForObject(object, sourceUrl, focusAssignment) {
+    function openAssignmentDrawerForObject(object, sourceUrl, focusAssignment, focusTimeline) {
         var url = buildIcingadbObjectUrl(object);
         var drawer = getIncidentDrawer();
         var title = drawer ? drawer.querySelector('#incident-drawer-title') : null;
@@ -5028,7 +5192,7 @@
         }
 
         incidentDrawerState.url = activityUrl;
-        incidentDrawerState.focusTimeline = false;
+        incidentDrawerState.focusTimeline = !! focusTimeline;
         incidentDrawerState.focusAssignment = !! focusAssignment || ! contextUrl.length;
         incidentDrawerState.object = object;
         incidentDrawerState.assignment = null;
@@ -5070,6 +5234,7 @@
         renderIncidentAssignment();
         setIncidentQuickActions(object);
         setIncidentObjectContext(object);
+        loadIncidentTimeline(object);
         loadIncidentAssignment(object);
 
         if (open && ! open.hidden) {
@@ -5085,7 +5250,8 @@
         return openAssignmentDrawerForObject(
             object,
             normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : ''),
-            true
+            true,
+            false
         );
     }
 
