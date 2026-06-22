@@ -2261,10 +2261,16 @@ body.modal-open {
 }
 
 .incident-metro-time {
-  margin-top: 0.75em;
+  position: absolute;
+  top: calc(100% + 0.7em);
+  left: 50%;
+  width: 9em;
+  transform: translateX(-0.3em) rotate(45deg);
+  transform-origin: left top;
   color: var(--to-text-muted);
   font-size: 0.72em;
   line-height: 1.2;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -2407,8 +2413,9 @@ body.modal-open {
 
 .incident-drawer-timeline-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45em 0.7em;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22em;
   margin-top: 0.18em;
   color: var(--to-text-muted, rgba(255, 255, 255, 0.72));
   font-size: 0.78em;
