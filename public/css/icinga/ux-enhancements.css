@@ -2716,6 +2716,21 @@ body.ux-density-wallboard .tactical-donut {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.object-assignment-action {
+  display: block;
+}
+
+.object-assignment-action > a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.object-assignment-action > a:hover,
+.object-assignment-action > a:focus-visible {
+  text-decoration: underline;
+}
+
 .quick-notebook-float {
   --quick-note-bg: #111827;
   --quick-note-panel: #1c2635;

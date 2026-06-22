@@ -111,7 +111,8 @@
         inFlight: false
     };
     var quickMenuContextState = {
-        anchor: null
+        anchor: null,
+        object: null
     };
     var quickNotebookState = {
         initialized: false,
@@ -4984,6 +4985,39 @@
         }, false);
     }
 
+    function openAssignmentDrawerForObject(object) {
+        var url = buildIcingadbObjectUrl(object);
+        var title = getIcingadbObjectDisplayName(object);
+        var meta = object && object.type === 'service'
+            ? object.hostName
+            : getIncidentDrawerLabel('object-label', 'Open object');
+
+        if (! object || ! url.length) {
+            return false;
+        }
+
+        if (! openIncidentDrawerFromEventData({
+            title: title,
+            meta: meta,
+            preview: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
+            url: url,
+            object: object,
+            skipDetailsLoad: false
+        }, false)) {
+            return false;
+        }
+
+        incidentDrawerState.focusAssignment = true;
+        renderIncidentAssignment();
+        return true;
+    }
+
+    function openAssignmentDrawerFromLink(link) {
+        var object = link ? getIcingadbObjectFromUrl(link.getAttribute('href') || link.href || '') : null;
+
+        return openAssignmentDrawerForObject(object);
+    }
+
     function openIncidentDrawerForAssignment(link) {
         if (! openIncidentDrawerFromLink(link)) {
             return false;
@@ -5967,6 +6001,7 @@
             ['History', buildIcingadbContextUrls(object).history, 'Open object history'],
             ['Comments', buildIcingadbContextUrls(object).comments, 'Open object comments'],
             ['Downtimes', buildIcingadbContextUrls(object).downtimes, 'Open object downtimes'],
+            ['Assign', buildIcingadbObjectUrl(object), 'Open the assignee selection for this object'],
             ['Acknowledge', buildIcingadbActionUrl(object, 'acknowledge'), 'Open acknowledge form'],
             ['Recheck now', buildIcingadbActionUrl(object, 'check-now'), 'Open immediate recheck form'],
             ['Schedule downtime', buildIcingadbActionUrl(object, 'schedule-downtime'), 'Open downtime form'],
@@ -5980,14 +6015,84 @@
         return actions.filter(function (entry) {
             return entry[1] && entry[1].length;
         }).map(function (entry) {
+            var type = entry[0] === 'Assign' ? 'assignObject' : 'navigateAbsolute';
+
             return makeCommand(
-                'navigateAbsolute',
+                type,
                 entry[0] + ': ' + getIcingadbObjectDisplayName(object),
                 category,
                 entry[2],
                 entry[1]
             );
         });
+    }
+
+    function hasCurrentObjectActionLinks(container, object) {
+        var expected = [
+            buildIcingadbActionUrl(object, 'acknowledge'),
+            buildIcingadbActionUrl(object, 'check-now'),
+            buildIcingadbActionUrl(object, 'schedule-downtime'),
+            buildIcingadbActionUrl(object, 'add-comment')
+        ].map(normalizeTopEventUrl).filter(function (url) {
+            return url.length;
+        });
+        var anchors;
+        var i;
+        var j;
+        var href;
+
+        if (! container || ! object || ! expected.length) {
+            return false;
+        }
+
+        anchors = container.querySelectorAll('a[href]');
+        for (i = 0; i < anchors.length; i++) {
+            href = normalizeTopEventUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
+            for (j = 0; j < expected.length; j++) {
+                if (href === expected[j]) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function addCurrentObjectAssignmentAction(container, object) {
+        var wrapper;
+        var link;
+        var isList = container.tagName && /^(ul|ol)$/i.test(container.tagName);
+
+        if (! container || ! object || container.querySelector('[data-object-assignment-action]')) {
+            return;
+        }
+
+        wrapper = isList ? document.createElement('li') : document.createElement('div');
+        wrapper.className = 'object-assignment-action';
+        link = document.createElement('a');
+        link.href = '#';
+        link.setAttribute('data-object-assignment-action', '');
+        link.setAttribute('data-base-target', '_main');
+        link.textContent = 'Assign';
+        wrapper.appendChild(link);
+        container.appendChild(wrapper);
+    }
+
+    function injectCurrentObjectAssignmentActions() {
+        var object = getIcingadbObjectFromUrl(window.location.href);
+        var containers;
+        var i;
+
+        if (! object) {
+            return;
+        }
+
+        containers = document.querySelectorAll('.action-list, [data-action-list], .object-actions, .actions');
+        for (i = 0; i < containers.length; i++) {
+            if (hasCurrentObjectActionLinks(containers[i], object)) {
+                addCurrentObjectAssignmentAction(containers[i], object);
+            }
+        }
     }
 
     function commandMatches(command, query) {
@@ -6238,6 +6343,12 @@
 
         if (command.type === 'anchor' && command.element) {
             command.element.click();
+            return;
+        }
+
+        if (command.type === 'assignObject') {
+            recordOperatorActivity('Object', 'Opened object assignment', command.label, command.value);
+            openAssignmentDrawerForObject(getIcingadbObjectFromUrl(command.value));
             return;
         }
 
@@ -7016,6 +7127,7 @@
         var existing = document.querySelector('[data-quick-menu-context]');
         var root;
         var addLabel;
+        var assignLabel;
         var tabLabel;
         var windowLabel;
 
@@ -7025,6 +7137,7 @@
 
         root = getQuickMenuRoot();
         addLabel = root ? (root.dataset.contextAddLabel || 'Add To Quick Menu') : 'Add To Quick Menu';
+        assignLabel = root ? (root.dataset.contextAssignLabel || 'Assign') : 'Assign';
         tabLabel = root ? (root.dataset.contextOpenTabLabel || 'Open In New Tab') : 'Open In New Tab';
         windowLabel = root ? (root.dataset.contextOpenWindowLabel || 'Open In New Window') : 'Open In New Window';
 
@@ -7034,6 +7147,7 @@
         existing.hidden = true;
         existing.innerHTML = ''
             + '<button type="button" data-qm-add-link>' + escapeHtml(addLabel) + '</button>'
+            + '<button type="button" data-qm-assign-object>' + escapeHtml(assignLabel) + '</button>'
             + '<button type="button" data-qm-open-tab>' + escapeHtml(tabLabel) + '</button>'
             + '<button type="button" data-qm-open-window>' + escapeHtml(windowLabel) + '</button>';
         document.body.appendChild(existing);
@@ -7049,14 +7163,21 @@
 
         menu.hidden = true;
         quickMenuContextState.anchor = null;
+        quickMenuContextState.object = null;
     }
 
     function showQuickMenuContextMenu(x, y, anchor) {
         var menu = getQuickMenuContextMenu();
         var maxLeft;
         var maxTop;
+        var object = getIcingadbObjectFromUrl(anchor ? (anchor.getAttribute('href') || anchor.href || '') : '');
+        var assignButton = menu.querySelector('[data-qm-assign-object]');
 
         quickMenuContextState.anchor = anchor;
+        quickMenuContextState.object = object;
+        if (assignButton) {
+            assignButton.hidden = ! object;
+        }
 
         menu.hidden = false;
         menu.style.left = '0px';
@@ -7071,7 +7192,19 @@
     function openQuickMenuContextAnchor(target) {
         var anchor = quickMenuContextState.anchor;
         var href = anchor ? normalizeQuickMenuUrl(anchor.getAttribute('href') || anchor.href || '') : '';
+        var object = quickMenuContextState.object;
         var features;
+
+        if (target === 'assign') {
+            if (! object) {
+                hideQuickMenuContextMenu();
+                return;
+            }
+
+            openAssignmentDrawerForObject(object);
+            hideQuickMenuContextMenu();
+            return;
+        }
 
         if (! href.length) {
             hideQuickMenuContextMenu();
@@ -7483,6 +7616,8 @@
         var snoozeIncidentButton = event.target.closest('[data-snooze-incident]');
         var clearIncidentNoteButton = event.target.closest('[data-clear-incident-note]');
         var openIncidentAssignmentButton = event.target.closest('[data-open-incident-assignment]');
+        var objectAssignmentButton = event.target.closest('[data-object-assignment-action]');
+        var quickMenuAssignButton = event.target.closest('[data-qm-assign-object]');
         var incidentLink = event.target.closest('.top-event-link');
         var eventMetroRangeButton = event.target.closest('[data-event-metro-range]');
         var eventMetroApplyButton = event.target.closest('[data-event-metro-apply]');
@@ -7677,6 +7812,18 @@
         if (copyIncidentSummaryButton) {
             event.preventDefault();
             copyIncidentSummary(copyIncidentSummaryButton);
+            return;
+        }
+
+        if (quickMenuAssignButton) {
+            event.preventDefault();
+            openQuickMenuContextAnchor('assign');
+            return;
+        }
+
+        if (objectAssignmentButton) {
+            event.preventDefault();
+            openAssignmentDrawerForObject(getIcingadbObjectFromUrl(window.location.href));
             return;
         }
 
@@ -7958,6 +8105,7 @@
         initQuickMenu();
         initQuickNotebook();
         updateTriageModeToggle();
+        injectCurrentObjectAssignmentActions();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
@@ -7976,12 +8124,14 @@
         window.jQuery(document).on('rendered', '#col1', function () {
             updateQuickNotebookVisibility();
             renderEventDetailMetroTimeline();
+            injectCurrentObjectAssignmentActions();
         });
     }
 
     renderRecentSearches();
     initQuickMenu();
     initQuickNotebook();
+    injectCurrentObjectAssignmentActions();
     refreshTacticalOverview(true);
     renderEventDetailMetroTimeline();
 })();
