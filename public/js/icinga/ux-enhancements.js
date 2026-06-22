@@ -4354,6 +4354,46 @@
         }
     }
 
+    function getIncidentAssignmentObjectFromForm(form) {
+        var object;
+        var type;
+        var hostName;
+        var serviceName;
+
+        if (form) {
+            type = String(form.dataset.incidentAssignmentObjectType || '').trim();
+            hostName = String(form.dataset.incidentAssignmentHostName || '').trim();
+            serviceName = String(form.dataset.incidentAssignmentServiceName || '').trim();
+
+            if (type === 'host' && hostName.length) {
+                return {
+                    type: 'host',
+                    hostName: hostName,
+                    serviceName: ''
+                };
+            }
+
+            if (type === 'service' && hostName.length && serviceName.length) {
+                return {
+                    type: 'service',
+                    hostName: hostName,
+                    serviceName: serviceName
+                };
+            }
+        }
+
+        object = incidentDrawerState.object;
+        if (object && object.type && object.hostName) {
+            return {
+                type: object.type,
+                hostName: object.hostName,
+                serviceName: object.type === 'service' ? object.serviceName : ''
+            };
+        }
+
+        return null;
+    }
+
     function renderIncidentAssignment() {
         var section = getIncidentAssignmentSection();
         var title = document.querySelector('[data-incident-assignment-title]');
@@ -4375,6 +4415,11 @@
         }
 
         section.hidden = ! incidentDrawerState.object;
+        form.dataset.incidentAssignmentObjectType = incidentDrawerState.object ? incidentDrawerState.object.type : '';
+        form.dataset.incidentAssignmentHostName = incidentDrawerState.object ? incidentDrawerState.object.hostName : '';
+        form.dataset.incidentAssignmentServiceName = incidentDrawerState.object && incidentDrawerState.object.type === 'service'
+            ? incidentDrawerState.object.serviceName
+            : '';
 
         if (! incidentDrawerState.object) {
             setIncidentAssignmentStatus('');
@@ -4641,8 +4686,9 @@
     }
 
     function saveIncidentAssignmentFromDom() {
+        var form = document.querySelector('[data-incident-assignment-form]');
         var select = document.querySelector('[data-incident-assignee-select]');
-        var object = incidentDrawerState.object;
+        var object = getIncidentAssignmentObjectFromForm(form);
         var signature = getIcingadbObjectSignature(object);
         var requestId;
 
