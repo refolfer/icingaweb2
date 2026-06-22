@@ -6087,7 +6087,9 @@
             return;
         }
 
-        containers = document.querySelectorAll('.action-list, [data-action-list], .object-actions, .actions');
+        containers = document.querySelectorAll(
+            '.object-detail-actions, .quick-actions, .action-list, [data-action-list], .object-actions, .actions'
+        );
         for (i = 0; i < containers.length; i++) {
             if (hasCurrentObjectActionLinks(containers[i], object)) {
                 addCurrentObjectAssignmentAction(containers[i], object);
