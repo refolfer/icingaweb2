@@ -689,6 +689,10 @@ if ($this->layout()->inlineLayout) {
     data-timeline-label="<?= $this->escape($this->translate('Recent history')) ?>"
     data-timeline-loading-label="<?= $this->escape($this->translate('Loading history...')) ?>"
     data-timeline-empty-label="<?= $this->escape($this->translate('No recent history found.')) ?>"
+    data-timeline-range-label="<?= $this->escape($this->translate('Showing')) ?>"
+    data-timeline-range-separator-label="<?= $this->escape($this->translate('of')) ?>"
+    data-timeline-older-label="<?= $this->escape($this->translate('Older 7')) ?>"
+    data-timeline-newer-label="<?= $this->escape($this->translate('Newer 7')) ?>"
     data-note-label="<?= $this->escape($this->translate('Private note')) ?>"
     data-note-placeholder="<?= $this->escape($this->translate('Add local operator note...')) ?>"
     data-note-saved-label="<?= $this->escape($this->translate('Saved locally')) ?>"
@@ -791,6 +795,15 @@ if ($this->layout()->inlineLayout) {
         </section>
         <section class="incident-drawer-timeline" data-incident-timeline hidden>
             <h3 data-incident-timeline-title><?= $this->translate('Metro Timeline') ?></h3>
+            <div class="incident-drawer-timeline-controls" data-incident-timeline-controls hidden>
+                <button type="button" data-incident-timeline-newer>
+                    <?= $this->translate('Newer 7') ?>
+                </button>
+                <span class="incident-drawer-timeline-range" data-incident-timeline-range></span>
+                <button type="button" data-incident-timeline-older>
+                    <?= $this->translate('Older 7') ?>
+                </button>
+            </div>
             <div class="incident-metro-timeline" data-incident-metro-timeline hidden></div>
             <ol data-incident-timeline-list></ol>
         </section>

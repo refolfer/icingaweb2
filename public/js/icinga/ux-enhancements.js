@@ -31,6 +31,7 @@
     var OPERATOR_ACTIVITY_LIMIT = 80;
     var INCIDENT_SNOOZE_MS = 15 * 60 * 1000;
     var INCIDENT_ASSIGNMENT_PREFETCH_TTL_MS = 60 * 1000;
+    var INCIDENT_TIMELINE_WINDOW_SIZE = 7;
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -76,6 +77,8 @@
         url: '',
         abortController: null,
         timelineAbortController: null,
+        timelineEntries: [],
+        timelineWindowStart: 0,
         object: null,
         assignment: null,
         focusTimeline: false,
@@ -4137,31 +4140,63 @@
         }
     }
 
-    function setIncidentTimelineState(state, items) {
+    function orderHistoryTimelineEntries(entries) {
+        return (entries || [])
+            .map(function (entry, index) {
+                return {
+                    entry: entry,
+                    index: index,
+                    hasTimestamp: !! (entry && typeof entry.timestamp === 'number' && entry.timestamp > 0)
+                };
+            })
+            .sort(function (left, right) {
+                if (left.hasTimestamp && right.hasTimestamp && left.entry.timestamp !== right.entry.timestamp) {
+                    return left.entry.timestamp - right.entry.timestamp;
+                }
+
+                if (left.hasTimestamp !== right.hasTimestamp) {
+                    return left.hasTimestamp ? -1 : 1;
+                }
+
+                return left.index - right.index;
+            })
+            .map(function (item) {
+                return item.entry;
+            });
+    }
+
+    function getIncidentTimelineWindowBounds(entries) {
+        var total = entries.length;
+        var maxStart = Math.max(0, total - INCIDENT_TIMELINE_WINDOW_SIZE);
+        var start = Math.max(0, Math.min(maxStart, incidentDrawerState.timelineWindowStart || 0));
+
+        return {
+            start: start,
+            end: Math.min(total, start + INCIDENT_TIMELINE_WINDOW_SIZE),
+            maxStart: maxStart,
+            total: total
+        };
+    }
+
+    function renderIncidentTimelineWindow() {
         var container = document.querySelector('[data-incident-timeline]');
         var title = document.querySelector('[data-incident-timeline-title]');
         var list = document.querySelector('[data-incident-timeline-list]');
         var metro = document.querySelector('[data-incident-metro-timeline]');
-        var entries = items || [];
+        var controls = document.querySelector('[data-incident-timeline-controls]');
+        var rangeLabel = document.querySelector('[data-incident-timeline-range]');
+        var olderButton = document.querySelector('[data-incident-timeline-older]');
+        var newerButton = document.querySelector('[data-incident-timeline-newer]');
+        var entries = incidentDrawerState.timelineEntries || [];
+        var bounds;
+        var windowEntries;
 
         if (! container || ! list) {
             return;
         }
 
-        container.hidden = state === 'hidden';
         if (title) {
             title.textContent = getIncidentDrawerLabel('timeline-label', 'Metro Timeline');
-        }
-
-        if (state === 'loading') {
-            if (metro) {
-                metro.hidden = true;
-                metro.innerHTML = '';
-            }
-            list.innerHTML = '<li class="incident-drawer-timeline-muted">'
-                + escapeHtml(getIncidentDrawerLabel('timeline-loading-label', 'Loading history...'))
-                + '</li>';
-            return;
         }
 
         if (! entries.length) {
@@ -4169,17 +4204,50 @@
                 metro.hidden = true;
                 metro.innerHTML = '';
             }
+            if (controls) {
+                controls.hidden = true;
+            }
+            if (rangeLabel) {
+                rangeLabel.textContent = '';
+            }
+            if (olderButton) {
+                olderButton.disabled = true;
+            }
+            if (newerButton) {
+                newerButton.disabled = true;
+            }
             list.innerHTML = '<li class="incident-drawer-timeline-muted">'
                 + escapeHtml(getIncidentDrawerLabel('timeline-empty-label', 'No recent history found.'))
                 + '</li>';
-            focusIncidentMetroTimelineWhenReady();
             return;
         }
 
-        renderIncidentMetroTimeline(entries);
-        focusIncidentMetroTimelineWhenReady();
+        bounds = getIncidentTimelineWindowBounds(entries);
+        incidentDrawerState.timelineWindowStart = bounds.start;
+        windowEntries = entries.slice(bounds.start, bounds.end);
+
+        if (controls) {
+            controls.hidden = entries.length <= INCIDENT_TIMELINE_WINDOW_SIZE;
+            if (rangeLabel) {
+                rangeLabel.textContent = bounds.total
+                    ? (getIncidentDrawerLabel('timeline-range-label', 'Showing')
+                        + ' ' + String(bounds.start + 1)
+                        + '-' + String(bounds.end)
+                        + ' ' + getIncidentDrawerLabel('timeline-range-separator-label', 'of')
+                        + ' ' + String(bounds.total))
+                    : '';
+            }
+            if (olderButton) {
+                olderButton.disabled = bounds.start <= 0;
+            }
+            if (newerButton) {
+                newerButton.disabled = bounds.start >= bounds.maxStart;
+            }
+        }
+
         buildHistoryOccurrenceMap(entries);
-        list.innerHTML = entries.map(function (entry) {
+        renderIncidentMetroTimeline(windowEntries);
+        list.innerHTML = windowEntries.map(function (entry) {
             var meta = [];
 
             if (entry.timeText) {
@@ -4213,6 +4281,86 @@
         }).join('');
     }
 
+    function shiftIncidentTimelineWindow(delta) {
+        var entries = incidentDrawerState.timelineEntries || [];
+        var maxStart = Math.max(0, entries.length - INCIDENT_TIMELINE_WINDOW_SIZE);
+
+        if (! entries.length) {
+            return;
+        }
+
+        incidentDrawerState.timelineWindowStart = Math.max(
+            0,
+            Math.min(maxStart, (incidentDrawerState.timelineWindowStart || 0) + delta)
+        );
+        renderIncidentTimelineWindow();
+    }
+
+    function setIncidentTimelineState(state, items) {
+        var container = document.querySelector('[data-incident-timeline]');
+        var list = document.querySelector('[data-incident-timeline-list]');
+        var entries = items || [];
+        var controls = document.querySelector('[data-incident-timeline-controls]');
+        var rangeLabel = document.querySelector('[data-incident-timeline-range]');
+        var olderButton = document.querySelector('[data-incident-timeline-older]');
+        var newerButton = document.querySelector('[data-incident-timeline-newer]');
+
+        if (! container || ! list) {
+            return;
+        }
+
+        container.hidden = state === 'hidden';
+        incidentDrawerState.timelineEntries = [];
+        incidentDrawerState.timelineWindowStart = 0;
+
+        if (state === 'loading') {
+            if (controls) {
+                controls.hidden = true;
+            }
+            if (rangeLabel) {
+                rangeLabel.textContent = '';
+            }
+            if (olderButton) {
+                olderButton.disabled = true;
+            }
+            if (newerButton) {
+                newerButton.disabled = true;
+            }
+            list.innerHTML = '<li class="incident-drawer-timeline-muted">'
+                + escapeHtml(getIncidentDrawerLabel('timeline-loading-label', 'Loading history...'))
+                + '</li>';
+            return;
+        }
+
+        if (! entries.length) {
+            if (controls) {
+                controls.hidden = true;
+            }
+            if (rangeLabel) {
+                rangeLabel.textContent = '';
+            }
+            if (olderButton) {
+                olderButton.disabled = true;
+            }
+            if (newerButton) {
+                newerButton.disabled = true;
+            }
+            list.innerHTML = '<li class="incident-drawer-timeline-muted">'
+                + escapeHtml(getIncidentDrawerLabel('timeline-empty-label', 'No recent history found.'))
+                + '</li>';
+            focusIncidentMetroTimelineWhenReady();
+            return;
+        }
+
+        incidentDrawerState.timelineEntries = orderHistoryTimelineEntries(entries);
+        incidentDrawerState.timelineWindowStart = Math.max(
+            0,
+            incidentDrawerState.timelineEntries.length - INCIDENT_TIMELINE_WINDOW_SIZE
+        );
+        renderIncidentTimelineWindow();
+        focusIncidentMetroTimelineWhenReady();
+    }
+
     function extractHistoryTimelineItems(html, historyUrl) {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
@@ -4223,7 +4371,7 @@
         var seen = {};
         var i;
 
-        for (i = 0; i < nodes.length && items.length < 9; i++) {
+        for (i = 0; i < nodes.length; i++) {
             var node = nodes[i];
             var text = normalizeText(node.textContent || '');
             var link = node.querySelector('a[href]');
@@ -7784,6 +7932,8 @@
         var pinIncidentButton = event.target.closest('[data-pin-incident]');
         var snoozeIncidentButton = event.target.closest('[data-snooze-incident]');
         var clearIncidentNoteButton = event.target.closest('[data-clear-incident-note]');
+        var incidentTimelineOlderButton = event.target.closest('[data-incident-timeline-older]');
+        var incidentTimelineNewerButton = event.target.closest('[data-incident-timeline-newer]');
         var openIncidentAssignmentButton = event.target.closest('[data-open-incident-assignment]');
         var objectAssignmentButton = event.target.closest('[data-object-assignment-action]');
         var quickMenuAssignButton = event.target.closest('[data-qm-assign-object]');
@@ -7981,6 +8131,18 @@
         if (copyIncidentSummaryButton) {
             event.preventDefault();
             copyIncidentSummary(copyIncidentSummaryButton);
+            return;
+        }
+
+        if (incidentTimelineOlderButton) {
+            event.preventDefault();
+            shiftIncidentTimelineWindow(-INCIDENT_TIMELINE_WINDOW_SIZE);
+            return;
+        }
+
+        if (incidentTimelineNewerButton) {
+            event.preventDefault();
+            shiftIncidentTimelineWindow(INCIDENT_TIMELINE_WINDOW_SIZE);
             return;
         }
 

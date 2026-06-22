@@ -2192,6 +2192,48 @@ body.modal-open {
   display: none !important;
 }
 
+.incident-drawer-timeline-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  margin: 0.15em 0 0.55em;
+}
+
+.incident-drawer-timeline-controls[hidden] {
+  display: none !important;
+}
+
+.incident-drawer-timeline-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2em;
+  padding: 0.2em 0.75em;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+}
+
+.incident-drawer-timeline-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.incident-drawer-timeline-controls button:hover:not(:disabled),
+.incident-drawer-timeline-controls button:focus-visible:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.incident-drawer-timeline-range {
+  color: var(--to-text-muted, rgba(255, 255, 255, 0.72));
+  font-size: 0.8em;
+  line-height: 1.2;
+}
+
 .incident-metro-viewport {
   min-width: max(36em, var(--metro-width, 42em));
   padding: 3.2em 1em 1.1em;
