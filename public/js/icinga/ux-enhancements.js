@@ -4702,11 +4702,13 @@
         var object = getIncidentAssignmentObjectFromForm(form);
         var signature = getIcingadbObjectSignature(object);
         var requestId;
+        var selectedAssignee;
 
         if (! object || ! select) {
             return;
         }
 
+        selectedAssignee = String(select.value || '').trim();
         setIncidentAssignmentStatus(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'));
         requestId = ++incidentAssignmentRequestCounter;
         if (incidentDrawerState.assignment) {
@@ -4730,7 +4732,13 @@
 
                 incidentDrawerState.assignment = {
                     loading: false,
-                    assignment: payload ? payload.assignment : null,
+                    assignment: payload && payload.assignment ? payload.assignment : (selectedAssignee.length
+                        ? {
+                            assignee: selectedAssignee,
+                            assignedBy: '',
+                            assignedAt: ''
+                        }
+                        : null),
                     canAssign: !! (payload && payload.canAssign),
                     users: payload && Array.isArray(payload.users) ? payload.users : [],
                     objectSignature: signature,
@@ -4740,7 +4748,9 @@
                 };
                 setIncidentAssignmentCache(
                     object,
-                    payload && payload.assignment ? payload.assignment.assignee : ''
+                    payload && payload.assignment
+                        ? payload.assignment.assignee
+                        : selectedAssignee
                 );
                 setIncidentAssignmentDetailsCache(object, payload || null);
                 rerenderCachedTopEvents();
@@ -4766,6 +4776,7 @@
         var select = form ? form.querySelector('[data-top-event-assignee-select]') : null;
         var object;
         var signature;
+        var selectedAssignee;
 
         if (! form || ! select) {
             return;
@@ -4780,6 +4791,7 @@
             object.serviceName = null;
         }
         signature = getIcingadbObjectSignature(object);
+        selectedAssignee = String(select.value || '').trim();
 
         form.classList.add('is-saving');
         var request = submitIncidentAssignment(object, select.value);
@@ -4793,7 +4805,9 @@
             .then(function (payload) {
                 setIncidentAssignmentCache(
                     object,
-                    payload && payload.assignment ? payload.assignment.assignee : ''
+                    payload && payload.assignment
+                        ? payload.assignment.assignee
+                        : selectedAssignee
                 );
                 setIncidentAssignmentDetailsCache(object, payload || null);
                 rerenderCachedTopEvents();
@@ -4804,7 +4818,13 @@
                 ) {
                     incidentDrawerState.assignment = {
                         loading: false,
-                        assignment: payload ? payload.assignment : null,
+                        assignment: payload && payload.assignment ? payload.assignment : (selectedAssignee.length
+                            ? {
+                                assignee: selectedAssignee,
+                                assignedBy: '',
+                                assignedAt: ''
+                            }
+                            : null),
                         canAssign: !! (payload && payload.canAssign),
                         users: payload && Array.isArray(payload.users) ? payload.users : [],
                         objectSignature: signature,
