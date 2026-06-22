@@ -693,6 +693,7 @@ if ($this->layout()->inlineLayout) {
     data-timeline-range-separator-label="<?= $this->escape($this->translate('of')) ?>"
     data-timeline-older-label="<?= $this->escape($this->translate('Older 7')) ?>"
     data-timeline-newer-label="<?= $this->escape($this->translate('Newer 7')) ?>"
+    data-drawer-resize-label="<?= $this->escape($this->translate('Resize drawer')) ?>"
     data-note-label="<?= $this->escape($this->translate('Private note')) ?>"
     data-note-placeholder="<?= $this->escape($this->translate('Add local operator note...')) ?>"
     data-note-saved-label="<?= $this->escape($this->translate('Saved locally')) ?>"
@@ -722,6 +723,14 @@ if ($this->layout()->inlineLayout) {
         aria-modal="true"
         aria-labelledby="incident-drawer-title"
     >
+        <div
+            class="incident-drawer-resizer"
+            data-incident-drawer-resizer
+            role="separator"
+            aria-orientation="vertical"
+            tabindex="0"
+            aria-label="<?= $this->translate('Resize drawer') ?>"
+        ></div>
         <header class="incident-drawer-header">
             <div>
                 <p class="incident-drawer-eyebrow"><?= $this->translate('Critical assignment') ?></p>

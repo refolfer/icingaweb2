@@ -1943,11 +1943,50 @@ body.modal-open {
   bottom: 0;
   display: flex;
   flex-direction: column;
-  width: min(42em, 100vw);
+  width: min(var(--ux-incident-drawer-width, 42em), calc(100vw - 1rem));
+  max-width: calc(100vw - 1rem);
   background: var(--body-bg-color, #1f2730);
   color: inherit;
   border-left: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: -0.8em 0 2.2em rgba(0, 0, 0, 0.38);
+}
+
+html.incident-drawer-resizing,
+#layout.incident-drawer-resizing {
+  cursor: col-resize;
+}
+
+.incident-drawer-resizing .incident-drawer-panel {
+  user-select: none;
+}
+
+.incident-drawer-resizer {
+  position: absolute;
+  top: 0;
+  left: -0.35em;
+  bottom: 0;
+  width: 0.7em;
+  z-index: 3;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.incident-drawer-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0.8em;
+  bottom: 0.8em;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, transparent, rgba(80, 120, 160, 0.78), transparent);
+}
+
+.incident-drawer-resizer:hover::before,
+.incident-drawer-resizer:focus-visible::before,
+.incident-drawer-resizing .incident-drawer-resizer::before {
+  background: linear-gradient(180deg, transparent, rgba(35, 182, 217, 0.96), transparent);
 }
 
 .incident-drawer-header {
@@ -3048,6 +3087,11 @@ body.ux-density-wallboard .tactical-donut {
 
   .incident-drawer-panel {
     width: 100vw;
+    max-width: none;
+  }
+
+  .incident-drawer-resizer {
+    display: none;
   }
 
   .incident-drawer-quick-actions {

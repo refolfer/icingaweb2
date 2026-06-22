@@ -32,6 +32,9 @@
     var INCIDENT_SNOOZE_MS = 15 * 60 * 1000;
     var INCIDENT_ASSIGNMENT_PREFETCH_TTL_MS = 60 * 1000;
     var INCIDENT_TIMELINE_WINDOW_SIZE = 7;
+    var INCIDENT_DRAWER_WIDTH_KEY = 'incident-drawer-width';
+    var INCIDENT_DRAWER_WIDTH_MIN = 320;
+    var INCIDENT_DRAWER_WIDTH_MAX = 960;
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -84,6 +87,7 @@
         focusTimeline: false,
         focusAssignment: false
     };
+    var incidentDrawerWidthResizeState = null;
     var incidentAssignmentCache = {};
     var incidentAssignmentDetailsCache = {};
     var incidentAssignmentFetchState = {};
@@ -3404,6 +3408,16 @@
         return document.getElementById('incident-drawer');
     }
 
+    function getIncidentDrawerPanel() {
+        var drawer = getIncidentDrawer();
+
+        return drawer ? drawer.querySelector('.incident-drawer-panel') : null;
+    }
+
+    function getIncidentDrawerResizer() {
+        return document.querySelector('[data-incident-drawer-resizer]');
+    }
+
     function isIncidentDrawerOpen() {
         var drawer = getIncidentDrawer();
 
@@ -3432,6 +3446,156 @@
 
         body.classList.toggle('loading', !! loading);
         body.textContent = text;
+    }
+
+    function setIncidentDrawerWidthResizingClass(active) {
+        var layout = getLayoutRoot();
+
+        document.documentElement.classList.toggle('incident-drawer-resizing', active);
+
+        if (layout) {
+            layout.classList.toggle('incident-drawer-resizing', active);
+        }
+    }
+
+    function setIncidentDrawerWidth(px) {
+        var width = clamp(px, INCIDENT_DRAWER_WIDTH_MIN, INCIDENT_DRAWER_WIDTH_MAX);
+
+        document.documentElement.style.setProperty('--ux-incident-drawer-width', width + 'px');
+        return width;
+    }
+
+    function clearIncidentDrawerWidth() {
+        document.documentElement.style.removeProperty('--ux-incident-drawer-width');
+    }
+
+    function getCurrentIncidentDrawerWidth() {
+        var panel = getIncidentDrawerPanel();
+        var parsed = parseFloat(String(panel ? window.getComputedStyle(panel).width : '').replace(/[^\d.-]/g, ''));
+
+        return Number.isFinite(parsed) ? parsed : NaN;
+    }
+
+    function readSavedIncidentDrawerWidth() {
+        try {
+            return parseInt(window.localStorage.getItem(INCIDENT_DRAWER_WIDTH_KEY), 10);
+        } catch (error) {
+            return NaN;
+        }
+    }
+
+    function saveIncidentDrawerWidth(px) {
+        try {
+            window.localStorage.setItem(
+                INCIDENT_DRAWER_WIDTH_KEY,
+                String(clamp(px, INCIDENT_DRAWER_WIDTH_MIN, INCIDENT_DRAWER_WIDTH_MAX))
+            );
+        } catch (error) {
+            // Ignore storage errors
+        }
+    }
+
+    function applySavedIncidentDrawerWidth() {
+        var saved = readSavedIncidentDrawerWidth();
+
+        if (Number.isFinite(saved)) {
+            setIncidentDrawerWidth(saved);
+        } else {
+            clearIncidentDrawerWidth();
+        }
+    }
+
+    function onIncidentDrawerWidthResizeMove(event) {
+        if (! incidentDrawerWidthResizeState) {
+            return;
+        }
+
+        event.preventDefault();
+        setIncidentDrawerWidth(
+            incidentDrawerWidthResizeState.startWidth - (event.clientX - incidentDrawerWidthResizeState.startX)
+        );
+    }
+
+    function onIncidentDrawerWidthResizeEnd() {
+        if (! incidentDrawerWidthResizeState) {
+            return;
+        }
+
+        saveIncidentDrawerWidth(getCurrentIncidentDrawerWidth());
+
+        incidentDrawerWidthResizeState = null;
+        setIncidentDrawerWidthResizingClass(false);
+        window.removeEventListener('mousemove', onIncidentDrawerWidthResizeMove);
+        window.removeEventListener('mouseup', onIncidentDrawerWidthResizeEnd);
+    }
+
+    function onIncidentDrawerWidthResizeStart(event) {
+        var width;
+
+        if (event.button !== 0) {
+            return;
+        }
+
+        width = getCurrentIncidentDrawerWidth();
+        if (! Number.isFinite(width) || width <= 0) {
+            width = parseFloat(String(window.getComputedStyle(getIncidentDrawerPanel() || document.documentElement)
+                .getPropertyValue('width') || '').replace(/[^\d.-]/g, ''));
+        }
+
+        incidentDrawerWidthResizeState = {
+            startX: event.clientX,
+            startWidth: Number.isFinite(width) && width > 0 ? width : 672
+        };
+
+        setIncidentDrawerWidthResizingClass(true);
+        window.addEventListener('mousemove', onIncidentDrawerWidthResizeMove);
+        window.addEventListener('mouseup', onIncidentDrawerWidthResizeEnd);
+        event.preventDefault();
+    }
+
+    function onIncidentDrawerWidthResizeKeydown(event) {
+        var current = getCurrentIncidentDrawerWidth();
+        var next;
+
+        if (! Number.isFinite(current) || current <= 0) {
+            current = parseFloat(String(window.getComputedStyle(getIncidentDrawerPanel() || document.documentElement)
+                .getPropertyValue('width') || '').replace(/[^\d.-]/g, ''));
+        }
+
+        next = Number.isFinite(current) && current > 0 ? current : 672;
+
+        if (event.key === 'ArrowLeft') {
+            next = next + 16;
+        } else if (event.key === 'ArrowRight') {
+            next = next - 16;
+        } else if (event.key === 'Home') {
+            next = INCIDENT_DRAWER_WIDTH_MIN;
+        } else if (event.key === 'End') {
+            next = INCIDENT_DRAWER_WIDTH_MAX;
+        } else {
+            return;
+        }
+
+        event.preventDefault();
+        next = setIncidentDrawerWidth(next);
+        saveIncidentDrawerWidth(next);
+    }
+
+    function initIncidentDrawerWidthResizer() {
+        var resizer = getIncidentDrawerResizer();
+
+        if (! resizer) {
+            return;
+        }
+
+        if (resizer.__incidentDrawerWidthInitialized) {
+            return;
+        }
+
+        applySavedIncidentDrawerWidth();
+        resizer.addEventListener('mousedown', onIncidentDrawerWidthResizeStart);
+        resizer.addEventListener('keydown', onIncidentDrawerWidthResizeKeydown);
+        resizer.__incidentDrawerWidthInitialized = true;
     }
 
     function normalizeIncidentUrl(url) {
@@ -8439,6 +8603,7 @@
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
+        initIncidentDrawerWidthResizer();
         startTopEventsPolling();
         renderEventDetailMetroTimeline();
     });
@@ -8453,6 +8618,7 @@
         });
         window.jQuery(document).on('rendered', '#col1', function () {
             updateQuickNotebookVisibility();
+            initIncidentDrawerWidthResizer();
             renderEventDetailMetroTimeline();
         });
     }
@@ -8461,5 +8627,6 @@
     initQuickMenu();
     initQuickNotebook();
     refreshTacticalOverview(true);
+    initIncidentDrawerWidthResizer();
     renderEventDetailMetroTimeline();
 })();
