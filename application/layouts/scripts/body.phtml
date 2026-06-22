@@ -710,6 +710,8 @@ if ($this->layout()->inlineLayout) {
     data-assignment-save-label="<?= $this->escape($this->translate('Save assignee')) ?>"
     data-assignment-saved-label="<?= $this->escape($this->translate('Assignee saved')) ?>"
     data-assignment-placeholder-label="<?= $this->escape($this->translate('Choose a registered user')) ?>"
+    data-assignment-note-label="<?= $this->escape($this->translate('Note')) ?>"
+    data-assignment-note-placeholder="<?= $this->escape($this->translate('Optional note for the assigned user')) ?>"
     data-assignment-assign-to-label="<?= $this->escape($this->translate('Assign to')) ?>"
     data-assignment-assigned-by-label="<?= $this->escape($this->translate('Assigned by')) ?>"
     data-assignment-open-label="<?= $this->escape($this->translate('Open object')) ?>"
@@ -782,6 +784,14 @@ if ($this->layout()->inlineLayout) {
                 <button type="submit" data-save-incident-assignment>
                     <?= $this->translate('Save assignee') ?>
                 </button>
+                <label class="incident-drawer-assignment-note">
+                    <span><?= $this->translate('Note') ?> <em><?= $this->translate('(optional)') ?></em></span>
+                    <textarea
+                        data-incident-assignment-note
+                        rows="3"
+                        placeholder="<?= $this->escape($this->translate('Optional note for the assigned user')) ?>"
+                    ></textarea>
+                </label>
             </form>
             <p data-incident-assignment-status></p>
         </section>

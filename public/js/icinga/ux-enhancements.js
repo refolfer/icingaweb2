@@ -4263,9 +4263,9 @@
                 + String(index + 1)
                 + '; --left: calc('
                 + String(from.toFixed(3))
-                + '% + 0.5em); --right: calc('
+                + '%); --right: calc('
                 + String((100 - to).toFixed(3))
-                + '% + 0.5em)'
+                + '%)'
                 + '; --metro-color: '
                 + stop.color
                 + '"></span>';
@@ -4332,9 +4332,9 @@
 
             return '<span class="incident-metro-segment" style="--left: calc('
                 + String(from.toFixed(3))
-                + '% + 0.5em); --right: calc('
+                + '%); --right: calc('
                 + String((100 - to).toFixed(3))
-                + '% + 0.5em); --metro-color: '
+                + '%); --metro-color: '
                 + stop.color
                 + '"></span>';
         }).join('');
@@ -4977,6 +4977,7 @@
         var assignee = document.querySelector('[data-incident-assignee]');
         var form = document.querySelector('[data-incident-assignment-form]');
         var select = document.querySelector('[data-incident-assignee-select]');
+        var note = document.querySelector('[data-incident-assignment-note]');
         var save = document.querySelector('[data-save-incident-assignment]');
         var assignment = incidentDrawerState.assignment || null;
         var canAssign = !! (assignment && assignment.canAssign);
@@ -4984,10 +4985,13 @@
         var currentAssignee = assignment && assignment.assignment
             ? String(assignment.assignment.assignee || '')
             : getIncidentAssignmentCache(incidentDrawerState.object);
+        var currentNote = assignment && assignment.assignment
+            ? String(assignment.assignment.note || '')
+            : '';
         var statusMessage = assignment && assignment.statusMessage ? String(assignment.statusMessage) : '';
         var statusError = !! (assignment && assignment.statusError);
 
-        if (! section || ! assignee || ! form || ! select) {
+        if (! section || ! assignee || ! form || ! select || ! note) {
             return;
         }
 
@@ -5019,6 +5023,11 @@
         assignee.textContent = currentAssignee.length
             ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
             : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+        note.value = currentNote;
+        note.placeholder = getIncidentAssignmentLabel(
+            'assignment-note-placeholder',
+            'Optional note for the assigned user'
+        );
 
         if (save) {
             save.textContent = getIncidentAssignmentLabel('assignment-save-label', 'Save assignee');
@@ -5073,6 +5082,8 @@
                 );
             }
         }
+
+        note.disabled = ! canAssign;
 
         setIncidentAssignmentStatus(statusMessage, statusError);
 
@@ -5278,7 +5289,7 @@
         }
     }
 
-    function submitIncidentAssignment(object, assignee) {
+    function submitIncidentAssignment(object, assignee, note) {
         var url = getIncidentAssignmentSaveUrl();
         var params;
 
@@ -5299,6 +5310,9 @@
         }
         params.set('object', JSON.stringify(object));
         params.set('assignee', String(assignee || ''));
+        if (typeof note === 'string') {
+            params.set('note', note);
+        }
 
         return window.fetch(url, {
             method: 'POST',
@@ -5331,23 +5345,26 @@
     function saveIncidentAssignmentFromDom() {
         var form = document.querySelector('[data-incident-assignment-form]');
         var select = document.querySelector('[data-incident-assignee-select]');
+        var note = document.querySelector('[data-incident-assignment-note]');
         var object = getIncidentAssignmentObjectFromForm(form);
         var signature = getIcingadbObjectSignature(object);
         var requestId;
         var selectedAssignee;
+        var selectedNote;
 
-        if (! object || ! select) {
+        if (! object || ! select || ! note) {
             return;
         }
 
         selectedAssignee = String(select.value || '').trim();
+        selectedNote = String(note.value || '');
         setIncidentAssignmentStatus(getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'));
         requestId = ++incidentAssignmentRequestCounter;
         if (incidentDrawerState.assignment) {
             incidentDrawerState.assignment.requestId = requestId;
         }
 
-        var request = submitIncidentAssignment(object, select.value);
+        var request = submitIncidentAssignment(object, select.value, selectedNote);
 
         if (! request) {
             return;
@@ -5368,7 +5385,8 @@
                         ? {
                             assignee: selectedAssignee,
                             assignedBy: '',
-                            assignedAt: ''
+                            assignedAt: '',
+                            note: selectedNote
                         }
                         : null),
                     canAssign: !! (payload && payload.canAssign),

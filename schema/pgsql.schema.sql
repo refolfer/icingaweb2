@@ -108,6 +108,7 @@ CREATE TABLE "icingaweb_incident_assignment" (
   "service_name" character varying(255) NOT NULL DEFAULT '',
   "assignee"     character varying(254) NOT NULL,
   "assigned_by"  character varying(254) NOT NULL,
+  "note"         character varying(1024) NOT NULL DEFAULT '',
   "ctime"        timestamp NULL DEFAULT NULL,
   "mtime"        timestamp NULL DEFAULT NULL
 );

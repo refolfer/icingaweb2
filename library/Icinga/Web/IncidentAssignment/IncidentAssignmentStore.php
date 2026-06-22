@@ -18,6 +18,7 @@ class IncidentAssignmentStore
     const COLUMN_SERVICE_NAME = 'service_name';
     const COLUMN_ASSIGNEE = 'assignee';
     const COLUMN_ASSIGNED_BY = 'assigned_by';
+    const COLUMN_NOTE = 'note';
     const COLUMN_CREATED_TIME = 'ctime';
     const COLUMN_MODIFIED_TIME = 'mtime';
 
@@ -54,6 +55,7 @@ class IncidentAssignmentStore
                 ->from(self::TABLE, [
                     self::COLUMN_ASSIGNEE,
                     self::COLUMN_ASSIGNED_BY,
+                    self::COLUMN_NOTE,
                     self::COLUMN_CREATED_TIME,
                     self::COLUMN_MODIFIED_TIME
                 ])
@@ -83,19 +85,21 @@ class IncidentAssignmentStore
         return [
             'assignee' => (string) ($row->{self::COLUMN_ASSIGNEE} ?? ''),
             'assigned_by' => (string) ($row->{self::COLUMN_ASSIGNED_BY} ?? ''),
+            'note' => (string) ($row->{self::COLUMN_NOTE} ?? ''),
             'created_at' => $row->{self::COLUMN_CREATED_TIME} ?? null,
             'updated_at' => $row->{self::COLUMN_MODIFIED_TIME} ?? null
         ];
     }
 
-    public function save($objectType, $hostName, $serviceName, $assignee, $assignedBy)
+    public function save($objectType, $hostName, $serviceName, $assignee, $assignedBy, $note = null)
     {
         $payload = [
             self::COLUMN_OBJECT_TYPE => $objectType,
             self::COLUMN_HOST_NAME => $hostName,
             self::COLUMN_SERVICE_NAME => $objectType === 'service' ? $serviceName : '',
             self::COLUMN_ASSIGNEE => $assignee,
-            self::COLUMN_ASSIGNED_BY => $assignedBy
+            self::COLUMN_ASSIGNED_BY => $assignedBy,
+            self::COLUMN_NOTE => $note === null ? '' : $note
         ];
 
         try {
@@ -105,10 +109,16 @@ class IncidentAssignmentStore
             } else {
                 $this->db->update(
                     self::TABLE,
-                    [
-                        self::COLUMN_ASSIGNEE => $assignee,
-                        self::COLUMN_ASSIGNED_BY => $assignedBy
-                    ],
+                    array_filter(
+                        [
+                            self::COLUMN_ASSIGNEE => $assignee,
+                            self::COLUMN_ASSIGNED_BY => $assignedBy,
+                            self::COLUMN_NOTE => $note
+                        ],
+                        function ($value) {
+                            return $value !== null;
+                        }
+                    ),
                     $this->db->quoteInto(self::COLUMN_OBJECT_TYPE . ' = ?', $objectType)
                     . ' AND ' . $this->db->quoteInto(self::COLUMN_HOST_NAME . ' = ?', $hostName)
                     . ($objectType === 'service'

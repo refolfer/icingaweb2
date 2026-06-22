@@ -48,6 +48,7 @@ CREATE TABLE `icingaweb_incident_assignment`(
   `service_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `assignee`     varchar(254) COLLATE utf8mb4_unicode_ci NOT NULL,
   `assigned_by`  varchar(254) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `note`         varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `ctime`        timestamp NULL DEFAULT NULL,
   `mtime`        timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`object_type`, `host_name`, `service_name`)

@@ -2202,6 +2202,10 @@ html.incident-drawer-resizing,
   min-width: 0;
 }
 
+.incident-drawer-assignment-note {
+  grid-column: 1 / -1;
+}
+
 .incident-drawer-assignment label span {
   color: var(--to-text-muted);
   font-size: 0.76em;
@@ -2214,6 +2218,13 @@ html.incident-drawer-resizing,
   min-width: 0;
   width: 100%;
   min-height: 2.3em;
+}
+
+.incident-drawer-assignment textarea {
+  min-width: 0;
+  width: 100%;
+  min-height: 4.8em;
+  resize: vertical;
 }
 
 .incident-drawer-assignment button[disabled] {

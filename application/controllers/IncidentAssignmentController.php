@@ -65,6 +65,10 @@ class IncidentAssignmentController extends AuthBackendController
         $object = $this->getObjectFromRequest();
         $rawParams = $this->getRawRequestParams();
         $assignee = trim((string) $this->getRequestValue('assignee', '', $rawParams));
+        $note = null;
+        if ($this->params->get('note', null) !== null || array_key_exists('note', $rawParams)) {
+            $note = $this->sanitizeAssignmentNote($this->getRequestValue('note', '', $rawParams));
+        }
 
         if ($object === null) {
             $this->respondWithJson(['error' => 'Missing object identifiers'], 400);
@@ -103,7 +107,8 @@ class IncidentAssignmentController extends AuthBackendController
                 $object['host_name'],
                 $object['service_name'],
                 $assignee,
-                $this->Auth()->getUser()->getUsername()
+                $this->Auth()->getUser()->getUsername(),
+                $note
             );
         } catch (Exception $e) {
             $this->respondWithJson(['error' => $e->getMessage()], 500);
@@ -161,6 +166,11 @@ class IncidentAssignmentController extends AuthBackendController
             'host_name' => $hostName,
             'service_name' => $type === 'service' ? $serviceName : null
         ];
+    }
+
+    protected function sanitizeAssignmentNote($note)
+    {
+        return mb_substr(trim((string) $note), 0, 1024);
     }
 
     protected function getRequestValue($key, $default = '', array $rawParams = [])
