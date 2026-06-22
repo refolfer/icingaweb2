@@ -120,6 +120,8 @@
         dirty: false,
         drag: null
     };
+    var currentObjectAssignmentObserver = null;
+    var currentObjectAssignmentTimer = null;
 
     function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -6068,7 +6070,8 @@
         }
 
         wrapper = isList ? document.createElement('li') : document.createElement('div');
-        wrapper.className = 'object-assignment-action';
+        wrapper.className = 'object-assignment-action icinga-module module-ux-enhancements';
+        wrapper.setAttribute('data-icinga-module', 'ux-enhancements');
         link = document.createElement('a');
         link.href = '#';
         link.setAttribute('data-object-assignment-action', '');
@@ -6091,9 +6094,52 @@
             '.object-detail-actions, .quick-actions, .action-list, [data-action-list], .object-actions, .actions'
         );
         for (i = 0; i < containers.length; i++) {
-            if (hasCurrentObjectActionLinks(containers[i], object)) {
-                addCurrentObjectAssignmentAction(containers[i], object);
-            }
+            addCurrentObjectAssignmentAction(containers[i], object);
+        }
+    }
+
+    function scheduleCurrentObjectAssignmentInjection() {
+        if (currentObjectAssignmentTimer !== null) {
+            return;
+        }
+
+        currentObjectAssignmentTimer = window.setTimeout(function () {
+            currentObjectAssignmentTimer = null;
+            injectCurrentObjectAssignmentActions();
+        }, 0);
+    }
+
+    function startCurrentObjectAssignmentObserver() {
+        var object = getIcingadbObjectFromUrl(window.location.href);
+
+        if (! object || typeof MutationObserver === 'undefined' || ! document.body) {
+            return;
+        }
+
+        if (currentObjectAssignmentObserver) {
+            return;
+        }
+
+        currentObjectAssignmentObserver = new MutationObserver(function () {
+            scheduleCurrentObjectAssignmentInjection();
+        });
+        currentObjectAssignmentObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        scheduleCurrentObjectAssignmentInjection();
+    }
+
+    function stopCurrentObjectAssignmentObserver() {
+        if (currentObjectAssignmentObserver) {
+            currentObjectAssignmentObserver.disconnect();
+            currentObjectAssignmentObserver = null;
+        }
+
+        if (currentObjectAssignmentTimer !== null) {
+            window.clearTimeout(currentObjectAssignmentTimer);
+            currentObjectAssignmentTimer = null;
         }
     }
 
@@ -8096,6 +8142,7 @@
     applyDensityMode(readDensityMode());
     updateTriageModeToggle();
     window.addEventListener('pagehide', persistQuickNotebookDraftFromDom);
+    window.addEventListener('pagehide', stopCurrentObjectAssignmentObserver);
     window.addEventListener('beforeunload', persistQuickNotebookDraftFromDom);
     window.addEventListener('resize', function () {
         if (quickNotebookState.visible && quickNotebookState.initialized) {
@@ -8108,6 +8155,7 @@
         initQuickNotebook();
         updateTriageModeToggle();
         injectCurrentObjectAssignmentActions();
+        startCurrentObjectAssignmentObserver();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
@@ -8127,6 +8175,7 @@
             updateQuickNotebookVisibility();
             renderEventDetailMetroTimeline();
             injectCurrentObjectAssignmentActions();
+            startCurrentObjectAssignmentObserver();
         });
     }
 
@@ -8134,6 +8183,7 @@
     initQuickMenu();
     initQuickNotebook();
     injectCurrentObjectAssignmentActions();
+    startCurrentObjectAssignmentObserver();
     refreshTacticalOverview(true);
     renderEventDetailMetroTimeline();
 })();
