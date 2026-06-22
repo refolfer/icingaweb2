@@ -2188,6 +2188,13 @@ html.incident-drawer-resizing,
   font-weight: 600;
 }
 
+.incident-drawer-assignment-note-preview {
+  margin: 0.25em 0 0;
+  color: var(--to-text-muted);
+  font-size: 0.84em;
+  line-height: 1.45;
+}
+
 .incident-drawer-assignment form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

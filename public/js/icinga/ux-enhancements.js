@@ -3929,7 +3929,8 @@
             assignment: payload && payload.assignment ? {
                 assignee: String(payload.assignment.assignee || ''),
                 assignedBy: String(payload.assignment.assignedBy || ''),
-                assignedAt: String(payload.assignment.assignedAt || '')
+                assignedAt: String(payload.assignment.assignedAt || ''),
+                note: String(payload.assignment.note || '')
             } : null,
             canAssign: !! (payload && payload.canAssign),
             users: payload && Array.isArray(payload.users) ? payload.users.slice() : [],
@@ -4975,6 +4976,7 @@
         var section = getIncidentAssignmentSection();
         var title = document.querySelector('[data-incident-assignment-title]');
         var assignee = document.querySelector('[data-incident-assignee]');
+        var notePreview = document.querySelector('[data-incident-assignment-note-preview]');
         var form = document.querySelector('[data-incident-assignment-form]');
         var select = document.querySelector('[data-incident-assignee-select]');
         var note = document.querySelector('[data-incident-assignment-note]');
@@ -5023,6 +5025,18 @@
         assignee.textContent = currentAssignee.length
             ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
             : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+        if (notePreview) {
+            if (currentNote.trim().length) {
+                notePreview.hidden = false;
+                notePreview.textContent = getIncidentAssignmentLabel(
+                    'assignment-note-label',
+                    'Note'
+                ) + ': ' + currentNote;
+            } else {
+                notePreview.hidden = true;
+                notePreview.textContent = '';
+            }
+        }
         note.value = currentNote;
         note.placeholder = getIncidentAssignmentLabel(
             'assignment-note-placeholder',
@@ -5381,7 +5395,12 @@
 
                 incidentDrawerState.assignment = {
                     loading: false,
-                    assignment: payload && payload.assignment ? payload.assignment : (selectedAssignee.length
+                    assignment: payload && payload.assignment ? {
+                        assignee: String(payload.assignment.assignee || ''),
+                        assignedBy: String(payload.assignment.assignedBy || ''),
+                        assignedAt: String(payload.assignment.assignedAt || ''),
+                        note: String(payload.assignment.note || selectedNote || '')
+                    } : (selectedAssignee.length
                         ? {
                             assignee: selectedAssignee,
                             assignedBy: '',
@@ -5468,7 +5487,12 @@
                 ) {
                     incidentDrawerState.assignment = {
                         loading: false,
-                        assignment: payload && payload.assignment ? payload.assignment : (selectedAssignee.length
+                        assignment: payload && payload.assignment ? {
+                            assignee: String(payload.assignment.assignee || ''),
+                            assignedBy: String(payload.assignment.assignedBy || ''),
+                            assignedAt: String(payload.assignment.assignedAt || ''),
+                            note: String(payload.assignment.note || '')
+                        } : (selectedAssignee.length
                             ? {
                                 assignee: selectedAssignee,
                                 assignedBy: '',

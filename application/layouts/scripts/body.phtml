@@ -712,6 +712,7 @@ if ($this->layout()->inlineLayout) {
     data-assignment-placeholder-label="<?= $this->escape($this->translate('Choose a registered user')) ?>"
     data-assignment-note-label="<?= $this->escape($this->translate('Note')) ?>"
     data-assignment-note-placeholder="<?= $this->escape($this->translate('Optional note for the assigned user')) ?>"
+    data-assignment-note-preview-label="<?= $this->escape($this->translate('Note')) ?>"
     data-assignment-assign-to-label="<?= $this->escape($this->translate('Assign to')) ?>"
     data-assignment-assigned-by-label="<?= $this->escape($this->translate('Assigned by')) ?>"
     data-assignment-open-label="<?= $this->escape($this->translate('Open object')) ?>"
@@ -767,6 +768,11 @@ if ($this->layout()->inlineLayout) {
                 <h3 data-incident-assignment-title><?= $this->translate('Assignee') ?></h3>
             </header>
             <p data-incident-assignee></p>
+            <p
+                class="incident-drawer-assignment-note-preview"
+                data-incident-assignment-note-preview
+                hidden
+            ></p>
             <form
                 data-incident-assignment-form
                 data-incident-assignment-object-type=""
