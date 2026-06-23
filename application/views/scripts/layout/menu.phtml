@@ -35,12 +35,6 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
         <div class="search-history-actions"></div>
     </div>
 <?php endif; ?>
-<div class="assistant-shortcut">
-    <a class="button assistant-shortcut__link" href="<?= $this->href('assistant') ?>" title="<?= $this->translate('Natural language search') ?>">
-        <?= $this->icon('chat') ?>
-        <span><?= $this->translate('AI search') ?></span>
-    </a>
-</div>
 <section
     id="quick-menu-root"
     class="quick-menu-root"

@@ -25,6 +25,12 @@ if ($this->layout()->inlineLayout) {
 }
 
 ?>
+<?php
+
+use Icinga\Application\Icinga;
+
+$assistantEnabled = Icinga::app()->getModuleManager()->hasEnabled('assistant');
+?>
 <div id="header">
     <div id="announcements" class="container">
         <?= $this->widget('announcements') ?>
@@ -408,13 +414,15 @@ if ($this->layout()->inlineLayout) {
     data-navigation-label="<?= $this->escape($this->translate('Navigation')) ?>"
     data-actions-label="<?= $this->escape($this->translate('Actions')) ?>"
     data-current-page-label="<?= $this->escape($this->translate('Current Page')) ?>"
-    data-assistant-endpoint="<?= $this->escape($this->href('assistant/respond')) ?>"
-    data-ai-category-label="<?= $this->escape($this->translate('AI Search')) ?>"
-    data-ai-command-label="<?= $this->escape($this->translate('Open AI result')) ?>"
-    data-ai-command-desc="<?= $this->escape($this->translate('Open the AI-interpreted result for this query')) ?>"
-    data-ai-pending-label="<?= $this->escape($this->translate('AI Search')) ?>"
-    data-ai-pending-desc="<?= $this->escape($this->translate('Waiting for AI interpretation...')) ?>"
-    data-ai-unavailable-desc="<?= $this->escape($this->translate('AI did not return a direct result yet. You can still use Global Search.')) ?>"
+    <?php if ($assistantEnabled): ?>
+        data-assistant-endpoint="<?= $this->escape($this->href('assistant/respond')) ?>"
+        data-ai-category-label="<?= $this->escape($this->translate('AI Search')) ?>"
+        data-ai-command-label="<?= $this->escape($this->translate('Open AI result')) ?>"
+        data-ai-command-desc="<?= $this->escape($this->translate('Open the AI-interpreted result for this query')) ?>"
+        data-ai-pending-label="<?= $this->escape($this->translate('AI Search')) ?>"
+        data-ai-pending-desc="<?= $this->escape($this->translate('Waiting for AI interpretation...')) ?>"
+        data-ai-unavailable-desc="<?= $this->escape($this->translate('AI did not return a direct result yet. You can still use Global Search.')) ?>"
+    <?php endif ?>
 >
     <div class="command-palette-backdrop" data-close-command-palette></div>
     <section

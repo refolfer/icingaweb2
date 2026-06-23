@@ -3151,17 +3151,6 @@ body.ux-density-wallboard .tactical-donut {
   }
 }
 
-.assistant-shortcut {
-  padding: 0.35rem 0 0.75rem;
-}
-
-.assistant-shortcut__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  text-decoration: none;
-}
-
 @media (max-width: 840px) {
   .assistant-hero {
     grid-template-columns: 1fr;
