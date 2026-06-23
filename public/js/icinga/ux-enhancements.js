@@ -3099,6 +3099,9 @@
             : '';
         var html = '';
         var options = [];
+        var compactNote = currentNote.trim().length > 120
+            ? currentNote.trim().slice(0, 120).replace(/\s+\S*$/, '') + '...'
+            : currentNote.trim();
 
         if (! controlsEl) {
             return;
@@ -3139,6 +3142,12 @@
 
             html = ''
                 + '<form class="top-event-assignment-form" data-top-event-assignment-form>'
+                + (currentNote.trim().length
+                    ? '<span class="top-event-assignment-note top-event-assignment-note-compact" title="' + escapeHtml(currentNote) + '">'
+                        + escapeHtml(getIncidentAssignmentLabel('assignment-note-label', 'Note'))
+                        + ': ' + escapeHtml(compactNote)
+                        + '</span>'
+                    : '')
                 + '<label class="top-event-assignment-select">'
                 + '<span class="sr-only">' + escapeHtml(getIncidentAssignmentLabel('assign-to-label', 'Assign to')) + '</span>'
                 + '<select data-top-event-assignee-select'
@@ -3174,9 +3183,9 @@
             + '</span>';
 
         if (currentNote.trim().length) {
-            html += '<span class="top-event-assignment-note">'
+            html += '<span class="top-event-assignment-note top-event-assignment-note-compact" title="' + escapeHtml(currentNote) + '">'
                 + escapeHtml(getIncidentAssignmentLabel('assignment-note-label', 'Note'))
-                + ': ' + escapeHtml(currentNote)
+                + ': ' + escapeHtml(compactNote)
                 + '</span>';
         }
 

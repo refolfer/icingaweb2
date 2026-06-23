@@ -1342,6 +1342,15 @@ body.modal-open {
   line-height: 1.25;
 }
 
+.top-event-assignment-note-compact {
+  flex: 1 1 100%;
+  min-width: 0;
+  order: -1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .top-event-assignment-form {
   display: inline-flex;
   align-items: center;
