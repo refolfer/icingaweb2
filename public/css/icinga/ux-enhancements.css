@@ -3150,13 +3150,3 @@ body.ux-density-wallboard .tactical-donut {
     max-width: none;
   }
 }
-
-@media (max-width: 840px) {
-  .assistant-hero {
-    grid-template-columns: 1fr;
-  }
-
-  .assistant-message--user {
-    max-width: 100%;
-  }
-}
