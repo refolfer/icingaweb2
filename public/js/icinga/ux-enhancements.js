@@ -3848,7 +3848,6 @@
             banner.classList.remove('loading');
         }
 
-        label.hidden = true;
         value.textContent = displayText.length ? displayText : text;
         banner.classList.toggle('assigned', !! assignee.length);
         banner.hidden = false;
