@@ -35,6 +35,7 @@
     var INCIDENT_DRAWER_WIDTH_KEY = 'incident-drawer-width';
     var INCIDENT_DRAWER_WIDTH_MIN = 320;
     var INCIDENT_DRAWER_WIDTH_MAX = 960;
+    var INCIDENT_ASSIGNMENT_NOTE_KEY = 'incident-assignment-notes';
     var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
@@ -3097,6 +3098,9 @@
         var currentNote = details && details.assignment
             ? String(details.assignment.note || '')
             : '';
+        if (! currentNote.trim().length) {
+            currentNote = getIncidentAssignmentNoteCache(object);
+        }
         var html = '';
         var options = [];
         var compactNote = currentNote.trim().length > 120
@@ -3276,7 +3280,7 @@
                 assignmentDetails = object ? getIncidentAssignmentDetailsCache(object) : null;
                 currentNote = assignmentDetails && assignmentDetails.assignment
                     ? String(assignmentDetails.assignment.note || '')
-                    : '';
+                    : getIncidentAssignmentNoteCache(object);
                 metaEl.textContent = item.meta || '—';
                 assigneeText = isIncidentAssignmentLoading(object)
                     ? getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...')
@@ -3818,6 +3822,9 @@
 
         assignee = getIncidentAssignmentCache(object);
         currentNote = details && details.assignment ? String(details.assignment.note || '') : '';
+        if (! currentNote.trim().length) {
+            currentNote = getIncidentAssignmentNoteCache(object);
+        }
         assignmentSummary = assignee.length
             ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignee
             : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
@@ -3963,11 +3970,63 @@
         renderIcingadbObjectAssignmentLabels();
     }
 
-    function setIncidentAssignmentDetailsCache(object, payload) {
+    function readIncidentAssignmentNotes() {
+        try {
+            return JSON.parse(window.localStorage.getItem(INCIDENT_ASSIGNMENT_NOTE_KEY) || '{}');
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function writeIncidentAssignmentNotes(notes) {
+        try {
+            window.localStorage.setItem(INCIDENT_ASSIGNMENT_NOTE_KEY, JSON.stringify(notes || {}));
+        } catch (error) {
+            // Ignore storage errors caused by private mode or browser restrictions
+        }
+    }
+
+    function setIncidentAssignmentNoteCache(object, note) {
         var signature = getIcingadbObjectSignature(object);
+        var notes;
 
         if (! signature.length) {
             return;
+        }
+
+        notes = readIncidentAssignmentNotes();
+        if (String(note || '').trim().length) {
+            notes[signature] = String(note || '');
+        } else {
+            delete notes[signature];
+        }
+        writeIncidentAssignmentNotes(notes);
+    }
+
+    function getIncidentAssignmentNoteCache(object) {
+        var signature = getIcingadbObjectSignature(object);
+        var notes;
+
+        if (! signature.length) {
+            return '';
+        }
+
+        notes = readIncidentAssignmentNotes();
+
+        return String(notes[signature] || '');
+    }
+
+    function setIncidentAssignmentDetailsCache(object, payload) {
+        var signature = getIcingadbObjectSignature(object);
+        var cachedNote = getIncidentAssignmentNoteCache(object);
+        var note = payload && payload.assignment ? String(payload.assignment.note || '') : '';
+
+        if (! signature.length) {
+            return;
+        }
+
+        if (! note.length && cachedNote.length) {
+            note = cachedNote;
         }
 
         incidentAssignmentDetailsCache[signature] = {
@@ -3975,7 +4034,7 @@
                 assignee: String(payload.assignment.assignee || ''),
                 assignedBy: String(payload.assignment.assignedBy || ''),
                 assignedAt: String(payload.assignment.assignedAt || ''),
-                note: String(payload.assignment.note || '')
+                note: note
             } : null,
             canAssign: !! (payload && payload.canAssign),
             users: payload && Array.isArray(payload.users) ? payload.users.slice() : [],
@@ -5028,6 +5087,7 @@
         var save = document.querySelector('[data-save-incident-assignment]');
         var assignment = incidentDrawerState.assignment || null;
         var cachedDetails = incidentDrawerState.object ? getIncidentAssignmentDetailsCache(incidentDrawerState.object) : null;
+        var cachedNote = incidentDrawerState.object ? getIncidentAssignmentNoteCache(incidentDrawerState.object) : '';
         var canAssign = !! (assignment && assignment.canAssign);
         var users = assignment && Array.isArray(assignment.users) ? assignment.users : [];
         var currentAssignee = assignment && assignment.assignment
@@ -5039,8 +5099,10 @@
             ? String(assignment.assignment.note || '')
             : (cachedDetails && cachedDetails.assignment
                 ? String(cachedDetails.assignment.note || '')
-                : '')
-        ;
+                : cachedNote);
+        if (! currentNote.trim().length) {
+            currentNote = cachedNote;
+        }
         var statusMessage = assignment && assignment.statusMessage ? String(assignment.statusMessage) : '';
         var statusError = !! (assignment && assignment.statusError);
 
@@ -5341,13 +5403,12 @@
             var block = blocks[i];
             var info = block.querySelector('.extended-info');
             var label = info ? info.querySelector('[data-object-assignee]') : null;
-            var noteLabel = info ? info.querySelector('[data-object-assignee-note]') : null;
             var object = findIcingadbObjectInNode(block);
             var assignee = object ? getIncidentAssignmentCache(object) : '';
             var assignmentDetails = object ? getIncidentAssignmentDetailsCache(object) : null;
             var note = assignmentDetails && assignmentDetails.assignment
                 ? String(assignmentDetails.assignment.note || '')
-                : '';
+                : getIncidentAssignmentNoteCache(object);
             var text = '';
 
             if (! info || ! object) {
@@ -5372,9 +5433,10 @@
                 label.className = 'object-assignee';
                 info.appendChild(label);
             }
-            text = text + (note.trim().length
-                ? ' · ' + getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + note
-                : '');
+
+            if (note.trim().length) {
+                text += ' · ' + getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + note;
+            }
             label.textContent = text;
             label.classList.toggle('assigned', !! assignee.length);
             label.classList.toggle('unassigned', ! assignee.length);
@@ -5494,6 +5556,7 @@
                     statusMessage: getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'),
                     statusError: false
                 };
+                setIncidentAssignmentNoteCache(object, selectedNote);
                 setIncidentAssignmentCache(
                     object,
                     payload && payload.assignment
@@ -5584,6 +5647,7 @@
                         statusMessage: getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'),
                         statusError: false
                     };
+                    setIncidentAssignmentNoteCache(object, selectedNote);
                     renderIncidentAssignment();
                 }
             })
