@@ -1,5 +1,0 @@
-Module: assistant
-Version: 2.13.0
-Description: AI assistant and natural language search module
- Provides the conversational assistant, AI search, and local LLM-backed
- Icinga Web views that were previously bundled with the core application.
