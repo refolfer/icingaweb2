@@ -3796,7 +3796,7 @@
         var assignee = '';
         var currentNote = '';
         var details = object ? getIncidentAssignmentDetailsCache(object) : null;
-        var assignmentSummary = '';
+        var displayText = '';
 
         if (! banner || ! object) {
             return;
@@ -3825,11 +3825,11 @@
         if (! currentNote.trim().length) {
             currentNote = getIncidentAssignmentNoteCache(object);
         }
-        assignmentSummary = assignee.length
-            ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignee
+        displayText = assignee.length
+            ? assignee
             : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
         if (currentNote.trim().length) {
-            assignmentSummary += ' · '
+            displayText += ' · '
                 + getIncidentAssignmentLabel('assignment-note-label', 'Note')
                 + ': ' + currentNote;
         }
@@ -3848,7 +3848,8 @@
             banner.classList.remove('loading');
         }
 
-        value.textContent = assignmentSummary.length ? assignmentSummary : text;
+        label.hidden = true;
+        value.textContent = displayText.length ? displayText : text;
         banner.classList.toggle('assigned', !! assignee.length);
         banner.hidden = false;
     }
