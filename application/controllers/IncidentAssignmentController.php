@@ -123,6 +123,37 @@ class IncidentAssignmentController extends AuthBackendController
         ]);
     }
 
+    public function summaryAction()
+    {
+        $this->assertAuthenticated();
+
+        $objects = $this->getObjectsFromRequest();
+        if (! count($objects)) {
+            $this->respondWithJson(['error' => 'Missing object identifiers'], 400);
+            return;
+        }
+
+        try {
+            $store = IncidentAssignmentStore::create();
+            $assignments = $store->loadMany($objects);
+            $assignmentCounts = $store->aggregateByAssignee($objects);
+        } catch (Exception $e) {
+            $this->respondWithJson(['error' => $e->getMessage()], 500);
+            return;
+        }
+
+        $summary = $this->buildAssignmentSummary($objects, $assignmentCounts);
+
+        $this->respondWithJson([
+            'ok' => true,
+            'objects' => $objects,
+            'assignments' => $assignments,
+            'assignmentCounts' => $assignmentCounts,
+            'summary' => $summary,
+            'currentUser' => $this->Auth()->getUser()->getUsername()
+        ]);
+    }
+
     protected function getObjectFromRequest()
     {
         $rawParams = $this->getRawRequestParams();
@@ -166,6 +197,35 @@ class IncidentAssignmentController extends AuthBackendController
             'host_name' => $hostName,
             'service_name' => $type === 'service' ? $serviceName : null
         ];
+    }
+
+    protected function getObjectsFromRequest()
+    {
+        $rawParams = $this->getRawRequestParams();
+        $objects = [];
+        $rawObjects = $this->getRequestValue('objects', null, $rawParams);
+
+        if (is_array($rawObjects)) {
+            $objects = $rawObjects;
+        } elseif (is_string($rawObjects) && trim($rawObjects) !== '') {
+            try {
+                $decoded = Json::decode($rawObjects, true);
+                if (is_array($decoded)) {
+                    $objects = $decoded;
+                }
+            } catch (Exception $_) {
+                $objects = [];
+            }
+        }
+
+        if (! count($objects)) {
+            $object = $this->getObjectFromRequest();
+            if ($object !== null) {
+                $objects = [$object];
+            }
+        }
+
+        return $this->normalizeObjects($objects);
     }
 
     protected function sanitizeAssignmentNote($note)
@@ -247,6 +307,114 @@ class IncidentAssignmentController extends AuthBackendController
     protected function isKnownUser($userName)
     {
         return in_array($userName, $this->collectAssignableUsers(), true);
+    }
+
+    protected function buildAssignmentSummary(array $objects, array $assignmentCounts)
+    {
+        $summary = [
+            'me' => 0,
+            'assigned' => 0,
+            'unassigned' => 0,
+            'total' => count($objects)
+        ];
+        $currentUserNames = $this->getCurrentUserNames();
+
+        foreach ($assignmentCounts as $assignee => $count) {
+            if ($count <= 0) {
+                continue;
+            }
+
+            if ($this->isAssigneeCurrentUser($assignee, $currentUserNames)) {
+                $summary['me'] += (int) $count;
+            } else {
+                $summary['assigned'] += (int) $count;
+            }
+        }
+
+        $summary['unassigned'] = max(0, $summary['total'] - $summary['me'] - $summary['assigned']);
+
+        return $summary;
+    }
+
+    protected function getCurrentUserNames()
+    {
+        $names = [];
+        $user = $this->Auth()->getUser();
+        $candidates = [];
+
+        if ($user) {
+            $candidates[] = $user->getUsername();
+            if (method_exists($user, 'getLocalUsername')) {
+                $candidates[] = $user->getLocalUsername();
+            }
+        }
+
+        foreach ($candidates as $name) {
+            $normalized = strtolower(trim((string) $name));
+            if ($normalized === '') {
+                continue;
+            }
+
+            $names[] = $normalized;
+            if (strpos($normalized, '@') !== false) {
+                $names[] = strtok($normalized, '@');
+            }
+        }
+
+        return array_values(array_unique(array_filter($names)));
+    }
+
+    protected function isAssigneeCurrentUser($assignee, array $currentUserNames)
+    {
+        $normalized = strtolower(trim((string) $assignee));
+        if ($normalized === '' || ! count($currentUserNames)) {
+            return false;
+        }
+
+        if (in_array($normalized, $currentUserNames, true)) {
+            return true;
+        }
+
+        if (strpos($normalized, '@') !== false) {
+            return in_array(strtok($normalized, '@'), $currentUserNames, true);
+        }
+
+        return false;
+    }
+
+    protected function normalizeObjects(array $objects)
+    {
+        $normalized = [];
+
+        foreach ($objects as $object) {
+            if (! is_array($object)) {
+                continue;
+            }
+
+            $type = trim((string) ($object['type'] ?? $object['object_type'] ?? ''));
+            $hostName = trim((string) ($object['host_name'] ?? $object['hostName'] ?? ''));
+            $serviceName = trim((string) ($object['service_name'] ?? $object['serviceName'] ?? ''));
+
+            if (! in_array($type, ['host', 'service'], true) || $hostName === '') {
+                continue;
+            }
+
+            if ($type === 'service') {
+                if ($serviceName === '') {
+                    continue;
+                }
+            } else {
+                $serviceName = null;
+            }
+
+            $normalized[] = [
+                'type' => $type,
+                'host_name' => $hostName,
+                'service_name' => $serviceName
+            ];
+        }
+
+        return $normalized;
     }
 
     protected function assertAuthenticated()

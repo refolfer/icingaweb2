@@ -88,25 +88,6 @@ body.modal-open {
   min-width: 0;
 }
 
-.top-events-summary {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.75em;
-  padding: 0.12em 0.5em;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.35em;
-  background: rgba(255, 255, 255, 0.045);
-  color: var(--to-text-muted);
-  font-size: 0.82em;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.top-events-summary strong {
-  color: var(--to-text-strong);
-  font-weight: 700;
-}
-
 .top-events-header a {
   color: var(--to-text-muted);
   font-size: 0.9em;
@@ -119,190 +100,9 @@ body.modal-open {
   text-decoration: underline;
 }
 
-.top-events-triage-toggle,
-.top-events-desk-button,
-.top-events-handoff-button,
-.top-events-activity-button {
-  min-height: 1.75em;
-  padding: 0.15em 0.55em;
-  border: 1px solid var(--to-border);
-  border-radius: 0.35em;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--to-text-muted);
-  font-size: 0.84em;
-  line-height: 1.2;
-}
-
-.top-events-triage-toggle:hover,
-.top-events-triage-toggle:focus-visible,
-.top-events-desk-button:hover,
-.top-events-desk-button:focus-visible,
-.top-events-handoff-button:hover,
-.top-events-handoff-button:focus-visible,
-.top-events-activity-button:hover,
-.top-events-activity-button:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--to-text-strong);
-}
-
-.top-events-triage-toggle.active {
-  border-color: rgba(217, 75, 99, 0.55);
-  background: rgba(217, 75, 99, 0.16);
-  color: var(--to-text-strong);
-}
-
-.operator-focus-board {
-  display: grid;
-  grid-template-columns: 5.8em minmax(18em, 1fr) auto auto;
-  gap: 0.7em;
-  align-items: stretch;
-  margin: 0 0 0.55em;
-  padding: 0.58em;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-left: 0.32em solid var(--to-ok);
-  border-radius: 0.45em;
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.operator-focus-board.priority-critical {
-  border-left-color: var(--to-critical);
-  background: rgba(217, 75, 99, 0.08);
-}
-
-.operator-focus-board.priority-warning {
-  border-left-color: var(--to-warning);
-  background: rgba(216, 154, 34, 0.075);
-}
-
-.operator-focus-board.priority-unknown {
-  border-left-color: var(--to-unknown);
-}
-
-.operator-focus-board.priority-pending {
-  border-left-color: var(--to-pending);
-}
-
-.operator-focus-priority {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-height: 4.1em;
-  border-radius: 0.36em;
-  background: rgba(0, 0, 0, 0.16);
-}
-
-.operator-focus-priority span {
-  color: var(--to-text-strong);
-  font-size: 1.55em;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.operator-focus-priority strong {
-  margin-top: 0.2em;
-  color: var(--to-text-muted);
-  font-size: 0.72em;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.operator-focus-main {
-  min-width: 0;
-  align-self: center;
-}
-
-.operator-focus-main p {
-  margin: 0;
-  color: var(--to-text-muted);
-  font-size: 0.82em;
-  line-height: 1.35;
-}
-
-.operator-focus-main h3 {
-  overflow: hidden;
-  margin: 0.1em 0;
-  color: var(--to-text-strong);
-  font-size: 1em;
-  line-height: 1.28;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.operator-focus-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(4.4em, auto));
-  gap: 0.42em;
-  align-self: stretch;
-  margin: 0;
-}
-
-.operator-focus-metrics div {
-  display: grid;
-  align-content: center;
-  min-width: 4.4em;
-  padding: 0.45em 0.5em;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.36em;
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.operator-focus-metrics dt {
-  color: var(--to-text-muted);
-  font-size: 0.72em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.operator-focus-metrics dd {
-  margin: 0.08em 0 0;
-  color: var(--to-text-strong);
-  font-size: 1.2em;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.operator-focus-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.35em;
-}
-
-.operator-focus-actions button {
-  min-height: 2em;
-  padding: 0.25em 0.58em;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0.32em;
-  background: rgba(255, 255, 255, 0.07);
-  color: inherit;
-  font-size: 0.84em;
-}
-
-.operator-focus-actions button:hover,
-.operator-focus-actions button:focus-visible {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.operator-focus-actions button[disabled] {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.operator-focus-actions [data-open-operator-playbook] {
-  border-color: rgba(53, 182, 217, 0.32);
-  color: var(--to-text-strong);
-}
-
-.operator-focus-actions [data-open-metro-timeline] {
-  border-color: rgba(42, 168, 106, 0.38);
-  color: var(--to-text-strong);
-}
-
 .operator-decision-matrix {
   display: grid;
-  grid-template-columns: repeat(4, minmax(10em, 1fr));
+  grid-template-columns: repeat(3, minmax(10em, 1fr));
   gap: 0.5em;
   margin: 0 0 0.55em;
 }
@@ -316,20 +116,16 @@ body.modal-open {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.operator-decision-lane.lane-now {
-  border-top-color: var(--to-critical);
+.operator-decision-lane.lane-me {
+  border-top-color: var(--to-ok);
 }
 
-.operator-decision-lane.lane-watch {
+.operator-decision-lane.lane-assigned {
   border-top-color: var(--to-warning);
 }
 
-.operator-decision-lane.lane-parked {
-  border-top-color: var(--to-pending);
-}
-
-.operator-decision-lane.lane-handled {
-  border-top-color: var(--to-ok);
+.operator-decision-lane.lane-unassigned {
+  border-top-color: var(--to-critical);
 }
 
 .operator-decision-lane.has-events {

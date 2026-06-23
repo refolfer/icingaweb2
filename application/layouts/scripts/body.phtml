@@ -24,6 +24,10 @@ if ($this->layout()->inlineLayout) {
     $inlineLayoutScript = 'inline.phtml';
 }
 
+$currentUser = Auth::getInstance()->isAuthenticated() ? Auth::getInstance()->getUser() : null;
+$currentUserName = $currentUser ? $currentUser->getUsername() : '';
+$currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
+
 ?>
 <div id="header">
     <div id="announcements" class="container">
@@ -104,145 +108,54 @@ if ($this->layout()->inlineLayout) {
             id="top-events-panel"
             class="top-events-panel"
             data-history-url="<?= $this->href('icingadb/history') ?>"
-            data-triage-on-label="<?= $this->escape($this->translate('Triage on')) ?>"
-            data-triage-off-label="<?= $this->escape($this->translate('Triage')) ?>"
-            data-triage-active-label="<?= $this->escape($this->translate('active')) ?>"
-            data-triage-hidden-label="<?= $this->escape($this->translate('hidden')) ?>"
             aria-live="polite"
         >
             <header class="top-events-header">
                 <h2><?= $this->translate('Latest Events') ?></h2>
                 <div class="top-events-actions">
-                    <span class="top-events-summary" data-top-events-summary hidden></span>
-                    <button
-                        type="button"
-                        class="top-events-triage-toggle"
-                        data-triage-mode-toggle
-                        aria-pressed="false"
-                    >
-                        <?= $this->translate('Triage') ?>
-                    </button>
-                    <button
-                        type="button"
-                        class="top-events-desk-button"
-                        data-open-triage-desk
-                    >
-                        <?= $this->translate('Desk') ?>
-                    </button>
-                    <button
-                        type="button"
-                        class="top-events-handoff-button"
-                        data-open-operator-handoff
-                    >
-                        <?= $this->translate('Handoff') ?>
-                    </button>
-                    <button
-                        type="button"
-                        class="top-events-activity-button"
-                        data-open-operator-activity
-                    >
-                        <?= $this->translate('Log') ?>
-                    </button>
                     <a href="<?= $this->href('icingadb/history') ?>" data-base-target="_main">
                         <?= $this->translate('History > Event Overview') ?>
                     </a>
                 </div>
             </header>
             <section
-                class="operator-focus-board"
-                data-operator-focus-board
-                data-empty-label="<?= $this->escape($this->translate('Queue clear')) ?>"
-                data-empty-detail-label="<?= $this->escape($this->translate('No active triage events need operator focus.')) ?>"
-                data-next-label="<?= $this->escape($this->translate('Next focus')) ?>"
-                data-workload-label="<?= $this->escape($this->translate('workload')) ?>"
-                data-open-label="<?= $this->escape($this->translate('Open')) ?>"
-                data-pin-label="<?= $this->escape($this->translate('Pin')) ?>"
-                data-snooze-label="<?= $this->escape($this->translate('Snooze')) ?>"
-            >
-                <div class="operator-focus-priority">
-                    <span data-operator-focus-score>0</span>
-                    <strong data-operator-focus-state><?= $this->translate('Queue clear') ?></strong>
-                </div>
-                <div class="operator-focus-main">
-                    <p data-operator-focus-kicker><?= $this->translate('Next focus') ?></p>
-                    <h3 data-operator-focus-title><?= $this->translate('No active triage events need operator focus.') ?></h3>
-                    <p data-operator-focus-detail></p>
-                </div>
-                <dl class="operator-focus-metrics">
-                    <div>
-                        <dt><?= $this->translate('Active') ?></dt>
-                        <dd data-operator-focus-active>0</dd>
-                    </div>
-                    <div>
-                        <dt><?= $this->translate('Critical') ?></dt>
-                        <dd data-operator-focus-critical>0</dd>
-                    </div>
-                    <div>
-                        <dt><?= $this->translate('Pinned') ?></dt>
-                        <dd data-operator-focus-pinned>0</dd>
-                    </div>
-                </dl>
-                <div class="operator-focus-actions">
-                    <button type="button" data-operator-focus-action="open">
-                        <?= $this->translate('Open') ?>
-                    </button>
-                    <button type="button" data-operator-focus-action="pin">
-                        <?= $this->translate('Pin') ?>
-                    </button>
-                    <button type="button" data-operator-focus-action="snooze">
-                        <?= $this->translate('Snooze') ?>
-                    </button>
-                    <button type="button" data-open-metro-timeline>
-                        <?= $this->translate('Metro') ?>
-                    </button>
-                    <button type="button" data-open-operator-playbook>
-                        <?= $this->translate('Playbook') ?>
-                    </button>
-                </div>
-            </section>
-            <section
                 class="operator-decision-matrix"
                 data-operator-decision-matrix
+                data-current-user="<?= $this->escape($currentUserName) ?>"
+                data-current-user-local="<?= $this->escape($currentUserLocalName) ?>"
+                data-me-label="<?= $this->escape($this->translate('Assigned to me')) ?>"
+                data-assigned-label="<?= $this->escape($this->translate('Assigned')) ?>"
+                data-unassigned-label="<?= $this->escape($this->translate('Not assigned')) ?>"
                 data-empty-label="<?= $this->escape($this->translate('No matching events')) ?>"
                 data-open-label="<?= $this->escape($this->translate('Open')) ?>"
             >
-                <article class="operator-decision-lane lane-now" data-operator-decision-lane="now">
+                <article class="operator-decision-lane lane-me" data-operator-decision-lane="me">
                     <header>
-                        <span><?= $this->translate('Act now') ?></span>
-                        <strong data-operator-decision-count="now">0</strong>
+                        <span><?= $this->translate('Assigned to me') ?></span>
+                        <strong data-operator-decision-count="me">0</strong>
                     </header>
-                    <p data-operator-decision-title="now"><?= $this->translate('No matching events') ?></p>
-                    <button type="button" data-operator-decision-action="now">
+                    <p data-operator-decision-title="me"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="me">
                         <?= $this->translate('Open') ?>
                     </button>
                 </article>
-                <article class="operator-decision-lane lane-watch" data-operator-decision-lane="watch">
+                <article class="operator-decision-lane lane-assigned" data-operator-decision-lane="assigned">
                     <header>
-                        <span><?= $this->translate('Watch') ?></span>
-                        <strong data-operator-decision-count="watch">0</strong>
+                        <span><?= $this->translate('Assigned') ?></span>
+                        <strong data-operator-decision-count="assigned">0</strong>
                     </header>
-                    <p data-operator-decision-title="watch"><?= $this->translate('No matching events') ?></p>
-                    <button type="button" data-operator-decision-action="watch">
+                    <p data-operator-decision-title="assigned"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="assigned">
                         <?= $this->translate('Open') ?>
                     </button>
                 </article>
-                <article class="operator-decision-lane lane-parked" data-operator-decision-lane="parked">
+                <article class="operator-decision-lane lane-unassigned" data-operator-decision-lane="unassigned">
                     <header>
-                        <span><?= $this->translate('Parked') ?></span>
-                        <strong data-operator-decision-count="parked">0</strong>
+                        <span><?= $this->translate('Not assigned') ?></span>
+                        <strong data-operator-decision-count="unassigned">0</strong>
                     </header>
-                    <p data-operator-decision-title="parked"><?= $this->translate('No matching events') ?></p>
-                    <button type="button" data-operator-decision-action="parked">
-                        <?= $this->translate('Open') ?>
-                    </button>
-                </article>
-                <article class="operator-decision-lane lane-handled" data-operator-decision-lane="handled">
-                    <header>
-                        <span><?= $this->translate('Handled') ?></span>
-                        <strong data-operator-decision-count="handled">0</strong>
-                    </header>
-                    <p data-operator-decision-title="handled"><?= $this->translate('No matching events') ?></p>
-                    <button type="button" data-operator-decision-action="handled">
+                    <p data-operator-decision-title="unassigned"><?= $this->translate('No matching events') ?></p>
+                    <button type="button" data-operator-decision-action="unassigned">
                         <?= $this->translate('Open') ?>
                     </button>
                 </article>
@@ -712,6 +625,7 @@ if ($this->layout()->inlineLayout) {
     data-assignment-assigned-by-label="<?= $this->escape($this->translate('Assigned by')) ?>"
     data-assignment-open-label="<?= $this->escape($this->translate('Open object')) ?>"
     data-assignment-url="<?= $this->href('incident-assignment/get') ?>"
+    data-assignment-summary-url="<?= $this->href('incident-assignment/summary') ?>"
     data-assignment-save-url="<?= $this->href('incident-assignment/set') ?>"
 >
     <div class="incident-drawer-backdrop" data-close-incident-drawer></div>

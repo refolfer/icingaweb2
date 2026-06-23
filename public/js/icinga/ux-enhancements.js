@@ -92,6 +92,11 @@
     var incidentAssignmentCache = {};
     var incidentAssignmentDetailsCache = {};
     var incidentAssignmentFetchState = {};
+    var operatorDecisionAssignmentState = {
+        lastSignature: '',
+        inFlight: false,
+        retryAt: 0
+    };
 
     var lastFocusedElement = null;
     var topWidgetResizeState = null;
@@ -916,10 +921,6 @@
         return document.getElementById('top-events-panel');
     }
 
-    function getTriageModeToggle() {
-        return document.querySelector('[data-triage-mode-toggle]');
-    }
-
     function getTriageDesk() {
         return document.getElementById('triage-desk-modal');
     }
@@ -1031,71 +1032,11 @@
         }, OPERATOR_TOAST_TIMEOUT_MS);
     }
 
-    function getTopEventsSummary() {
-        return document.querySelector('[data-top-events-summary]');
-    }
-
-    function getTopEventsPanelLabel(key, fallback) {
-        var panel = getTopEventsPanel();
-
-        if (panel && panel.dataset && panel.dataset[key]) {
-            return panel.dataset[key];
-        }
-
-        return fallback;
-    }
-
-    function updateTriageModeToggle() {
-        var enabled = isTriageModeEnabled();
-        var panel = getTopEventsPanel();
-        var toggle = getTriageModeToggle();
-
-        if (panel) {
-            panel.classList.toggle('triage-mode', enabled);
-        }
-
-        if (! toggle) {
-            return;
-        }
-
-        toggle.textContent = enabled
-            ? getTopEventsPanelLabel('triageOnLabel', 'Triage on')
-            : getTopEventsPanelLabel('triageOffLabel', 'Triage');
-        toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-        toggle.classList.toggle('active', enabled);
-    }
-
     function setTriageMode(enabled) {
         writeTriageMode(enabled);
-        updateTriageModeToggle();
         recordOperatorActivity('Triage', enabled ? 'Enabled triage mode' : 'Disabled triage mode', '', '');
         rerenderCachedTopEvents();
         refreshTopEvents(true);
-    }
-
-    function updateTopEventsSummary(stats) {
-        var summary = getTopEventsSummary();
-        var activeLabel = getTopEventsPanelLabel('triageActiveLabel', 'active');
-        var hiddenLabel = getTopEventsPanelLabel('triageHiddenLabel', 'hidden');
-
-        if (! summary) {
-            return;
-        }
-
-        if (! stats || ! stats.total) {
-            summary.hidden = true;
-            summary.textContent = '';
-            return;
-        }
-
-        summary.hidden = false;
-        summary.innerHTML = '<strong>' + String(stats.active) + '</strong> '
-            + escapeHtml(activeLabel)
-            + ' / <strong>'
-            + String(stats.hidden)
-            + '</strong> '
-            + escapeHtml(hiddenLabel);
-        summary.title = String(stats.total) + ' latest parsed events';
     }
 
     function getTacticalResizer() {
@@ -2166,41 +2107,246 @@
         return fallback;
     }
 
-    function createOperatorDecisionSnapshot() {
-        var lanes = {
-            now: [],
-            watch: [],
-            parked: [],
-            handled: []
+    function getOperatorDecisionLaneLabel(lane) {
+        var labels = {
+            me: 'Assigned to me',
+            assigned: 'Assigned',
+            unassigned: 'Not assigned'
         };
 
-        topEventsState.items.forEach(function (item) {
-            if (! item || ! item.url) {
+        return getOperatorDecisionLabel(lane + 'Label', labels[lane] || 'No matching events');
+    }
+
+    function getOperatorDecisionCurrentUserNames() {
+        var matrix = getOperatorDecisionMatrix();
+        var names = [];
+
+        if (! matrix || ! matrix.dataset) {
+            return names;
+        }
+
+        [matrix.dataset.currentUser || '', matrix.dataset.currentUserLocal || ''].forEach(function (name) {
+            var normalized = normalizeText(name).toLowerCase();
+            var local = normalized.indexOf('@') === -1 ? normalized : normalized.split('@')[0];
+
+            if (normalized.length && names.indexOf(normalized) === -1) {
+                names.push(normalized);
+            }
+
+            if (local.length && names.indexOf(local) === -1) {
+                names.push(local);
+            }
+        });
+
+        return names;
+    }
+
+    function isAssignedToCurrentUser(assignee, currentUserNames) {
+        var normalized = normalizeText(assignee || '').toLowerCase();
+        var names = currentUserNames || getOperatorDecisionCurrentUserNames();
+
+        if (! normalized.length || ! names.length) {
+            return false;
+        }
+
+        if (names.indexOf(normalized) !== -1) {
+            return true;
+        }
+
+        if (normalized.indexOf('@') !== -1 && names.indexOf(normalized.split('@')[0]) !== -1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function getOperatorDecisionLaneFromAssignee(assignee, currentUserNames) {
+        if (! normalizeText(assignee || '').length) {
+            return 'unassigned';
+        }
+
+        return isAssignedToCurrentUser(assignee, currentUserNames) ? 'me' : 'assigned';
+    }
+
+    function getOperatorDecisionLaneQuery(lane) {
+        var currentUserNames = getOperatorDecisionCurrentUserNames();
+        var currentUser = currentUserNames[0] || '';
+
+        if (lane === 'me') {
+            return currentUser.length
+                ? 'critical assignee:"' + currentUser + '"'
+                : 'critical assigned to me';
+        }
+
+        if (lane === 'assigned') {
+            return 'critical assigned';
+        }
+
+        if (lane === 'unassigned') {
+            return 'critical not assigned';
+        }
+
+        return 'critical';
+    }
+
+    function getOperatorDecisionItems(items) {
+        return (items || []).filter(function (item) {
+            return item
+                && item.url
+                && ! item.handled
+                && ! isIncidentSeen(item.url)
+                && ! isIncidentSnoozed(item.url)
+                && item.state === 'critical';
+        });
+    }
+
+    function getOperatorDecisionObjects(items) {
+        var seen = {};
+        var objects = [];
+
+        getOperatorDecisionItems(items).forEach(function (item) {
+            var object = getIcingadbObjectFromUrl(item.url);
+            var signature;
+
+            if (! object) {
                 return;
             }
 
-            if (item.handled || isIncidentSeen(item.url)) {
-                lanes.handled.push(item);
+            signature = getIcingadbObjectSignature(object);
+            if (! signature.length || seen[signature]) {
                 return;
             }
 
-            if (isIncidentSnoozed(item.url)) {
-                lanes.parked.push(item);
-                return;
+            seen[signature] = true;
+            objects.push(object);
+        });
+
+        return objects;
+    }
+
+    function getOperatorDecisionAssignmentSignature(items) {
+        return getOperatorDecisionObjects(items).map(function (object) {
+            return getIcingadbObjectSignature(object);
+        }).join('|');
+    }
+
+    function applyOperatorDecisionAssignmentPayload(objects, payload) {
+        var assignments = payload && payload.assignments ? payload.assignments : {};
+        var i;
+
+        for (i = 0; i < objects.length; i++) {
+            var object = objects[i];
+            var signature = getIcingadbObjectSignature(object);
+            var assignment = assignments[signature] || null;
+            var details = incidentAssignmentDetailsCache[signature] || null;
+
+            if (assignment) {
+                setIncidentAssignmentCache(object, String(assignment.assignee || ''), false);
+
+                if (details) {
+                    details.assignment = {
+                        assignee: String(assignment.assignee || ''),
+                        assignedBy: String(assignment.assigned_by || ''),
+                        assignedAt: String(assignment.created_at || ''),
+                        note: String(assignment.note || '')
+                    };
+                    incidentAssignmentDetailsCache[signature] = details;
+                }
+            } else {
+                setIncidentAssignmentCache(object, '', false);
+                if (details) {
+                    delete incidentAssignmentDetailsCache[signature];
+                }
+            }
+        }
+
+        rerenderCachedTopEvents();
+    }
+
+    function refreshOperatorDecisionAssignments(items) {
+        var url = getIncidentAssignmentSummaryUrl();
+        var objects = getOperatorDecisionObjects(items);
+        var signature = getOperatorDecisionAssignmentSignature(items);
+        var now = Date.now();
+
+        if (! url.length || typeof window.fetch !== 'function' || ! objects.length) {
+            return;
+        }
+
+        if (operatorDecisionAssignmentState.inFlight) {
+            return;
+        }
+
+        if (operatorDecisionAssignmentState.lastSignature === signature && operatorDecisionAssignmentState.retryAt > now) {
+            return;
+        }
+
+        operatorDecisionAssignmentState.inFlight = true;
+
+        window.fetch(url + '?objects=' + encodeURIComponent(JSON.stringify(objects)), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store'
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Request failed with status ' + response.status);
+                }
+
+                return response.json();
+            })
+            .then(function (payload) {
+                applyOperatorDecisionAssignmentPayload(objects, payload || {});
+                operatorDecisionAssignmentState.lastSignature = signature;
+                operatorDecisionAssignmentState.retryAt = 0;
+            })
+            .catch(function () {
+                operatorDecisionAssignmentState.retryAt = Date.now() + Math.min(
+                    TOP_EVENTS_ERROR_BACKOFF_MAX_MS,
+                    TOP_EVENTS_ERROR_BACKOFF_MS
+                );
+            })
+            .then(function () {
+                operatorDecisionAssignmentState.inFlight = false;
+            }, function () {
+                operatorDecisionAssignmentState.inFlight = false;
+            });
+    }
+
+    function createOperatorDecisionSnapshot() {
+        var lanes = {
+            me: [],
+            assigned: [],
+            unassigned: []
+        };
+        var currentUserNames = getOperatorDecisionCurrentUserNames();
+
+        getOperatorDecisionItems(topEventsState.items).forEach(function (item) {
+            var object;
+            var assignee;
+            var assignmentDetails;
+            var lane;
+
+            object = getIcingadbObjectFromUrl(item.url);
+            if (object) {
+                assignmentDetails = getIncidentAssignmentDetailsCache(object);
+                assignee = assignmentDetails && assignmentDetails.assignment
+                    ? String(assignmentDetails.assignment.assignee || '')
+                    : getIncidentAssignmentCache(object);
+            } else {
+                assignee = '';
             }
 
-            if (item.state === 'critical') {
-                lanes.now.push(item);
-                return;
-            }
+            lane = getOperatorDecisionLaneFromAssignee(assignee, currentUserNames);
+            lanes[lane].push(item);
         });
 
         return lanes;
     }
 
-    function getOperatorDecisionLaneTitle(item) {
+    function getOperatorDecisionLaneTitle(item, lane) {
         if (! item) {
-            return getOperatorDecisionLabel('emptyLabel', 'No matching events');
+            return getOperatorDecisionLabel('emptyLabel', getOperatorDecisionLaneLabel(lane || ''));
         }
 
         return normalizeText(item.title || item.meta || item.preview || 'Untitled event');
@@ -2228,7 +2374,7 @@
             }
 
             if (title) {
-                title.textContent = getOperatorDecisionLaneTitle(first);
+                title.textContent = getOperatorDecisionLaneTitle(first, lane);
             }
 
             if (card) {
@@ -2236,7 +2382,7 @@
             }
 
             if (button) {
-                button.disabled = ! first;
+                button.disabled = false;
                 button.textContent = getOperatorDecisionLabel('openLabel', 'Open');
             }
         });
@@ -2245,13 +2391,16 @@
     function runOperatorDecisionAction(lane) {
         var lanes = createOperatorDecisionSnapshot();
         var item = lanes[lane] && lanes[lane][0] ? lanes[lane][0] : null;
+        var query = getOperatorDecisionLaneQuery(lane);
+        var searchUrl = normalizeIncidentUrl('search?q=' + encodeURIComponent(query));
 
-        if (! item) {
-            return;
-        }
-
-        recordOperatorActivity('Decision', 'Opened ' + lane + ' decision lane', getOperatorDecisionLaneTitle(item), item.url);
-        window.location.href = normalizeIncidentUrl(item.url);
+        recordOperatorActivity(
+            'Decision',
+            'Opened ' + getOperatorDecisionLaneLabel(lane).toLowerCase() + ' search',
+            item ? getOperatorDecisionLaneTitle(item, lane) : getOperatorDecisionLaneLabel(lane),
+            searchUrl
+        );
+        navigateTo('search?q=' + encodeURIComponent(query));
     }
 
     function renderOperatorBoards() {
@@ -2636,10 +2785,9 @@
 
         lines.push('');
         lines.push('Decision matrix:');
-        lines.push('- Act now: ' + String(decision.now.length));
-        lines.push('- Watch: ' + String(decision.watch.length));
-        lines.push('- Parked: ' + String(decision.parked.length));
-        lines.push('- Handled locally: ' + String(decision.handled.length));
+        lines.push('- Assigned to me: ' + String(decision.me.length));
+        lines.push('- Assigned: ' + String(decision.assigned.length));
+        lines.push('- Not assigned: ' + String(decision.unassigned.length));
 
         lines.push('');
         lines.push(buildOperatorPlaybookText());
@@ -3211,13 +3359,11 @@
     function renderTopEvents(items) {
         var slots = document.querySelectorAll('[data-top-event-item]');
         var triageMode = isTriageModeEnabled();
-        var triageStats = getTopEventsTriageStats(items);
         var visibleItems = items.filter(function (item) {
             return ! item || ! item.url || ! isIncidentSnoozed(item.url);
         });
         var i;
 
-        updateTopEventsSummary(triageStats);
         renderOperatorBoards();
 
         if (triageMode) {
@@ -3399,6 +3545,7 @@
                     + Object.keys(readSnoozedIncidents()).sort().join('|');
 
                 topEventsState.items = items;
+                refreshOperatorDecisionAssignments(items);
                 if (forceRender || renderSignature !== topEventsState.lastSignature) {
                     renderTopEvents(items);
                     topEventsState.lastSignature = renderSignature;
@@ -3958,7 +4105,7 @@
         return object.type + '|' + object.hostName + '|' + (object.serviceName || '');
     }
 
-    function setIncidentAssignmentCache(object, assignee) {
+    function setIncidentAssignmentCache(object, assignee, markLoaded) {
         var signature = getIcingadbObjectSignature(object);
 
         if (! signature.length) {
@@ -3966,7 +4113,9 @@
         }
 
         incidentAssignmentCache[signature] = String(assignee || '');
-        setIncidentAssignmentFetchState(object, false, true);
+        if (markLoaded !== false) {
+            setIncidentAssignmentFetchState(object, false, true);
+        }
         renderIcingadbObjectAssignmentLabels();
     }
 
@@ -5021,6 +5170,12 @@
         var drawer = getIncidentDrawer();
 
         return drawer ? (drawer.dataset.assignmentSaveUrl || '') : '';
+    }
+
+    function getIncidentAssignmentSummaryUrl() {
+        var drawer = getIncidentDrawer();
+
+        return drawer ? (drawer.dataset.assignmentSummaryUrl || '') : '';
     }
 
     function getIncidentAssignmentLabel(name, fallback) {
@@ -6508,10 +6663,9 @@
     function getOperatorDecisionCommands() {
         var lanes = createOperatorDecisionSnapshot();
         var labels = {
-            now: 'Open act now decision',
-            watch: 'Open watch decision',
-            parked: 'Open parked decision',
-            handled: 'Open handled decision'
+            me: 'Open assigned to me incidents',
+            assigned: 'Open assigned incidents',
+            unassigned: 'Open unassigned incidents'
         };
 
         return Object.keys(labels).filter(function (lane) {
@@ -6523,7 +6677,7 @@
                 'operatorDecisionLane',
                 labels[lane],
                 'Decision Matrix',
-                getOperatorDecisionLaneTitle(item),
+                getOperatorDecisionLaneTitle(item, lane),
                 lane
             );
         });
@@ -8235,8 +8389,6 @@
         var close = event.target.closest('[data-close-shortcuts]');
         var closeCommandPaletteButton = event.target.closest('[data-close-command-palette]');
         var commandPaletteCommand = event.target.closest('[data-command-index]');
-        var triageModeToggle = event.target.closest('[data-triage-mode-toggle]');
-        var openTriageDeskButton = event.target.closest('[data-open-triage-desk]');
         var closeTriageDeskButton = event.target.closest('[data-close-triage-desk]');
         var triageDeskActionButton = event.target.closest('[data-triage-desk-action]');
         var triageDeskCopyButton = event.target.closest('[data-triage-desk-copy]');
@@ -8307,18 +8459,6 @@
             runCommandPaletteCommand(commandPaletteState.commands[
                 parseInt(commandPaletteCommand.getAttribute('data-command-index') || '0', 10)
             ]);
-            return;
-        }
-
-        if (triageModeToggle) {
-            event.preventDefault();
-            setTriageMode(! isTriageModeEnabled());
-            return;
-        }
-
-        if (openTriageDeskButton) {
-            event.preventDefault();
-            openTriageDesk();
             return;
         }
 
@@ -8753,7 +8893,6 @@
     document.addEventListener('keydown', onGlobalEscape, true);
     document.addEventListener('scroll', hideQuickMenuContextMenu, true);
     applyDensityMode(readDensityMode());
-    updateTriageModeToggle();
     window.addEventListener('pagehide', persistQuickNotebookDraftFromDom);
     window.addEventListener('beforeunload', persistQuickNotebookDraftFromDom);
     window.addEventListener('resize', function () {
@@ -8765,7 +8904,6 @@
         renderRecentSearches();
         initQuickMenu();
         initQuickNotebook();
-        updateTriageModeToggle();
         startTacticalOverviewPolling();
         initTopWidgetResizers();
         initTopPanelsWidthResizer();
