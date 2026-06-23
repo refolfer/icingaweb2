@@ -3102,6 +3102,15 @@
         var compactNote = currentNote.trim().length > 120
             ? currentNote.trim().slice(0, 120).replace(/\s+\S*$/, '') + '...'
             : currentNote.trim();
+        var assignmentSummary = currentAssignee.length
+            ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
+            : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+
+        if (compactNote.length) {
+            assignmentSummary += ' · '
+                + getIncidentAssignmentLabel('assignment-note-label', 'Note')
+                + ': ' + compactNote;
+        }
 
         if (! controlsEl) {
             return;
@@ -3141,13 +3150,12 @@
             });
 
             html = ''
-                + '<form class="top-event-assignment-form" data-top-event-assignment-form>'
-                + (currentNote.trim().length
-                    ? '<span class="top-event-assignment-note top-event-assignment-note-compact" title="' + escapeHtml(currentNote) + '">'
-                        + escapeHtml(getIncidentAssignmentLabel('assignment-note-label', 'Note'))
-                        + ': ' + escapeHtml(compactNote)
+                + (assignmentSummary.length
+                    ? '<span class="top-event-assignment-note top-event-assignment-note-compact" title="' + escapeHtml(assignmentSummary) + '">'
+                        + escapeHtml(assignmentSummary)
                         + '</span>'
                     : '')
+                + '<form class="top-event-assignment-form" data-top-event-assignment-form>'
                 + '<label class="top-event-assignment-select">'
                 + '<span class="sr-only">' + escapeHtml(getIncidentAssignmentLabel('assign-to-label', 'Assign to')) + '</span>'
                 + '<select data-top-event-assignee-select'
@@ -3176,18 +3184,11 @@
             return;
         }
 
-        html = '<span class="top-event-assignment-note">'
-            + escapeHtml(currentAssignee.length
-                ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + currentAssignee
-                : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned'))
+        html = '<span class="top-event-assignment-note top-event-assignment-note-compact" title="'
+            + escapeHtml(assignmentSummary)
+            + '">'
+            + escapeHtml(assignmentSummary)
             + '</span>';
-
-        if (currentNote.trim().length) {
-            html += '<span class="top-event-assignment-note top-event-assignment-note-compact" title="' + escapeHtml(currentNote) + '">'
-                + escapeHtml(getIncidentAssignmentLabel('assignment-note-label', 'Note'))
-                + ': ' + escapeHtml(compactNote)
-                + '</span>';
-        }
 
         if (details && details.assignment && details.assignment.assignedBy) {
             html += '<span class="top-event-assignment-note">'
@@ -3787,11 +3788,11 @@
         var banner = getIcingadbObjectAssignmentBanner();
         var label;
         var value;
-        var note;
         var text = '';
         var assignee = '';
         var currentNote = '';
         var details = object ? getIncidentAssignmentDetailsCache(object) : null;
+        var assignmentSummary = '';
 
         if (! banner || ! object) {
             return;
@@ -3799,7 +3800,6 @@
 
         label = banner.querySelector('[data-object-assignee-label]');
         value = banner.querySelector('[data-object-assignee-value]');
-        note = banner.querySelector('[data-object-assignee-note]');
 
         if (! label) {
             label = document.createElement('span');
@@ -3816,15 +3816,16 @@
             banner.appendChild(value);
         }
 
-        if (! note) {
-            note = document.createElement('span');
-            note.setAttribute('data-object-assignee-note', '');
-            note.className = 'object-assignee-banner-note';
-            banner.appendChild(note);
-        }
-
         assignee = getIncidentAssignmentCache(object);
         currentNote = details && details.assignment ? String(details.assignment.note || '') : '';
+        assignmentSummary = assignee.length
+            ? getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignee
+            : getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+        if (currentNote.trim().length) {
+            assignmentSummary += ' · '
+                + getIncidentAssignmentLabel('assignment-note-label', 'Note')
+                + ': ' + currentNote;
+        }
         if (! assignee.length && ! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
             prefetchIncidentAssignment(object);
         }
@@ -3840,14 +3841,7 @@
             banner.classList.remove('loading');
         }
 
-        value.textContent = text;
-        if (currentNote.trim().length) {
-            note.hidden = false;
-            note.textContent = getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + currentNote;
-        } else {
-            note.hidden = true;
-            note.textContent = '';
-        }
+        value.textContent = assignmentSummary.length ? assignmentSummary : text;
         banner.classList.toggle('assigned', !! assignee.length);
         banner.hidden = false;
     }
@@ -5378,26 +5372,13 @@
                 label.className = 'object-assignee';
                 info.appendChild(label);
             }
-
-            if (! noteLabel) {
-                noteLabel = document.createElement('span');
-                noteLabel.setAttribute('data-object-assignee-note', '');
-                noteLabel.className = 'object-assignee-note';
-                info.appendChild(noteLabel);
-            }
-
+            text = text + (note.trim().length
+                ? ' · ' + getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + note
+                : '');
             label.textContent = text;
             label.classList.toggle('assigned', !! assignee.length);
             label.classList.toggle('unassigned', ! assignee.length);
             label.classList.toggle('loading', isIncidentAssignmentLoading(object));
-
-            if (note.trim().length) {
-                noteLabel.hidden = false;
-                noteLabel.textContent = getIncidentAssignmentLabel('assignment-note-label', 'Note') + ': ' + note;
-            } else {
-                noteLabel.hidden = true;
-                noteLabel.textContent = '';
-            }
         }
     }
 
