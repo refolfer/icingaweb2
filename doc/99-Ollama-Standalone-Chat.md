@@ -18,9 +18,9 @@ The page lives under `/ollama-chat/` and is backed by a local Ollama instance on
 
 ## File layout
 
-- `public/ollama-chat/index.html`
-- `public/ollama-chat/ollama-chat.css`
-- `public/ollama-chat/ollama-chat.js`
+- `modules/assistant/public/ollama-chat/index.html`
+- `modules/assistant/public/ollama-chat/ollama-chat.css`
+- `modules/assistant/public/ollama-chat/ollama-chat.js`
 
 ## nginx configuration
 
@@ -79,7 +79,7 @@ Suggested usage:
 
 ## Deployment steps
 
-1. Copy the `public/ollama-chat/` directory to `/usr/share/icingaweb2/public/ollama-chat/` on the host.
+1. Copy the `modules/assistant/public/ollama-chat/` directory to `/usr/share/icingaweb2/public/ollama-chat/` on the host.
 2. Add the nginx locations above.
 3. Reload nginx.
 4. Open `http://192.168.56.106/ollama-chat/` or the HTTPS equivalent.
