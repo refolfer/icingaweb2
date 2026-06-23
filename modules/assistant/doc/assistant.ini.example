@@ -1,0 +1,6 @@
+[assistant]
+base_url = "http://127.0.0.1:11434"
+endpoint = "/api/chat"
+model = "qwen3:1.7b"
+temperature = "0"
+timeout = "30"
