@@ -2118,6 +2118,22 @@
         return getOperatorDecisionLabel(lane + 'Label', labels[lane] || 'No matching events');
     }
 
+    function getOperatorDecisionNormalizedNames(value) {
+        var names = [];
+        var normalized = normalizeText(value || '').toLowerCase();
+        var local = normalized.indexOf('@') === -1 ? normalized : normalized.split('@')[0];
+
+        if (normalized.length && names.indexOf(normalized) === -1) {
+            names.push(normalized);
+        }
+
+        if (local.length && names.indexOf(local) === -1) {
+            names.push(local);
+        }
+
+        return names;
+    }
+
     function getOperatorDecisionCurrentUserNames() {
         var matrix = getOperatorDecisionMatrix();
         var names = [];
@@ -2126,39 +2142,26 @@
             return names;
         }
 
-        [matrix.dataset.currentUser || '', matrix.dataset.currentUserLocal || ''].forEach(function (name) {
-            var normalized = normalizeText(name).toLowerCase();
-            var local = normalized.indexOf('@') === -1 ? normalized : normalized.split('@')[0];
+        names = names
+            .concat(getOperatorDecisionNormalizedNames(matrix.dataset.currentUser || ''))
+            .concat(getOperatorDecisionNormalizedNames(matrix.dataset.currentUserLocal || ''));
 
-            if (normalized.length && names.indexOf(normalized) === -1) {
-                names.push(normalized);
-            }
-
-            if (local.length && names.indexOf(local) === -1) {
-                names.push(local);
-            }
+        return names.filter(function (name, index, list) {
+            return name.length && list.indexOf(name) === index;
         });
-
-        return names;
     }
 
     function isAssignedToCurrentUser(assignee, currentUserNames) {
-        var normalized = normalizeText(assignee || '').toLowerCase();
         var names = currentUserNames || getOperatorDecisionCurrentUserNames();
+        var assigneeNames = getOperatorDecisionNormalizedNames(assignee || '');
 
-        if (! normalized.length || ! names.length) {
+        if (! assigneeNames.length || ! names.length) {
             return false;
         }
 
-        if (names.indexOf(normalized) !== -1) {
-            return true;
-        }
-
-        if (normalized.indexOf('@') !== -1 && names.indexOf(normalized.split('@')[0]) !== -1) {
-            return true;
-        }
-
-        return false;
+        return assigneeNames.some(function (name) {
+            return names.indexOf(name) !== -1;
+        });
     }
 
     function getOperatorDecisionLaneFromAssignee(assignee, currentUserNames) {
@@ -2170,11 +2173,10 @@
     }
 
     function getOperatorDecisionLaneAssignedValue(lane) {
-        var matrix = getOperatorDecisionMatrix();
-        var currentUser = matrix && matrix.dataset ? normalizeText(matrix.dataset.currentUser || '') : '';
+        var currentUserNames = getOperatorDecisionCurrentUserNames();
 
         if (lane === 'me') {
-            return currentUser;
+            return currentUserNames[0] || '';
         }
 
         if (lane === 'assigned') {

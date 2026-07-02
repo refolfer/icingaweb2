@@ -470,9 +470,9 @@ class IncidentAssignmentController extends AuthBackendController
 
     protected function matchesAssignedFilter($assignee, $assigned)
     {
+        $assigned = strtolower(trim((string) $assigned));
         $assigneeNames = $this->normalizeAssigneeNames($assignee);
         $assignedNames = $this->normalizeAssigneeNames($assigned);
-        $assigned = strtolower(trim((string) $assigned));
 
         if ($assigned === '' || $assigned === 'true') {
             return count($assigneeNames) > 0;
@@ -482,7 +482,7 @@ class IncidentAssignmentController extends AuthBackendController
             return count($assigneeNames) === 0;
         }
 
-        return count(array_intersect($assigneeNames, $assignedNames)) > 0;
+        return $this->namesOverlap($assigneeNames, $assignedNames);
     }
 
     protected function renderAssignedObjects(array $objects, array $assignments, $assigned)
@@ -555,6 +555,11 @@ class IncidentAssignmentController extends AuthBackendController
         return array_values(array_unique(array_filter($names)));
     }
 
+    protected function namesOverlap(array $left, array $right)
+    {
+        return count(array_intersect($left, $right)) > 0;
+    }
+
     protected function getObjectLabel(array $object)
     {
         if (($object['type'] ?? '') === 'service') {
@@ -594,26 +599,13 @@ class IncidentAssignmentController extends AuthBackendController
 
     protected function getCurrentUserNames()
     {
-        $names = [];
         $user = $this->Auth()->getUser();
-        $candidates = [];
+        $names = [];
 
         if ($user) {
-            $candidates[] = $user->getUsername();
+            $names = array_merge($names, $this->normalizeAssigneeNames($user->getUsername()));
             if (method_exists($user, 'getLocalUsername')) {
-                $candidates[] = $user->getLocalUsername();
-            }
-        }
-
-        foreach ($candidates as $name) {
-            $normalized = strtolower(trim((string) $name));
-            if ($normalized === '') {
-                continue;
-            }
-
-            $names[] = $normalized;
-            if (strpos($normalized, '@') !== false) {
-                $names[] = strtok($normalized, '@');
+                $names = array_merge($names, $this->normalizeAssigneeNames($user->getLocalUsername()));
             }
         }
 
@@ -622,20 +614,11 @@ class IncidentAssignmentController extends AuthBackendController
 
     protected function isAssigneeCurrentUser($assignee, array $currentUserNames)
     {
-        $normalized = strtolower(trim((string) $assignee));
-        if ($normalized === '' || ! count($currentUserNames)) {
+        if (! count($currentUserNames)) {
             return false;
         }
 
-        if (in_array($normalized, $currentUserNames, true)) {
-            return true;
-        }
-
-        if (strpos($normalized, '@') !== false) {
-            return in_array(strtok($normalized, '@'), $currentUserNames, true);
-        }
-
-        return false;
+        return $this->namesOverlap($this->normalizeAssigneeNames($assignee), $currentUserNames);
     }
 
     protected function normalizeObjects(array $objects)
