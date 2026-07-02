@@ -470,18 +470,19 @@ class IncidentAssignmentController extends AuthBackendController
 
     protected function matchesAssignedFilter($assignee, $assigned)
     {
-        $assignee = strtolower(trim((string) $assignee));
+        $assigneeNames = $this->normalizeAssigneeNames($assignee);
+        $assignedNames = $this->normalizeAssigneeNames($assigned);
         $assigned = strtolower(trim((string) $assigned));
 
         if ($assigned === '' || $assigned === 'true') {
-            return $assignee !== '';
+            return count($assigneeNames) > 0;
         }
 
         if ($assigned === 'false') {
-            return $assignee === '';
+            return count($assigneeNames) === 0;
         }
 
-        return $assignee === $assigned;
+        return count(array_intersect($assigneeNames, $assignedNames)) > 0;
     }
 
     protected function renderAssignedObjects(array $objects, array $assignments, $assigned)
@@ -532,6 +533,26 @@ class IncidentAssignmentController extends AuthBackendController
         }
 
         return 'Assigned to ' . $assigned;
+    }
+
+    protected function normalizeAssigneeNames($value)
+    {
+        $names = [];
+        $normalized = strtolower(trim((string) $value));
+
+        if ($normalized === '') {
+            return $names;
+        }
+
+        $names[] = $normalized;
+        if (strpos($normalized, '@') !== false) {
+            $local = strtok($normalized, '@');
+            if ($local !== false && $local !== '') {
+                $names[] = $local;
+            }
+        }
+
+        return array_values(array_unique(array_filter($names)));
     }
 
     protected function getObjectLabel(array $object)
