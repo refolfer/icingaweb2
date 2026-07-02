@@ -3377,6 +3377,15 @@
                 }
                 renderTopEventAssignmentControls(item, object, assignmentControlsEl);
                 previewEl.textContent = item.preview || item.meta || item.title;
+                if (object) {
+                    slots[i].dataset.incidentObjectType = object.type;
+                    slots[i].dataset.incidentObjectHostName = object.hostName;
+                    slots[i].dataset.incidentObjectServiceName = object.serviceName || '';
+                } else {
+                    delete slots[i].dataset.incidentObjectType;
+                    delete slots[i].dataset.incidentObjectHostName;
+                    delete slots[i].dataset.incidentObjectServiceName;
+                }
                 url = normalizeTopEventUrl(item.url);
                 if (url && isTopEventDetailsUrl(url)) {
                     linkEl.setAttribute('href', url);
@@ -3385,6 +3394,7 @@
                 } else {
                     linkEl.setAttribute('href', normalizeTopEventUrl(getTopEventsHistoryUrl()) || getTopEventsHistoryUrl());
                     linkEl.classList.add('top-event-link-unresolved');
+                    slots[i].removeAttribute('data-event-url');
                 }
                 if (item.state) {
                     stateClass = 'top-event-state-' + item.state;
@@ -3399,6 +3409,10 @@
                 titleEl.textContent = '—';
                 metaEl.textContent = '';
                 linkEl.setAttribute('href', url || getTopEventsHistoryUrl());
+                delete slots[i].dataset.incidentObjectType;
+                delete slots[i].dataset.incidentObjectHostName;
+                delete slots[i].dataset.incidentObjectServiceName;
+                slots[i].removeAttribute('data-event-url');
             }
         }
 
@@ -3748,31 +3762,13 @@
         return new URLSearchParams(url.slice(queryIndex + 1));
     }
 
-    function getIcingadbObjectFromUrl(url) {
-        var normalized = normalizeIncidentUrl(url);
-        var baseUrl = getBaseUrl();
-        var path = normalized;
+    function parseIcingadbObjectPath(path) {
         var params;
         var hostName;
         var serviceName;
 
-        if (! normalized.length) {
+        if (! path.length) {
             return null;
-        }
-
-        if (/^https?:\/\//i.test(normalized)) {
-            try {
-                path = new URL(normalized, window.location.href).pathname
-                    + new URL(normalized, window.location.href).search;
-            } catch (error) {
-                path = normalized;
-            }
-        }
-
-        if (baseUrl.length && path.indexOf(baseUrl + '/') === 0) {
-            path = path.slice(baseUrl.length + 1);
-        } else {
-            path = path.replace(/^\/+/, '');
         }
 
         params = getUrlSearchParams(path);
@@ -3793,6 +3789,83 @@
                 type: 'host',
                 hostName: hostName,
                 serviceName: ''
+            };
+        }
+
+        return null;
+    }
+
+    function getIcingadbObjectFromUrl(url) {
+        var normalized = normalizeIncidentUrl(url);
+        var baseUrl = getBaseUrl();
+        var path = normalized;
+        var hashIndex;
+        var hashPath;
+        var hashObject;
+
+        if (! normalized.length) {
+            return null;
+        }
+
+        if (/^https?:\/\//i.test(normalized)) {
+            try {
+                path = new URL(normalized, window.location.href).pathname
+                    + new URL(normalized, window.location.href).search;
+            } catch (error) {
+                path = normalized;
+            }
+        }
+
+        if (baseUrl.length && path.indexOf(baseUrl + '/') === 0) {
+            path = path.slice(baseUrl.length + 1);
+        } else {
+            path = path.replace(/^\/+/, '');
+        }
+
+        hashIndex = normalized.indexOf('#');
+        if (hashIndex !== -1) {
+            hashPath = normalized.slice(hashIndex + 1).replace(/^!+/, '');
+            if (hashPath.indexOf(baseUrl + '/') === 0) {
+                hashPath = hashPath.slice(baseUrl.length + 1);
+            } else {
+                hashPath = hashPath.replace(/^\/+/, '');
+            }
+
+            hashObject = parseIcingadbObjectPath(hashPath);
+            if (hashObject) {
+                return hashObject;
+            }
+        }
+
+        return parseIcingadbObjectPath(path);
+    }
+
+    function getIcingadbObjectFromNode(node) {
+        var type;
+        var hostName;
+        var serviceName;
+
+        if (! node || ! node.dataset) {
+            return null;
+        }
+
+        type = String(node.dataset.incidentObjectType || '').trim();
+        hostName = String(node.dataset.incidentObjectHostName || '').trim();
+        serviceName = String(node.dataset.incidentObjectServiceName || '').trim();
+
+        if (type === 'host' && hostName.length) {
+            return {
+                type: 'host',
+                hostName: hostName,
+                serviceName: ''
+            };
+        }
+
+        if (type === 'service' && hostName.length && serviceName.length) {
+            return {
+                type: 'service',
+                hostName: hostName,
+                serviceName: serviceName
             };
         }
 
@@ -3828,6 +3901,11 @@
 
         if (! node) {
             return null;
+        }
+
+        object = getIcingadbObjectFromNode(node);
+        if (object) {
+            return object;
         }
 
         if (typeof node.closest === 'function' && node.closest('.object-detail')) {
@@ -5357,7 +5435,8 @@
         renderIncidentAssignment();
 
         window.fetch(url + '?' + params.toString(), {
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            cache: 'no-store'
         })
             .then(function (response) {
                 if (! response.ok) {
@@ -5448,9 +5527,11 @@
         if (object.type === 'service') {
             params.set('service.name', object.serviceName);
         }
+        params.set('_', String(Date.now()));
 
         window.fetch(url + '?' + params.toString(), {
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            cache: 'no-store'
         })
             .then(function (response) {
                 if (! response.ok) {
@@ -5842,12 +5923,14 @@
             })
             .then(function (html) {
                 var parsed = parseIncidentHtml(html);
+                var currentObjectSignature = getIcingadbObjectSignature(incidentDrawerState.object);
+                var parsedObjectSignature = parsed.object ? getIcingadbObjectSignature(parsed.object) : '';
 
                 if (url !== incidentDrawerState.url) {
                     return;
                 }
 
-                if (parsed.object) {
+                if (parsed.object && (! currentObjectSignature.length || currentObjectSignature === parsedObjectSignature)) {
                     incidentDrawerState.object = parsed.object;
                     setIncidentQuickActions(parsed.object);
                     setIncidentObjectContext(parsed.object);
@@ -5905,18 +5988,29 @@
 
     function openIncidentDrawerFromLink(link) {
         var item = link ? link.closest('.top-event-item') : null;
+        var object = item ? getIcingadbObjectFromNode(item) : null;
         var url = normalizeIncidentUrl(link ? (link.getAttribute('href') || link.href || '') : '');
-        var hasRenderedState = item && /top-event-state-/.test(item.className || '');
 
-        if (! link || ! item || (! hasRenderedState && url.indexOf('/icingadb/history') !== -1)) {
+        if (! link || ! item) {
             return false;
+        }
+
+        if (! object) {
+            object = getIcingadbObjectFromUrl(item.getAttribute('data-event-url') || url);
+        }
+
+        if (! object) {
+            object = findIcingadbObjectInNode(item);
         }
 
         item.classList.add('top-event-seen');
 
-        return openIncidentDrawerFromEventData({
-            url: url
-        }, false);
+        return openAssignmentDrawerForObject(
+            object,
+            item.getAttribute('data-event-url') || '',
+            true,
+            false
+        );
     }
 
     function openAssignmentDrawerForObject(object, sourceUrl, focusAssignment, focusTimeline) {
@@ -5949,6 +6043,7 @@
             }
         }
 
+        clearIncidentAssignmentCaches(object);
         rememberRecentIncident({
             title: drawerTitle,
             meta: drawerMeta,
@@ -6045,6 +6140,9 @@
                 return block.querySelectorAll(selector);
             }
         });
+        if (object) {
+            event.object = object;
+        }
 
         if (openIncidentDrawerFromEventData(event, true)) {
             recordOperatorActivity('Incident', 'Opened history event metro timeline', normalizeText(event.title || event.meta || ''), event.url);
@@ -8560,18 +8658,21 @@
         }
 
         if (objectAssignmentButton) {
+            var currentObject = getIcingadbObjectFromUrl(window.location.href) || findIcingadbObjectInDocument(document);
+
             event.preventDefault();
-            openAssignmentDrawerForObject(getIcingadbObjectFromUrl(window.location.href));
+            if (currentObject) {
+                openAssignmentDrawerForObject(currentObject);
+            }
             return;
         }
 
         if (openIncidentAssignmentButton) {
             var topEventItem = openIncidentAssignmentButton.closest('.top-event-item');
-            var topEventLink = topEventItem ? topEventItem.querySelector('.top-event-link') : null;
 
             event.preventDefault();
-            if (topEventLink) {
-                openIncidentDrawerForAssignment(topEventLink);
+            if (topEventItem) {
+                openIncidentDrawerForAssignment(topEventItem.querySelector('.top-event-link'));
             }
             return;
         }

@@ -33,6 +33,10 @@ class IncidentAssignmentController extends AuthBackendController
     public function getAction()
     {
         $this->assertAuthenticated();
+        $response = $this->getResponse();
+
+        $response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0', true);
+        $response->setHeader('Pragma', 'no-cache', true);
 
         $object = $this->getObjectFromRequest();
         if ($object === null) {
