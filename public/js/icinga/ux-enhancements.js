@@ -2326,7 +2326,8 @@
         var lanes = createOperatorDecisionSnapshot();
         var item = lanes[lane] && lanes[lane][0] ? lanes[lane][0] : null;
         var assigned = getOperatorDecisionLaneAssignedValue(lane);
-        var searchUrl = normalizeIncidentUrl('search?assigned=' + encodeURIComponent(assigned));
+        var searchPath = 'search?assigned=' + encodeURIComponent(assigned);
+        var searchUrl = normalizeIncidentUrl(searchPath);
 
         recordOperatorActivity(
             'Decision',
@@ -2334,7 +2335,7 @@
             item ? getOperatorDecisionLaneTitle(item, lane) : getOperatorDecisionLaneLabel(lane),
             searchUrl
         );
-        navigateTo(searchUrl);
+        navigateTo(searchPath);
     }
 
     function renderOperatorBoards() {
