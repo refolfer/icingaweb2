@@ -151,6 +151,30 @@ class IncidentAssignmentController extends AuthBackendController
         ]);
     }
 
+    public function assignedAction()
+    {
+        $this->assertAuthenticated();
+
+        $assigned = trim((string) $this->params->get('assigned', ''));
+
+        try {
+            $criticalObjects = $this->loadCriticalObjects();
+            $store = IncidentAssignmentStore::create();
+            $assignments = $store->loadMany($criticalObjects);
+            $filteredObjects = $this->filterObjectsByAssigned($criticalObjects, $assignments, $assigned);
+        } catch (Exception $e) {
+            $this->getResponse()
+                ->setHttpResponseCode(500)
+                ->setHeader('Content-Type', 'text/plain; charset=utf-8', true)
+                ->setBody($e->getMessage());
+            return;
+        }
+
+        $this->getResponse()
+            ->setHeader('Content-Type', 'text/html; charset=utf-8', true)
+            ->setBody($this->renderAssignedObjects($filteredObjects, $assignments, $assigned));
+    }
+
     protected function getObjectFromRequest()
     {
         $rawParams = $this->getRawRequestParams();
@@ -419,6 +443,95 @@ class IncidentAssignmentController extends AuthBackendController
         }
 
         return $type . '|' . $hostName . '|' . ($type === 'service' ? $serviceName : '');
+    }
+
+    protected function filterObjectsByAssigned(array $objects, array $assignments, $assigned)
+    {
+        $filtered = [];
+
+        foreach ($objects as $object) {
+            $signature = $this->buildObjectSignature($object);
+            if ($signature === null) {
+                continue;
+            }
+
+            $assignment = $assignments[$signature] ?? null;
+            $assignee = is_array($assignment) ? trim((string) ($assignment['assignee'] ?? '')) : '';
+
+            if (! $this->matchesAssignedFilter($assignee, $assigned)) {
+                continue;
+            }
+
+            $filtered[] = $object;
+        }
+
+        return $filtered;
+    }
+
+    protected function matchesAssignedFilter($assignee, $assigned)
+    {
+        $assignee = strtolower(trim((string) $assignee));
+        $assigned = strtolower(trim((string) $assigned));
+
+        if ($assigned === '' || $assigned === 'true') {
+            return $assignee !== '';
+        }
+
+        if ($assigned === 'false') {
+            return $assignee === '';
+        }
+
+        return $assignee === $assigned;
+    }
+
+    protected function renderAssignedObjects(array $objects, array $assignments, $assigned)
+    {
+        $title = $this->getAssignedFilterTitle($assigned);
+
+        $html = [];
+        $html[] = '<div class="incident-assignment-search">';
+        $html[] = '<h2>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
+        $html[] = '<p>' . htmlspecialchars(sprintf('%d matching incidents', count($objects)), ENT_QUOTES, 'UTF-8') . '</p>';
+
+        if (! count($objects)) {
+            $html[] = '<p>' . htmlspecialchars('No matching incidents', ENT_QUOTES, 'UTF-8') . '</p>';
+            $html[] = '</div>';
+            return join('', $html);
+        }
+
+        $html[] = '<ul class="incident-assignment-search-list">';
+        foreach ($objects as $object) {
+            $signature = $this->buildObjectSignature($object);
+            $assignment = $signature !== null && array_key_exists($signature, $assignments) ? $assignments[$signature] : null;
+            $label = htmlspecialchars($this->getObjectLabel($object), ENT_QUOTES, 'UTF-8');
+            $url = htmlspecialchars($this->getObjectUrl($object), ENT_QUOTES, 'UTF-8');
+            $meta = htmlspecialchars($this->getObjectMeta($object, $assignment), ENT_QUOTES, 'UTF-8');
+            $html[] = '<li class="incident-assignment-search-item">';
+            $html[] = '<a href="' . $url . '">' . $label . '</a>';
+            if ($meta !== '') {
+                $html[] = '<div class="incident-assignment-search-meta">' . $meta . '</div>';
+            }
+            $html[] = '</li>';
+        }
+        $html[] = '</ul>';
+        $html[] = '</div>';
+
+        return join('', $html);
+    }
+
+    protected function getAssignedFilterTitle($assigned)
+    {
+        $assigned = trim((string) $assigned);
+
+        if ($assigned === '' || strtolower($assigned) === 'true') {
+            return 'Assigned incidents';
+        }
+
+        if (strtolower($assigned) === 'false') {
+            return 'Unassigned incidents';
+        }
+
+        return 'Assigned to ' . $assigned;
     }
 
     protected function getObjectLabel(array $object)

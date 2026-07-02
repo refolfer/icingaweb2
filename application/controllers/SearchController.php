@@ -6,7 +6,8 @@
 namespace Icinga\Controllers;
 
 use Icinga\Web\Controller\ActionController;
-use Icinga\Web\Widget;
+use Icinga\Web\Url;
+use Icinga\Web\Widget\Dashboard;
 use Icinga\Web\Widget\SearchDashboard;
 
 /**
@@ -16,6 +17,14 @@ class SearchController extends ActionController
 {
     public function indexAction()
     {
+        $assigned = trim((string) $this->params->get('assigned', ''));
+
+        if ($assigned !== '') {
+            $this->view->dashboard = $this->createAssignedDashboard($assigned);
+            $this->view->dashboard->render();
+            return;
+        }
+
         $searchDashboard = new SearchDashboard();
         $searchDashboard->setUser($this->Auth()->getUser());
         $this->view->dashboard = $searchDashboard->search($this->params->get('q'));
@@ -26,5 +35,34 @@ class SearchController extends ActionController
 
     public function hintAction()
     {
+    }
+
+    protected function createAssignedDashboard($assigned)
+    {
+        $assigned = trim((string) $assigned);
+        $dashboard = new Dashboard();
+        $paneTitle = $this->getAssignedDashboardTitle($assigned);
+        $dashboard->createPane('assigned');
+        $pane = $dashboard->getPane('assigned')->setTitle($paneTitle);
+        $pane->createDashlet(
+            $paneTitle,
+            Url::fromPath('incident-assignment/assigned', ['assigned' => $assigned])
+        );
+        $dashboard->activate('assigned');
+
+        return $dashboard;
+    }
+
+    protected function getAssignedDashboardTitle($assigned)
+    {
+        if ($assigned === 'true') {
+            return $this->translate('Assigned incidents');
+        }
+
+        if ($assigned === 'false') {
+            return $this->translate('Unassigned incidents');
+        }
+
+        return sprintf($this->translate('Assigned to %s'), $assigned);
     }
 }

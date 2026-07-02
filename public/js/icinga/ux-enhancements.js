@@ -2169,35 +2169,23 @@
         return isAssignedToCurrentUser(assignee, currentUserNames) ? 'me' : 'assigned';
     }
 
-    function getOperatorDecisionLaneQuery(lane, item) {
-        var summary = operatorDecisionAssignmentState.summary || null;
-        var laneSummary = summary && summary.lanes ? summary.lanes[lane] : null;
-        var title = laneSummary && laneSummary.title ? normalizeText(laneSummary.title) : '';
-
-        if (title.length) {
-            return title;
-        }
-
-        if (item) {
-            title = getOperatorDecisionLaneTitle(item, lane);
-            if (title.length) {
-                return title;
-            }
-        }
+    function getOperatorDecisionLaneAssignedValue(lane) {
+        var currentUserNames = getOperatorDecisionCurrentUserNames();
+        var currentUser = currentUserNames[0] || '';
 
         if (lane === 'me') {
-            return 'critical assigned to me';
+            return currentUser.length ? currentUser : 'true';
         }
 
         if (lane === 'assigned') {
-            return 'critical assigned';
+            return 'true';
         }
 
         if (lane === 'unassigned') {
-            return 'critical not assigned';
+            return 'false';
         }
 
-        return 'critical';
+        return '';
     }
 
     function refreshOperatorDecisionAssignments() {
@@ -2337,15 +2325,8 @@
     function runOperatorDecisionAction(lane) {
         var lanes = createOperatorDecisionSnapshot();
         var item = lanes[lane] && lanes[lane][0] ? lanes[lane][0] : null;
-        var summary = operatorDecisionAssignmentState.summary || null;
-        var laneSummary = summary && summary.lanes ? summary.lanes[lane] : null;
-        var laneCount = summary && typeof summary[lane] === 'number'
-            ? summary[lane]
-            : (lanes[lane] ? lanes[lane].length : 0);
-        var query = getOperatorDecisionLaneQuery(lane, item);
-        var searchUrl = laneSummary && laneSummary.url && laneCount === 1
-            ? normalizeIncidentUrl(laneSummary.url)
-            : normalizeIncidentUrl('search?q=' + encodeURIComponent(query));
+        var assigned = getOperatorDecisionLaneAssignedValue(lane);
+        var searchUrl = normalizeIncidentUrl('search?assigned=' + encodeURIComponent(assigned));
 
         recordOperatorActivity(
             'Decision',
