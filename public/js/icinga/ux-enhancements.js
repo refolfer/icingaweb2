@@ -95,7 +95,8 @@
     var operatorDecisionAssignmentState = {
         lastSignature: '',
         inFlight: false,
-        retryAt: 0
+        retryAt: 0,
+        summary: null
     };
 
     var lastFocusedElement = null;
@@ -2189,87 +2190,11 @@
         return 'critical';
     }
 
-    function getOperatorDecisionItems(items) {
-        return (items || []).filter(function (item) {
-            return item
-                && item.url
-                && ! item.handled
-                && ! isIncidentSeen(item.url)
-                && ! isIncidentSnoozed(item.url)
-                && item.state === 'critical';
-        });
-    }
-
-    function getOperatorDecisionObjects(items) {
-        var seen = {};
-        var objects = [];
-
-        getOperatorDecisionItems(items).forEach(function (item) {
-            var object = getIcingadbObjectFromUrl(item.url);
-            var signature;
-
-            if (! object) {
-                return;
-            }
-
-            signature = getIcingadbObjectSignature(object);
-            if (! signature.length || seen[signature]) {
-                return;
-            }
-
-            seen[signature] = true;
-            objects.push(object);
-        });
-
-        return objects;
-    }
-
-    function getOperatorDecisionAssignmentSignature(items) {
-        return getOperatorDecisionObjects(items).map(function (object) {
-            return getIcingadbObjectSignature(object);
-        }).join('|');
-    }
-
-    function applyOperatorDecisionAssignmentPayload(objects, payload) {
-        var assignments = payload && payload.assignments ? payload.assignments : {};
-        var i;
-
-        for (i = 0; i < objects.length; i++) {
-            var object = objects[i];
-            var signature = getIcingadbObjectSignature(object);
-            var assignment = assignments[signature] || null;
-            var details = incidentAssignmentDetailsCache[signature] || null;
-
-            if (assignment) {
-                setIncidentAssignmentCache(object, String(assignment.assignee || ''), false);
-
-                if (details) {
-                    details.assignment = {
-                        assignee: String(assignment.assignee || ''),
-                        assignedBy: String(assignment.assigned_by || ''),
-                        assignedAt: String(assignment.created_at || ''),
-                        note: String(assignment.note || '')
-                    };
-                    incidentAssignmentDetailsCache[signature] = details;
-                }
-            } else {
-                setIncidentAssignmentCache(object, '', false);
-                if (details) {
-                    delete incidentAssignmentDetailsCache[signature];
-                }
-            }
-        }
-
-        rerenderCachedTopEvents();
-    }
-
-    function refreshOperatorDecisionAssignments(items) {
+    function refreshOperatorDecisionAssignments() {
         var url = getIncidentAssignmentSummaryUrl();
-        var objects = getOperatorDecisionObjects(items);
-        var signature = getOperatorDecisionAssignmentSignature(items);
         var now = Date.now();
 
-        if (! url.length || typeof window.fetch !== 'function' || ! objects.length) {
+        if (! url.length || typeof window.fetch !== 'function') {
             return;
         }
 
@@ -2277,13 +2202,13 @@
             return;
         }
 
-        if (operatorDecisionAssignmentState.lastSignature === signature && operatorDecisionAssignmentState.retryAt > now) {
+        if (operatorDecisionAssignmentState.retryAt > now) {
             return;
         }
 
         operatorDecisionAssignmentState.inFlight = true;
 
-        window.fetch(url + '?objects=' + encodeURIComponent(JSON.stringify(objects)), {
+        window.fetch(url, {
             method: 'GET',
             credentials: 'same-origin',
             cache: 'no-store'
@@ -2296,9 +2221,9 @@
                 return response.json();
             })
             .then(function (payload) {
-                applyOperatorDecisionAssignmentPayload(objects, payload || {});
-                operatorDecisionAssignmentState.lastSignature = signature;
+                operatorDecisionAssignmentState.summary = payload && payload.summary ? payload.summary : null;
                 operatorDecisionAssignmentState.retryAt = 0;
+                renderOperatorDecisionMatrix();
             })
             .catch(function () {
                 operatorDecisionAssignmentState.retryAt = Date.now() + Math.min(
@@ -2320,8 +2245,9 @@
             unassigned: []
         };
         var currentUserNames = getOperatorDecisionCurrentUserNames();
+        var items = Array.isArray(topEventsState.items) ? topEventsState.items : [];
 
-        getOperatorDecisionItems(topEventsState.items).forEach(function (item) {
+        items.forEach(function (item) {
             var object;
             var assignee;
             var assignmentDetails;
@@ -2355,6 +2281,7 @@
     function renderOperatorDecisionMatrix() {
         var matrix = getOperatorDecisionMatrix();
         var lanes;
+        var summary = operatorDecisionAssignmentState.summary || null;
 
         if (! matrix) {
             return;
@@ -2368,17 +2295,24 @@
             var title = matrix.querySelector('[data-operator-decision-title="' + lane + '"]');
             var card = matrix.querySelector('[data-operator-decision-lane="' + lane + '"]');
             var button = matrix.querySelector('[data-operator-decision-action="' + lane + '"]');
+            var laneSummary = summary && summary.lanes ? summary.lanes[lane] : null;
 
             if (count) {
-                count.textContent = String(events.length);
+                count.textContent = String(summary && typeof summary[lane] === 'number'
+                    ? summary[lane]
+                    : events.length);
             }
 
             if (title) {
-                title.textContent = getOperatorDecisionLaneTitle(first, lane);
+                title.textContent = laneSummary && laneSummary.title
+                    ? laneSummary.title
+                    : getOperatorDecisionLaneTitle(first, lane);
             }
 
             if (card) {
-                card.classList.toggle('has-events', events.length > 0);
+                card.classList.toggle('has-events', (summary && typeof summary[lane] === 'number'
+                    ? summary[lane]
+                    : events.length) > 0);
             }
 
             if (button) {
@@ -3545,7 +3479,7 @@
                     + Object.keys(readSnoozedIncidents()).sort().join('|');
 
                 topEventsState.items = items;
-                refreshOperatorDecisionAssignments(items);
+                refreshOperatorDecisionAssignments();
                 if (forceRender || renderSignature !== topEventsState.lastSignature) {
                     renderTopEvents(items);
                     topEventsState.lastSignature = renderSignature;
@@ -8909,6 +8843,7 @@
         initTopPanelsWidthResizer();
         initIncidentDrawerWidthResizer();
         renderIcingadbObjectAssignmentLabels();
+        refreshOperatorDecisionAssignments();
         startTopEventsPolling();
         renderEventDetailMetroTimeline();
     });
@@ -8920,6 +8855,7 @@
             initQuickNotebook();
             refreshTacticalOverview(false);
             refreshTopEvents(false);
+            refreshOperatorDecisionAssignments();
         });
         window.jQuery(document).on('rendered', '#col1', function () {
             updateQuickNotebookVisibility();

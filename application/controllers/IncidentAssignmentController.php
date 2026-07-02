@@ -7,10 +7,14 @@ namespace Icinga\Controllers;
 
 use Exception;
 use Icinga\Authentication\User\DomainAwareInterface;
+use Icinga\Module\Icingadb\Common\Backend as IcingadbBackend;
+use Icinga\Module\Icingadb\Model\Host;
+use Icinga\Module\Icingadb\Model\Service;
 use Icinga\User;
 use Icinga\Web\Controller\AuthBackendController;
 use Icinga\Web\IncidentAssignment\IncidentAssignmentStore;
 use Icinga\Util\Json;
+use ipl\Stdlib\Filter;
 
 class IncidentAssignmentController extends AuthBackendController
 {
@@ -127,30 +131,23 @@ class IncidentAssignmentController extends AuthBackendController
     {
         $this->assertAuthenticated();
 
-        $objects = $this->getObjectsFromRequest();
-        if (! count($objects)) {
-            $this->respondWithJson(['error' => 'Missing object identifiers'], 400);
-            return;
-        }
-
         try {
+            $criticalObjects = $this->loadCriticalObjects();
             $store = IncidentAssignmentStore::create();
-            $assignments = $store->loadMany($objects);
-            $assignmentCounts = $store->aggregateByAssignee($objects);
+            $assignments = $store->loadMany($criticalObjects);
+            $summary = $this->buildAssignmentSummary($criticalObjects, $assignments);
         } catch (Exception $e) {
             $this->respondWithJson(['error' => $e->getMessage()], 500);
             return;
         }
 
-        $summary = $this->buildAssignmentSummary($objects, $assignmentCounts);
-
         $this->respondWithJson([
             'ok' => true,
-            'objects' => $objects,
+            'objects' => $criticalObjects,
             'assignments' => $assignments,
-            'assignmentCounts' => $assignmentCounts,
             'summary' => $summary,
-            'currentUser' => $this->Auth()->getUser()->getUsername()
+            'currentUser' => $this->Auth()->getUser()->getUsername(),
+            'lanes' => $summary['lanes']
         ]);
     }
 
@@ -309,31 +306,156 @@ class IncidentAssignmentController extends AuthBackendController
         return in_array($userName, $this->collectAssignableUsers(), true);
     }
 
-    protected function buildAssignmentSummary(array $objects, array $assignmentCounts)
+    protected function buildAssignmentSummary(array $objects, array $assignments)
     {
         $summary = [
             'me' => 0,
             'assigned' => 0,
             'unassigned' => 0,
-            'total' => count($objects)
+            'total' => count($objects),
+            'lanes' => [
+                'me' => [
+                    'title' => '',
+                    'meta' => '',
+                    'url' => ''
+                ],
+                'assigned' => [
+                    'title' => '',
+                    'meta' => '',
+                    'url' => ''
+                ],
+                'unassigned' => [
+                    'title' => '',
+                    'meta' => '',
+                    'url' => ''
+                ]
+            ]
         ];
         $currentUserNames = $this->getCurrentUserNames();
 
-        foreach ($assignmentCounts as $assignee => $count) {
-            if ($count <= 0) {
+        foreach ($objects as $object) {
+            $signature = $this->buildObjectSignature($object);
+            if ($signature === null) {
                 continue;
             }
 
-            if ($this->isAssigneeCurrentUser($assignee, $currentUserNames)) {
-                $summary['me'] += (int) $count;
+            $assignment = $assignments[$signature] ?? null;
+            $assignee = $assignment ? (string) ($assignment['assignee'] ?? '') : '';
+            $lane = $this->getAssignmentLane($assignee, $currentUserNames);
+
+            if ($lane === 'me') {
+                $summary['me'] += 1;
+            } elseif ($lane === 'assigned') {
+                $summary['assigned'] += 1;
             } else {
-                $summary['assigned'] += (int) $count;
+                $summary['unassigned'] += 1;
+            }
+
+            if ($summary['lanes'][$lane]['title'] === '') {
+                $summary['lanes'][$lane] = [
+                    'title' => $this->getObjectLabel($object),
+                    'meta' => $this->getObjectMeta($object, $assignment),
+                    'url' => $this->getObjectUrl($object)
+                ];
             }
         }
 
-        $summary['unassigned'] = max(0, $summary['total'] - $summary['me'] - $summary['assigned']);
-
         return $summary;
+    }
+
+    protected function loadCriticalObjects()
+    {
+        $db = IcingadbBackend::getDb();
+        $objects = [];
+
+        foreach (
+            Host::on($db)
+                ->with(['state'])
+                ->filter(Filter::equal('state.is_problem', 'y')) as $host
+        ) {
+            $objects[] = [
+                'type' => 'host',
+                'host_name' => (string) $host->name,
+                'service_name' => null
+            ];
+        }
+
+        foreach (
+            Service::on($db)
+                ->with(['state', 'host'])
+                ->filter(Filter::equal('state.is_problem', 'y')) as $service
+        ) {
+            $objects[] = [
+                'type' => 'service',
+                'host_name' => (string) ($service->host->name ?? ''),
+                'service_name' => (string) $service->name
+            ];
+        }
+
+        return $objects;
+    }
+
+    protected function getAssignmentLane($assignee, array $currentUserNames)
+    {
+        if (! trim((string) $assignee)) {
+            return 'unassigned';
+        }
+
+        return $this->isAssigneeCurrentUser($assignee, $currentUserNames) ? 'me' : 'assigned';
+    }
+
+    protected function buildObjectSignature(array $object)
+    {
+        $type = trim((string) ($object['type'] ?? ''));
+        $hostName = trim((string) ($object['host_name'] ?? ''));
+        $serviceName = trim((string) ($object['service_name'] ?? ''));
+
+        if (! in_array($type, ['host', 'service'], true) || $hostName === '') {
+            return null;
+        }
+
+        if ($type === 'service' && $serviceName === '') {
+            return null;
+        }
+
+        return $type . '|' . $hostName . '|' . ($type === 'service' ? $serviceName : '');
+    }
+
+    protected function getObjectLabel(array $object)
+    {
+        if (($object['type'] ?? '') === 'service') {
+            return sprintf(
+                '%s on %s',
+                (string) ($object['service_name'] ?? ''),
+                (string) ($object['host_name'] ?? '')
+            );
+        }
+
+        return (string) ($object['host_name'] ?? '');
+    }
+
+    protected function getObjectMeta(array $object, $assignment = null)
+    {
+        if (! is_array($assignment) || ! trim((string) ($assignment['assignee'] ?? ''))) {
+            return 'Not assigned';
+        }
+
+        return 'Assigned to ' . (string) $assignment['assignee'];
+    }
+
+    protected function getObjectUrl(array $object)
+    {
+        $baseUrl = (string) $this->getRequest()->getBaseUrl();
+        if ($baseUrl === '/') {
+            $baseUrl = '';
+        }
+
+        if (($object['type'] ?? '') === 'service') {
+            return $baseUrl . '/icingadb/service?service.name=' . rawurlencode((string) $object['service_name'])
+                . '&host.name=' . rawurlencode((string) $object['host_name']);
+        }
+
+        return $baseUrl . '/icingadb/host?host.name=' . rawurlencode((string) $object['host_name']);
     }
 
     protected function getCurrentUserNames()
