@@ -88,9 +88,9 @@ class IncidentAssignmentStore
         $assignments = [];
 
         foreach ($rows as $row) {
-            $objectType = (string) ($row[self::COLUMN_OBJECT_TYPE] ?? '');
-            $hostName = (string) ($row[self::COLUMN_HOST_NAME] ?? '');
-            $serviceName = (string) ($row[self::COLUMN_SERVICE_NAME] ?? '');
+            $objectType = (string) $this->getRowValue($row, self::COLUMN_OBJECT_TYPE);
+            $hostName = (string) $this->getRowValue($row, self::COLUMN_HOST_NAME);
+            $serviceName = (string) $this->getRowValue($row, self::COLUMN_SERVICE_NAME);
             $signature = $this->getObjectSignature($objectType, $hostName, $serviceName);
 
             if ($signature === null) {
@@ -98,11 +98,11 @@ class IncidentAssignmentStore
             }
 
             $assignments[$signature] = [
-                'assignee' => (string) ($row[self::COLUMN_ASSIGNEE] ?? ''),
-                'assigned_by' => (string) ($row[self::COLUMN_ASSIGNED_BY] ?? ''),
-                'note' => (string) ($row[self::COLUMN_NOTE] ?? ''),
-                'created_at' => $row[self::COLUMN_CREATED_TIME] ?? null,
-                'updated_at' => $row[self::COLUMN_MODIFIED_TIME] ?? null
+                'assignee' => (string) $this->getRowValue($row, self::COLUMN_ASSIGNEE),
+                'assigned_by' => (string) $this->getRowValue($row, self::COLUMN_ASSIGNED_BY),
+                'note' => (string) $this->getRowValue($row, self::COLUMN_NOTE),
+                'created_at' => $this->getRowValue($row, self::COLUMN_CREATED_TIME),
+                'updated_at' => $this->getRowValue($row, self::COLUMN_MODIFIED_TIME)
             ];
         }
 
@@ -146,8 +146,8 @@ class IncidentAssignmentStore
 
         $counts = [];
         foreach ($rows as $row) {
-            $assignee = (string) ($row[self::COLUMN_ASSIGNEE] ?? '');
-            $count = (int) ($row['item_count'] ?? 0);
+            $assignee = (string) $this->getRowValue($row, self::COLUMN_ASSIGNEE);
+            $count = (int) $this->getRowValue($row, 'item_count');
 
             if ($assignee === '' || $count <= 0) {
                 continue;
@@ -428,5 +428,26 @@ class IncidentAssignmentStore
         }
 
         return $objectType . '|' . $hostName . '|' . $serviceName;
+    }
+
+    /**
+     * Read a value from a row returned by Zend_Db in either array or object mode.
+     *
+     * @param array|object $row
+     * @param string       $column
+     *
+     * @return mixed
+     */
+    protected function getRowValue($row, $column)
+    {
+        if (is_array($row) && array_key_exists($column, $row)) {
+            return $row[$column];
+        }
+
+        if (is_object($row) && isset($row->{$column})) {
+            return $row->{$column};
+        }
+
+        return null;
     }
 }
