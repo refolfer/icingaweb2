@@ -590,7 +590,7 @@ class IncidentAssignmentController extends AuthBackendController
         }
 
         if (($object['type'] ?? '') === 'service') {
-            return $baseUrl . '/icingadb/service?service.name=' . rawurlencode((string) $object['service_name'])
+            return $baseUrl . '/icingadb/service?name=' . rawurlencode((string) $object['service_name'])
                 . '&host.name=' . rawurlencode((string) $object['host_name']);
         }
 
