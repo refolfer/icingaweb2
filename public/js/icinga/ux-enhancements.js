@@ -2169,14 +2169,24 @@
         return isAssignedToCurrentUser(assignee, currentUserNames) ? 'me' : 'assigned';
     }
 
-    function getOperatorDecisionLaneQuery(lane) {
-        var currentUserNames = getOperatorDecisionCurrentUserNames();
-        var currentUser = currentUserNames[0] || '';
+    function getOperatorDecisionLaneQuery(lane, item) {
+        var summary = operatorDecisionAssignmentState.summary || null;
+        var laneSummary = summary && summary.lanes ? summary.lanes[lane] : null;
+        var title = laneSummary && laneSummary.title ? normalizeText(laneSummary.title) : '';
+
+        if (title.length) {
+            return title;
+        }
+
+        if (item) {
+            title = getOperatorDecisionLaneTitle(item, lane);
+            if (title.length) {
+                return title;
+            }
+        }
 
         if (lane === 'me') {
-            return currentUser.length
-                ? 'critical assignee:"' + currentUser + '"'
-                : 'critical assigned to me';
+            return 'critical assigned to me';
         }
 
         if (lane === 'assigned') {
@@ -2316,7 +2326,9 @@
             }
 
             if (button) {
-                button.disabled = false;
+                button.disabled = (summary && typeof summary[lane] === 'number'
+                    ? summary[lane]
+                    : events.length) <= 0;
                 button.textContent = getOperatorDecisionLabel('openLabel', 'Open');
             }
         });
@@ -2325,16 +2337,23 @@
     function runOperatorDecisionAction(lane) {
         var lanes = createOperatorDecisionSnapshot();
         var item = lanes[lane] && lanes[lane][0] ? lanes[lane][0] : null;
-        var query = getOperatorDecisionLaneQuery(lane);
-        var searchUrl = normalizeIncidentUrl('search?q=' + encodeURIComponent(query));
+        var summary = operatorDecisionAssignmentState.summary || null;
+        var laneSummary = summary && summary.lanes ? summary.lanes[lane] : null;
+        var laneCount = summary && typeof summary[lane] === 'number'
+            ? summary[lane]
+            : (lanes[lane] ? lanes[lane].length : 0);
+        var query = getOperatorDecisionLaneQuery(lane, item);
+        var searchUrl = laneSummary && laneSummary.url && laneCount === 1
+            ? normalizeIncidentUrl(laneSummary.url)
+            : normalizeIncidentUrl('search?q=' + encodeURIComponent(query));
 
         recordOperatorActivity(
             'Decision',
-            'Opened ' + getOperatorDecisionLaneLabel(lane).toLowerCase() + ' search',
+            'Opened ' + getOperatorDecisionLaneLabel(lane).toLowerCase(),
             item ? getOperatorDecisionLaneTitle(item, lane) : getOperatorDecisionLaneLabel(lane),
             searchUrl
         );
-        navigateTo('search?q=' + encodeURIComponent(query));
+        navigateTo(searchUrl);
     }
 
     function renderOperatorBoards() {
