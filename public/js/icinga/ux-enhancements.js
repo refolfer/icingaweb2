@@ -2170,11 +2170,11 @@
     }
 
     function getOperatorDecisionLaneAssignedValue(lane) {
-        var currentUserNames = getOperatorDecisionCurrentUserNames();
-        var currentUser = currentUserNames[0] || '';
+        var matrix = getOperatorDecisionMatrix();
+        var currentUser = matrix && matrix.dataset ? normalizeText(matrix.dataset.currentUser || '') : '';
 
         if (lane === 'me') {
-            return currentUser.length ? currentUser : 'true';
+            return currentUser;
         }
 
         if (lane === 'assigned') {
@@ -2316,7 +2316,7 @@
             if (button) {
                 button.disabled = (summary && typeof summary[lane] === 'number'
                     ? summary[lane]
-                    : events.length) <= 0;
+                    : events.length) <= 0 || (lane === 'me' && ! getOperatorDecisionLaneAssignedValue(lane).length);
                 button.textContent = getOperatorDecisionLabel('openLabel', 'Open');
             }
         });
