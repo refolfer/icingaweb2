@@ -3873,20 +3873,42 @@
         return null;
     }
 
-    function getIcingadbObjectAssignmentBanner() {
+    function getIcingadbDetailContainer() {
         var col1 = document.getElementById('col1');
+        var col2 = document.getElementById('col2');
+        var detail;
+
+        if (col1) {
+            detail = col1.querySelector('.object-detail');
+            if (detail) {
+                return detail.closest('#col1, #col2') || col1;
+            }
+        }
+
+        if (col2) {
+            detail = col2.querySelector('.object-detail');
+            if (detail) {
+                return detail.closest('#col1, #col2') || col2;
+            }
+        }
+
+        return null;
+    }
+
+    function getIcingadbObjectAssignmentBanner() {
+        var container = getIcingadbDetailContainer();
         var banner;
 
-        if (! col1) {
+        if (! container) {
             return null;
         }
 
-        banner = col1.querySelector('[data-object-assignee-banner]');
+        banner = container.querySelector('[data-object-assignee-banner]');
         if (! banner) {
             banner = document.createElement('div');
             banner.setAttribute('data-object-assignee-banner', '');
             banner.className = 'object-assignee-banner';
-            col1.insertBefore(banner, col1.firstChild || null);
+            container.insertBefore(banner, container.firstChild || null);
         }
 
         return banner;
@@ -5506,7 +5528,7 @@
             '.header-item-layout.host, .header-item-layout.service, .item-layout.host, .item-layout.service'
         );
         var pageObject = getIcingadbObjectFromUrl(window.location.href);
-        var detailRoot = document.getElementById('col1');
+        var detailRoot = getIcingadbDetailContainer();
         var i;
 
         if (pageObject && detailRoot && detailRoot.querySelector('.object-detail')) {
@@ -8908,6 +8930,9 @@
             initIncidentDrawerWidthResizer();
             renderIcingadbObjectAssignmentLabels();
             renderEventDetailMetroTimeline();
+        });
+        window.jQuery(document).on('rendered', '#col2', function () {
+            renderIcingadbObjectAssignmentLabels();
         });
     }
 
