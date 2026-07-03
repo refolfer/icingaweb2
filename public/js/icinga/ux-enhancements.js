@@ -1599,6 +1599,11 @@
             return candidate;
         }
 
+        object = getIcingadbObjectFromServiceTitle(block);
+        if (object) {
+            return buildIcingadbObjectUrl(object);
+        }
+
         detailsAnchors = block.querySelectorAll('a[href*="/icingadb/event"], a[href*="event?id="]');
         for (i = 0; i < detailsAnchors.length; i++) {
             candidate = normalizeTopEventUrl(detailsAnchors[i].getAttribute('href'));
@@ -3814,10 +3819,73 @@
         return null;
     }
 
+    function getIcingadbObjectFromDetailFilter(node) {
+        var container;
+        var filter;
+        var params;
+        var hostName;
+        var serviceName;
+
+        if (! node || typeof node.closest !== 'function') {
+            return null;
+        }
+
+        container = node.closest('[data-icinga-detail-filter]');
+        if (! container) {
+            return null;
+        }
+
+        filter = String(container.getAttribute('data-icinga-detail-filter') || '').trim();
+        while (filter.length > 1 && filter.charAt(0) === '(' && filter.charAt(filter.length - 1) === ')') {
+            filter = filter.slice(1, -1).trim();
+        }
+
+        if (! filter.length) {
+            return null;
+        }
+
+        params = getUrlSearchParams(filter);
+        hostName = params.get('host.name') || params.get('host') || '';
+        serviceName = params.get('name') || params.get('service.name') || '';
+
+        if (hostName.length && serviceName.length) {
+            return {
+                type: 'service',
+                hostName: hostName,
+                serviceName: serviceName
+            };
+        }
+
+        if (hostName.length) {
+            return {
+                type: 'host',
+                hostName: hostName,
+                serviceName: ''
+            };
+        }
+
+        return null;
+    }
+
     function findIcingadbObjectInDocument(doc) {
+        var containers = doc.querySelectorAll('[data-icinga-url]');
         var anchors = doc.querySelectorAll('a[href*="icingadb/service"], a[href*="icingadb/host"]');
         var i;
         var object;
+
+        for (i = 0; i < containers.length; i++) {
+            object = getIcingadbObjectFromUrl(containers[i].getAttribute('data-icinga-url') || '');
+            if (object && object.type === 'service') {
+                return object;
+            }
+        }
+
+        for (i = 0; i < containers.length; i++) {
+            object = getIcingadbObjectFromUrl(containers[i].getAttribute('data-icinga-url') || '');
+            if (object) {
+                return object;
+            }
+        }
 
         for (i = 0; i < anchors.length; i++) {
             object = getIcingadbObjectFromUrl(anchors[i].getAttribute('href') || anchors[i].href || '');
@@ -3845,12 +3913,39 @@
             return null;
         }
 
+        object = getIcingadbObjectFromDetailFilter(node);
+        if (object) {
+            return object;
+        }
+
         object = getIcingadbObjectFromNode(node);
         if (object) {
             return object;
         }
 
+        object = getIcingadbObjectFromServiceTitle(node);
+        if (object) {
+            return object;
+        }
+
+        if (typeof node.querySelectorAll === 'function') {
+            object = findIcingadbObjectInSubtree(node);
+            if (object) {
+                return object;
+            }
+        }
+
         if (typeof node.closest === 'function' && node.closest('.object-detail')) {
+            object = findIcingadbObjectInDocument(node);
+            if (object) {
+                return object;
+            }
+
+            object = getIcingadbObjectFromUrlContainer(node);
+            if (object) {
+                return object;
+            }
+
             return getIcingadbObjectFromUrl(window.location.href);
         }
 
@@ -3873,22 +3968,161 @@
         return null;
     }
 
-    function getIcingadbDetailContainer() {
-        var col1 = document.getElementById('col1');
-        var col2 = document.getElementById('col2');
-        var detail;
+    function getIcingadbObjectFromUrlContainer(node) {
+        var container;
+        var object;
 
-        if (col1) {
-            detail = col1.querySelector('.object-detail');
-            if (detail) {
-                return detail.closest('#col1, #col2') || col1;
+        if (! node || typeof node.closest !== 'function') {
+            return null;
+        }
+
+        container = node.closest('[data-icinga-url]');
+        if (! container) {
+            return null;
+        }
+
+        object = getIcingadbObjectFromUrl(container.getAttribute('data-icinga-url') || '');
+
+        return object || null;
+    }
+
+    function getIcingadbObjectFromServiceTitle(node) {
+        var subjects;
+        var serviceSubject;
+        var hostSubject;
+        var object;
+        var hostObject;
+        var serviceName;
+        var hostName;
+
+        if (! node || ! node.classList || ! node.classList.contains('service')) {
+            return null;
+        }
+
+        subjects = node.querySelectorAll('.subject');
+        if (subjects.length < 2) {
+            return null;
+        }
+
+        serviceSubject = subjects[0];
+        hostSubject = subjects[1];
+        serviceName = String(serviceSubject ? serviceSubject.textContent || '' : '').trim();
+        hostName = '';
+
+        object = getIcingadbObjectFromNode(serviceSubject);
+        if (object && object.type === 'service') {
+            return object;
+        }
+
+        object = getIcingadbObjectFromUrl(
+            serviceSubject && typeof serviceSubject.getAttribute === 'function'
+                ? (serviceSubject.getAttribute('href') || serviceSubject.href || '')
+                : ''
+        );
+        if (object && object.type === 'service') {
+            return object;
+        }
+
+        hostObject = getIcingadbObjectFromUrl(
+            hostSubject && typeof hostSubject.getAttribute === 'function'
+                ? (hostSubject.getAttribute('href') || hostSubject.href || '')
+                : ''
+        );
+        if (hostObject && hostObject.hostName) {
+            hostName = hostObject.hostName;
+        }
+
+        if (serviceName.length && hostName.length) {
+            return {
+                type: 'service',
+                hostName: hostName,
+                serviceName: serviceName
+            };
+        }
+
+        return null;
+    }
+
+    function findIcingadbObjectInSubtree(node) {
+        var elements;
+        var i;
+        var object;
+        var fallbackObject = null;
+
+        if (! node || typeof node.querySelectorAll !== 'function') {
+            return null;
+        }
+
+        elements = node.querySelectorAll(
+            '[data-icinga-detail-filter], [data-icinga-url], a[href*="icingadb/service"], a[href*="icingadb/host"]'
+        );
+
+        for (i = 0; i < elements.length; i++) {
+            object = getIcingadbObjectFromDetailFilter(elements[i]);
+            if (object && object.type === 'service') {
+                return object;
+            }
+            if (! fallbackObject && object) {
+                fallbackObject = object;
             }
         }
+
+        for (i = 0; i < elements.length; i++) {
+            object = getIcingadbObjectFromServiceTitle(elements[i]);
+            if (object) {
+                return object;
+            }
+        }
+
+        for (i = 0; i < elements.length; i++) {
+            object = getIcingadbObjectFromNode(elements[i]);
+            if (object && object.type === 'service') {
+                return object;
+            }
+            if (! fallbackObject && object) {
+                fallbackObject = object;
+            }
+        }
+
+        for (i = 0; i < elements.length; i++) {
+            object = getIcingadbObjectFromUrl(elements[i].getAttribute('data-icinga-url') || '');
+            if (object && object.type === 'service') {
+                return object;
+            }
+            if (! fallbackObject && object) {
+                fallbackObject = object;
+            }
+        }
+
+        for (i = 0; i < elements.length; i++) {
+            object = getIcingadbObjectFromUrl(elements[i].getAttribute('href') || elements[i].href || '');
+            if (object && object.type === 'service') {
+                return object;
+            }
+            if (! fallbackObject && object) {
+                fallbackObject = object;
+            }
+        }
+
+        return fallbackObject;
+    }
+
+    function getIcingadbDetailContainer() {
+        var col2 = document.getElementById('col2');
+        var col1 = document.getElementById('col1');
+        var detail;
 
         if (col2) {
             detail = col2.querySelector('.object-detail');
             if (detail) {
                 return detail.closest('#col1, #col2') || col2;
+            }
+        }
+
+        if (col1) {
+            detail = col1.querySelector('.object-detail');
+            if (detail) {
+                return detail.closest('#col1, #col2') || col1;
             }
         }
 
