@@ -118,6 +118,32 @@ $currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
                     </a>
                 </div>
             </header>
+            <ul class="top-events-list">
+                <li class="top-event-item" data-top-event-item="0">
+                    <a
+                        class="top-event-link"
+                        href="<?= $this->href('icingadb/history') ?>"
+                        data-base-target="_main"
+                    >
+                        <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
+                        <p class="top-event-meta"></p>
+                        <p class="top-event-preview"></p>
+                    </a>
+                    <div class="top-event-assignment-controls"></div>
+                </li>
+                <li class="top-event-item" data-top-event-item="1">
+                    <a
+                        class="top-event-link"
+                        href="<?= $this->href('icingadb/history') ?>"
+                        data-base-target="_main"
+                    >
+                        <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
+                        <p class="top-event-meta"></p>
+                        <p class="top-event-preview"></p>
+                    </a>
+                    <div class="top-event-assignment-controls"></div>
+                </li>
+            </ul>
             <section
                 class="operator-decision-matrix"
                 data-operator-decision-matrix
@@ -160,36 +186,6 @@ $currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
                     </button>
                 </article>
             </section>
-            <ul class="top-events-list">
-                <li class="top-event-item" data-top-event-item="0">
-                    <a
-                        class="top-event-link"
-                        href="<?= $this->href('icingadb/history') ?>"
-                        data-base-target="_main"
-                    >
-                        <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
-                        <p class="top-event-meta"></p>
-                        <p class="top-event-assignee"></p>
-                        <p class="top-event-assignee-note"></p>
-                        <p class="top-event-preview"></p>
-                    </a>
-                    <div class="top-event-assignment-controls"></div>
-                </li>
-                <li class="top-event-item" data-top-event-item="1">
-                    <a
-                        class="top-event-link"
-                        href="<?= $this->href('icingadb/history') ?>"
-                        data-base-target="_main"
-                    >
-                        <p class="top-event-title"><?= $this->translate('Loading latest events...') ?></p>
-                        <p class="top-event-meta"></p>
-                        <p class="top-event-assignee"></p>
-                        <p class="top-event-assignee-note"></p>
-                        <p class="top-event-preview"></p>
-                    </a>
-                    <div class="top-event-assignment-controls"></div>
-                </li>
-            </ul>
         </section>
         <div
             id="top-events-resizer"
@@ -741,10 +737,5 @@ $currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
             <div class="incident-metro-timeline" data-incident-metro-timeline hidden></div>
             <ol data-incident-timeline-list></ol>
         </section>
-        <footer class="incident-drawer-actions">
-            <a href="#" data-incident-open data-base-target="_main">
-                <?= $this->translate('Open object') ?>
-            </a>
-        </footer>
     </aside>
 </div>
