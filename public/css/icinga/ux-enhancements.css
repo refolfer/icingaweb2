@@ -1063,6 +1063,55 @@ body.modal-open {
   line-height: 1.25;
 }
 
+.header-item-layout.host .object-assignee,
+.header-item-layout.service .object-assignee,
+.item-layout.host .object-assignee,
+.item-layout.service .object-assignee {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.35em;
+  margin-top: 0.35em;
+  padding: 0.3em 0.55em;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 0.28em solid rgba(255, 255, 255, 0.28);
+  border-radius: 0.45em;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--to-text-strong);
+  font-size: 0.86em;
+  line-height: 1.32;
+}
+
+.header-item-layout.host .object-assignee.assigned,
+.header-item-layout.service .object-assignee.assigned,
+.item-layout.host .object-assignee.assigned,
+.item-layout.service .object-assignee.assigned {
+  border-left-color: var(--to-ok);
+  background: rgba(42, 168, 106, 0.12);
+}
+
+.header-item-layout.host .object-assignee.unassigned,
+.header-item-layout.service .object-assignee.unassigned,
+.item-layout.host .object-assignee.unassigned,
+.item-layout.service .object-assignee.unassigned {
+  border-left-color: var(--to-critical);
+  background: rgba(217, 75, 99, 0.09);
+}
+
+.header-item-layout.host .object-assignee.loading,
+.header-item-layout.service .object-assignee.loading,
+.item-layout.host .object-assignee.loading,
+.item-layout.service .object-assignee.loading {
+  border-left-color: var(--to-warning);
+  background: rgba(216, 154, 34, 0.12);
+}
+
+.header-item-layout.host .object-assignee.has-note,
+.header-item-layout.service .object-assignee.has-note,
+.item-layout.host .object-assignee.has-note,
+.item-layout.service .object-assignee.has-note {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
 .object-assignee.assigned {
   color: var(--to-text-strong);
   font-weight: 600;

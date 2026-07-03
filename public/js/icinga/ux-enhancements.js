@@ -5578,6 +5578,7 @@
             label.classList.toggle('assigned', !! assignee.length);
             label.classList.toggle('unassigned', ! assignee.length);
             label.classList.toggle('loading', isIncidentAssignmentLoading(object));
+            label.classList.toggle('has-note', note.trim().length > 0);
         }
     }
 
