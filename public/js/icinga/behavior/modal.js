@@ -7,12 +7,31 @@
 
     Icinga.Behaviors = Icinga.Behaviors || {};
 
-    let functions = null;
+    function isSpecialKeyPress(event) {
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+            return true;
+        }
 
-    try {
-        functions = require('icinga/icinga-php-library/functions');
-    } catch (error) {
-        console.error('Failed to require library:', error);
+        switch (event.key) {
+            case 'Shift':
+            case 'Control':
+            case 'Alt':
+            case 'Meta':
+            case 'Tab':
+            case 'Escape':
+            case 'ArrowUp':
+            case 'ArrowDown':
+            case 'ArrowLeft':
+            case 'ArrowRight':
+            case 'Home':
+            case 'End':
+            case 'PageUp':
+            case 'PageDown':
+            case 'Insert':
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**
@@ -74,7 +93,17 @@
         var req = _this.icinga.loader.loadUrl(url, $modal.find('#modal-content'));
         req.addToHistory = false;
         req.done(function () {
-            _this.setTitle($modal, req.$target.data('icingaTitle').replace(/\s::\s.*/, ''));
+            var title = req.$target.data('icingaTitle');
+            if (! title) {
+                title = req.getResponseHeader('X-Icinga-Title');
+                if (title) {
+                    title = decodeURIComponent(title);
+                }
+            }
+
+            if (title) {
+                _this.setTitle($modal, title.replace(/\s::\s.*/, ''));
+            }
             _this.show($modal);
             _this.focus($modal);
         });
@@ -264,7 +293,7 @@
     Modal.prototype.onKeyDown = function(event) {
         const _this = event.data.self;
 
-        if (! functions?.isSpecialKeyPress(event)) {
+        if (! isSpecialKeyPress(event)) {
             _this.hasChanges = true;
         }
     };
