@@ -314,7 +314,9 @@ class DashboardController extends ActionController
             } else {
                 if ($this->_getParam('pane')) {
                     $pane = $this->_getParam('pane');
-                    $this->dashboard->activate($pane);
+                    if ($this->dashboard->hasPane($pane)) {
+                        $this->dashboard->activate($pane);
+                    }
                 }
                 if ($this->dashboard === null) {
                     $this->view->title = 'Dashboard';

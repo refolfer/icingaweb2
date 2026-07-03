@@ -428,9 +428,7 @@ class Dashboard extends AbstractWidget
                 if ($this->hasPane($active)) {
                     $this->activate($active);
                 } else {
-                    throw new ProgrammingError(
-                        'Try to get an inexistent pane.'
-                    );
+                    $active = $this->setDefaultPane();
                 }
             } else {
                 $active = $this->setDefaultPane();
