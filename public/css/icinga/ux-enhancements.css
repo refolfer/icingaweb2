@@ -1165,6 +1165,15 @@ body.modal-open {
   font-weight: 600;
 }
 
+.header-item-layout.hostgroup > .main > header > .extended-info > .hostgroup-responsibility {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+  margin: 0.35em 0 0.35em;
+  align-self: flex-start;
+}
+
 .object-assignee-banner-note {
   flex: 0 0 100%;
   color: var(--to-text-muted);

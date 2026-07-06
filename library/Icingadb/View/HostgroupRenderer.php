@@ -74,12 +74,12 @@ class HostgroupRenderer implements ItemTableRenderer
     public function assembleExtendedInfo($item, HtmlDocument $info, string $layout): void
     {
         // assembleExtendedInfo() is only called when $layout == header
-        $info->addHtml(...$this->createStatistics($item));
-
-        $responsibility = $this->createResponsibilityInfo($item, true, true);
+        $responsibility = $this->createResponsibilityInfo($item);
         if ($responsibility !== null) {
             $info->addHtml($responsibility);
         }
+
+        $info->addHtml(...$this->createStatistics($item));
     }
 
     public function assembleFooter($item, HtmlDocument $footer, string $layout): void
@@ -128,8 +128,7 @@ class HostgroupRenderer implements ItemTableRenderer
 
     protected function createResponsibilityInfo(
         Hostgroupsummary $item,
-        bool $withAction = false,
-        bool $detailed = false
+        bool $withAction = false
     ): ?HtmlElement
     {
         $responsibility = $this->fetchResponsibility($item);
@@ -190,14 +189,9 @@ class HostgroupRenderer implements ItemTableRenderer
             );
         }
 
-        $classes = ['hostgroup-responsibility'];
-        if ($detailed) {
-            $classes[] = 'hostgroup-responsibility--detailed';
-        }
-
         return new HtmlElement(
             'div',
-            Attributes::create(['class' => $classes]),
+            Attributes::create(['class' => 'hostgroup-responsibility']),
             ...$parts
         );
     }
