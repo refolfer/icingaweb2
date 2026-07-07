@@ -11,13 +11,12 @@ use Icinga\Module\Icingadb\Model\Hostgroupsummary;
 use Icinga\Module\Icingadb\Widget\Detail\HostStatistics;
 use Icinga\Module\Icingadb\Widget\Detail\ServiceStatistics;
 use ipl\Html\Attributes;
-use ipl\Html\HtmlDocument;
 use ipl\Html\HtmlElement;
+use ipl\Html\HtmlDocument;
 use ipl\Html\Text;
 use ipl\I18n\Translation;
 use ipl\Stdlib\BaseFilter;
 use ipl\Stdlib\Filter;
-use ipl\Web\Url;
 use ipl\Web\Widget\ItemTable\ItemTableRenderer;
 use ipl\Web\Widget\Link;
 
@@ -68,22 +67,7 @@ class HostgroupRenderer implements ItemTableRenderer
 
     public function assembleCaption($item, HtmlDocument $caption, string $layout): void
     {
-        $caption->addHtml(new HtmlElement(
-            'span',
-            Attributes::create(['class' => 'hostgroup-caption-name']),
-            Text::create($item->name)
-        ));
-
-        if ($layout === 'header') {
-            $responsibility = $this->createResponsibilityInfo($item);
-            if ($responsibility !== null) {
-                $caption->addHtml(new HtmlElement(
-                    'div',
-                    Attributes::create(['class' => 'hostgroup-responsibility-line']),
-                    $responsibility
-                ));
-            }
-        }
+        $caption->addHtml($item->name);
     }
 
     public function assembleExtendedInfo($item, HtmlDocument $info, string $layout): void
@@ -103,11 +87,6 @@ class HostgroupRenderer implements ItemTableRenderer
 
     public function assembleColumns($item, HtmlDocument $columns, string $layout): void
     {
-        $responsibility = $this->createResponsibilityInfo($item);
-        if ($responsibility !== null) {
-            $columns->addHtml($responsibility);
-        }
-
         [$hostStats, $serviceStats] = $this->createStatistics($item);
 
         if ($this->hasBaseFilter()) {
@@ -136,94 +115,4 @@ class HostgroupRenderer implements ItemTableRenderer
         return [$hostStats, $serviceStats];
     }
 
-    protected function createResponsibilityInfo(
-        Hostgroupsummary $item,
-        bool $withAction = false
-    ): ?HtmlElement
-    {
-        $responsibility = $this->fetchResponsibility($item);
-        $user = trim((string) ($responsibility['responsible_user'] ?? ''));
-        $note = trim((string) ($responsibility['responsible_note'] ?? ''));
-
-        if ($user === '' && $note === '' && ! $withAction) {
-            return null;
-        }
-
-        $parts = [
-            new HtmlElement(
-                'span',
-                Attributes::create(['class' => 'hostgroup-responsibility-label']),
-                Text::create($this->translate('Responsible'))
-            )
-        ];
-
-        if ($user !== '') {
-            $parts[] = new HtmlElement(
-                'span',
-                Attributes::create(['class' => 'hostgroup-responsibility-user']),
-                Text::create($user)
-            );
-        }
-
-        if ($note !== '') {
-            $parts[] = new HtmlElement(
-                'span',
-                Attributes::create(['class' => 'hostgroup-responsibility-note']),
-                Text::create($note)
-            );
-        }
-
-        if ($user === '' && $note === '' && $withAction) {
-            $parts[] = new HtmlElement(
-                'span',
-                Attributes::create(['class' => 'hostgroup-responsibility-empty']),
-                Text::create($this->translate('No responsibility configured'))
-            );
-        }
-
-        if ($withAction) {
-            $parts[] = new HtmlElement(
-                'span',
-                Attributes::create(['class' => 'hostgroup-responsibility-action']),
-                new Link(
-                    $this->translate('Edit responsibility'),
-                    Url::fromPath('icingadb/hostgroup/responsibility')->setParam('name', $item->name),
-                    [
-                        'class' => 'action-link',
-                        'data-icinga-modal' => true,
-                        'data-no-icinga-ajax' => true,
-                        'data-base-target' => '_main',
-                        'title' => $this->translate('Edit host group responsibility')
-                    ]
-                )
-            );
-        }
-
-        return new HtmlElement(
-            'div',
-            Attributes::create(['class' => 'hostgroup-responsibility']),
-            ...$parts
-        );
-    }
-
-    protected function fetchResponsibility(Hostgroupsummary $item): array
-    {
-        $row = $this->getDb()->fetchRow(
-            'SELECT responsible_user, responsible_note'
-            . ' FROM hostgroup_responsibility r'
-            . ' JOIN hostgroup h ON h.id = r.hostgroup_id'
-            . ' WHERE h.name = ?',
-            [$item->name]
-        );
-
-        if (is_array($row)) {
-            return $row;
-        }
-
-        if (is_object($row)) {
-            return get_object_vars($row);
-        }
-
-        return [];
-    }
 }

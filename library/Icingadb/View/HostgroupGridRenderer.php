@@ -174,7 +174,7 @@ class HostgroupGridRenderer implements ItemRenderer
 
     public function assembleColumns($item, HtmlDocument $columns, string $layout): void
     {
-        $responsibility = $this->createResponsibilityInfo($item);
+        $responsibility = $this->createResponsibilityInfo($item, true);
         if ($responsibility !== null) {
             $columns->addHtml($responsibility);
         }
@@ -207,13 +207,16 @@ class HostgroupGridRenderer implements ItemRenderer
         return [$hostStats, $serviceStats];
     }
 
-    protected function createResponsibilityInfo(Hostgroupsummary $item): ?HtmlElement
+    protected function createResponsibilityInfo(
+        Hostgroupsummary $item,
+        bool $withAction = false
+    ): ?HtmlElement
     {
         $responsibility = $this->fetchResponsibility($item);
         $user = trim((string) ($responsibility['responsible_user'] ?? ''));
         $note = trim((string) ($responsibility['responsible_note'] ?? ''));
 
-        if ($user === '' && $note === '') {
+        if ($user === '' && $note === '' && ! $withAction) {
             return null;
         }
 
@@ -238,6 +241,32 @@ class HostgroupGridRenderer implements ItemRenderer
                 'span',
                 Attributes::create(['class' => 'hostgroup-responsibility-note']),
                 Text::create($note)
+            );
+        }
+
+        if ($user === '' && $note === '' && $withAction) {
+            $parts[] = new HtmlElement(
+                'span',
+                Attributes::create(['class' => 'hostgroup-responsibility-empty']),
+                Text::create($this->translate('No responsibility configured'))
+            );
+        }
+
+        if ($withAction) {
+            $parts[] = new HtmlElement(
+                'span',
+                Attributes::create(['class' => 'hostgroup-responsibility-action']),
+                new Link(
+                    $this->translate('Edit responsibility'),
+                    Url::fromPath('icingadb/hostgroup/responsibility')->setParam('name', $item->name),
+                    [
+                        'class' => 'action-link',
+                        'data-icinga-modal' => true,
+                        'data-no-icinga-ajax' => true,
+                        'data-base-target' => '_main',
+                        'title' => $this->translate('Edit host group responsibility')
+                    ]
+                )
             );
         }
 

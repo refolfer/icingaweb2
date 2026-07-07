@@ -1280,19 +1280,6 @@ body.modal-open {
   flex: 0 0 auto;
 }
 
-.header-item-layout.hostgroup .hostgroup-responsibility-line {
-  display: block;
-  margin-top: 0.45em;
-}
-
-.header-item-layout.hostgroup .hostgroup-responsibility-line > .hostgroup-responsibility {
-  display: inline-block;
-  width: auto;
-  max-width: 100%;
-  margin: 0;
-  white-space: normal;
-}
-
 .object-assignee-banner-note {
   flex: 0 0 100%;
   color: var(--to-text-muted);
