@@ -115,13 +115,17 @@ class HostgroupController extends Controller
             $this->addContent(new ObjectHeader($hostgroup));
             $this->addContent(Html::tag('h2', null, t('Hosts')));
         } else {
-            $this->addControl(new ObjectHeader($hostgroup));
+            $this->addControl(Html::tag(
+                'div',
+                ['class' => 'col-3-3 hostgroup-header-control'],
+                new ObjectHeader($hostgroup)
+            ));
         }
 
-        $this->addControl($paginationControl);
-        $this->addControl($sortControl);
-        $this->addControl($limitControl);
         $this->addControl($viewModeSwitcher);
+        $this->addControl($limitControl);
+        $this->addControl($sortControl);
+        $this->addControl($paginationControl);
         $this->addControl($searchBar);
         $continueWith = $this->createContinueWith(
             Links::hostsDetails()

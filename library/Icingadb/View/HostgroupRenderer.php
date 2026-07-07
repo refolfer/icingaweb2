@@ -68,17 +68,27 @@ class HostgroupRenderer implements ItemTableRenderer
 
     public function assembleCaption($item, HtmlDocument $caption, string $layout): void
     {
-        $caption->addHtml(Text::create($item->name));
+        $caption->addHtml(new HtmlElement(
+            'span',
+            Attributes::create(['class' => 'hostgroup-caption-name']),
+            Text::create($item->name)
+        ));
+
+        if ($layout === 'header') {
+            $responsibility = $this->createResponsibilityInfo($item);
+            if ($responsibility !== null) {
+                $caption->addHtml(new HtmlElement(
+                    'div',
+                    Attributes::create(['class' => 'hostgroup-responsibility-line']),
+                    $responsibility
+                ));
+            }
+        }
     }
 
     public function assembleExtendedInfo($item, HtmlDocument $info, string $layout): void
     {
         // assembleExtendedInfo() is only called when $layout == header
-        $responsibility = $this->createResponsibilityInfo($item);
-        if ($responsibility !== null) {
-            $info->addHtml($responsibility);
-        }
-
         $info->addHtml(...$this->createStatistics($item));
     }
 

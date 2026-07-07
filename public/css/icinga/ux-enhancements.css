@@ -1165,13 +1165,132 @@ body.modal-open {
   font-weight: 600;
 }
 
-.header-item-layout.hostgroup > .main > header > .extended-info > .hostgroup-responsibility {
-  display: inline-block;
+.header-item-layout.hostgroup > .main > header {
+  display: grid;
+  grid-template-columns: minmax(8em, max-content) max-content;
+  grid-template-areas:
+    "title stats"
+    "caption stats";
+  align-items: flex-start;
+  column-gap: 1.25em;
+  height: auto;
+  min-height: 1.5em;
+  row-gap: 0.15em;
+}
+
+.header-item-layout.hostgroup > .main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 1.25em;
+  min-width: 0;
+}
+
+.controls > .hostgroup-header-control {
+  clear: both;
+  float: left;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.65em;
+}
+
+.controls > .hostgroup-header-control > .header-item-layout.hostgroup {
+  width: 100%;
+}
+
+.controls:has(> .hostgroup-header-control) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45em 0.75em;
+}
+
+.controls:has(> .hostgroup-header-control) > .tabs {
+  flex: 1 1 100%;
+}
+
+.controls:has(> .hostgroup-header-control) > .hostgroup-header-control {
+  flex: 1 1 100%;
+}
+
+.controls:has(> .hostgroup-header-control) > .view-mode-switcher {
+  order: 1;
+  margin-left: 0;
+}
+
+.controls:has(> .hostgroup-header-control) > .limit-control {
+  order: 2;
+}
+
+.controls:has(> .hostgroup-header-control) > .sort-control {
+  order: 3;
+}
+
+.controls:has(> .hostgroup-header-control) > .pagination-control {
+  order: 4;
+}
+
+.controls:has(> .hostgroup-header-control) > .search-controls {
+  order: 10;
+  flex: 1 1 100%;
+}
+
+.controls:has(> .hostgroup-header-control) > * {
+  float: none;
+  margin-bottom: 0;
+}
+
+.header-item-layout.hostgroup > .main > header > .title {
+  grid-area: title;
+  min-width: 0;
+}
+
+.header-item-layout.hostgroup > .main > header {
+  flex: 0 1 auto;
+}
+
+.header-item-layout.hostgroup > .main > header > .caption {
+  display: block;
+  grid-area: caption;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  margin-top: 0.1em;
+  margin-bottom: 0;
+  line-height: 1.35;
+  flex: 1 1 100%;
+}
+
+.header-item-layout.hostgroup > .main > header > .caption > .hostgroup-caption-name {
+  display: block;
+}
+
+.header-item-layout.hostgroup > .main > header > .extended-info {
+  display: flex;
+  grid-area: stats;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45em 1em;
+  width: auto;
+  margin: 0;
+}
+
+.header-item-layout.hostgroup > .main > header > .extended-info > .object-statistics {
+  flex: 0 0 auto;
+}
+
+.header-item-layout.hostgroup .hostgroup-responsibility-line {
+  display: block;
+  margin-top: 0.45em;
+}
+
+.header-item-layout.hostgroup .hostgroup-responsibility-line > .hostgroup-responsibility {
+  display: inline-block;
   width: auto;
   max-width: 100%;
-  margin: 0.35em 0 0.35em;
-  align-self: flex-start;
+  margin: 0;
+  white-space: normal;
 }
 
 .object-assignee-banner-note {
