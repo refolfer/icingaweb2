@@ -2253,6 +2253,21 @@ html.incident-drawer-resizing,
   resize: vertical;
 }
 
+.incident-drawer-assignment select,
+.incident-drawer-assignment textarea {
+  background-color: var(--to-bg);
+  color: var(--to-text-strong);
+  border: 1px solid var(--to-border);
+  border-radius: 0.35em;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+
+.incident-drawer-assignment select option {
+  background-color: var(--to-bg);
+  color: var(--to-text-strong);
+}
+
 .incident-drawer-assignment button[disabled] {
   opacity: 0.6;
 }
@@ -2839,11 +2854,12 @@ body.ux-density-wallboard .tactical-donut {
 .quick-menu-context {
   position: fixed;
   z-index: 20000;
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 0.38em;
   background: var(--body-bg-color, #1f2730);
   box-shadow: 0 0.6em 1.4em rgba(0, 0, 0, 0.33);
   padding: 0.28em;
+  color: var(--to-text-strong);
 }
 
 .quick-menu-context button {
@@ -2852,7 +2868,7 @@ body.ux-density-wallboard .tactical-donut {
   border: none;
   border-radius: 0.25em;
   background: transparent;
-  color: inherit;
+  color: var(--to-text-strong);
   padding: 0.4em 0.72em;
   text-align: left;
   white-space: nowrap;
@@ -2860,7 +2876,8 @@ body.ux-density-wallboard .tactical-donut {
 
 .quick-menu-context button:hover,
 .quick-menu-context button:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(53, 182, 217, 0.16);
+  color: var(--to-text-strong);
 }
 
 .object-assignment-action {
