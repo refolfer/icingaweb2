@@ -17,7 +17,7 @@ class SearchController extends ActionController
 {
     public function indexAction()
     {
-        $assigned = trim((string) $this->params->get('assigned', ''));
+        $assigned = $this->normalizeAssignedFilter($this->params->get('assigned', ''));
 
         if ($assigned !== '') {
             $this->view->dashboard = $this->createAssignedDashboard($assigned);
@@ -41,6 +41,7 @@ class SearchController extends ActionController
     {
         $assigned = trim((string) $assigned);
         $dashboard = new Dashboard();
+        $dashboard->setUser($this->Auth()->getUser());
         $paneTitle = $this->getAssignedDashboardTitle($assigned);
         $dashboard->createPane('assigned');
         $pane = $dashboard->getPane('assigned')->setTitle($paneTitle);
@@ -51,6 +52,17 @@ class SearchController extends ActionController
         $dashboard->activate('assigned');
 
         return $dashboard;
+    }
+
+    protected function normalizeAssignedFilter($assigned)
+    {
+        $assigned = trim((string) $assigned);
+
+        if ($assigned === '') {
+            return '';
+        }
+
+        return strtolower($assigned) === 'me' ? (string) $this->Auth()->getUser()->getUsername() : $assigned;
     }
 
     protected function getAssignedDashboardTitle($assigned)
