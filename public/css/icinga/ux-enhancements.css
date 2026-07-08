@@ -1280,6 +1280,34 @@ body.modal-open {
   flex: 0 0 auto;
 }
 
+.hostgroup-responsibility {
+  display: inline-flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.1em 0.35em;
+  max-width: 100%;
+  padding: 0.4em 0.55em;
+  border-left: 4px solid var(--to-primary);
+  border-radius: 0.4em;
+  background: rgba(0, 150, 191, 0.08);
+  box-sizing: border-box;
+}
+
+.hostgroup-responsibility-label {
+  font-weight: 600;
+}
+
+.hostgroup-responsibility-user,
+.hostgroup-responsibility-note,
+.hostgroup-responsibility-empty,
+.hostgroup-responsibility-action {
+  display: inline;
+}
+
+.hostgroup-responsibility-action {
+  margin-left: 0.3em;
+}
+
 .object-assignee-banner-note {
   flex: 0 0 100%;
   color: var(--to-text-muted);
