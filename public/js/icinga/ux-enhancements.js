@@ -36,7 +36,7 @@
     var INCIDENT_DRAWER_WIDTH_MIN = 320;
     var INCIDENT_DRAWER_WIDTH_MAX = 960;
     var INCIDENT_ASSIGNMENT_NOTE_KEY = 'incident-assignment-notes';
-    var UX_DENSITY_MODES = ['compact', 'comfortable', 'wallboard'];
+    var UX_DENSITY_MODES = ['comfortable'];
     var TOP_PANELS_OFFSET_KEY = 'top-panels-offset';
     var TOP_PANELS_OFFSET_MIN = 0;
     var TOP_PANELS_OFFSET_MAX = 360;
@@ -6760,37 +6760,59 @@
         };
     }
 
+    function dedupeCommandPaletteCommands(commands) {
+        var seen = {};
+
+        return commands.filter(function (command) {
+            var key = normalizeText(command.label).toLowerCase() + '|' + normalizeText(command.value).toLowerCase();
+
+            if (! key.length) {
+                return true;
+            }
+
+            if (seen[key]) {
+                return false;
+            }
+
+            seen[key] = true;
+            return true;
+        });
+    }
+
 
     function getStaticCommands() {
         var navigation = getCommandPaletteLabel('navigation-label', 'Navigation');
         var actions = getCommandPaletteLabel('actions-label', 'Actions');
+        var commands = [];
 
-        return [
-            makeCommand('navigate', 'Dashboard', navigation, 'Open dashboard overview', 'dashboard'),
-            makeCommand('navigate', 'Tactical Overview', navigation, 'Open tactical monitoring overview', 'icingadb/tactical'),
-            makeCommand('navigate', 'Event History', navigation, 'Open latest monitoring events', 'icingadb/history'),
-            makeCommand('navigate', 'Search', navigation, 'Open global search page', 'search'),
-            makeCommand('navigate', 'My Account', navigation, 'Open account preferences', 'account'),
-            makeCommand('navigate', 'Configuration', navigation, 'Open configuration area', 'config'),
-            makeCommand('shortcut', 'Keyboard Shortcuts', actions, 'Show available keyboard shortcuts', 'shortcuts'),
-            makeCommand(
+        commands.push(makeCommand('shortcut', 'Keyboard Shortcuts', actions, 'Show available keyboard shortcuts', 'shortcuts'));
+        commands.push(makeCommand(
                 'triageMode',
                 isTriageModeEnabled() ? 'Disable Triage Mode' : 'Enable Triage Mode',
                 actions,
                 'Filter latest events to unresolved unseen problems',
                 isTriageModeEnabled() ? 'off' : 'on'
-            ),
-            makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''),
-            makeCommand('operatorHandoff', 'Operator Handoff', actions, 'Generate a shift handoff report', ''),
-            makeCommand('operatorActivity', 'Audit Timeline', actions, 'Review filtered operator audit events', ''),
-            makeCommand('copyOperatorAuditTimeline', 'Copy Audit Timeline', actions, 'Copy the filtered operator audit timeline', ''),
-            makeCommand('operatorPlaybook', 'Operator Playbook', actions, 'Open recommended actions for the focus event', ''),
-            makeCommand('copyOperatorPlaybook', 'Copy Operator Playbook', actions, 'Copy recommended actions for the focus event', ''),
-            makeCommand('density', 'Density: Compact', actions, 'Use denser lists and smaller operational panels', 'compact'),
-            makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'),
-            makeCommand('density', 'Density: Wallboard', actions, 'Use larger event cards for shared displays', 'wallboard'),
-            makeCommand('navigate', 'Log Out', actions, 'End current session', 'authentication/logout')
-        ];
+        ));
+
+        if (getActiveTriageEvents().length) {
+            commands.push(makeCommand('triageDesk', 'Triage Desk', actions, 'Open the active triage queue workspace', ''));
+        }
+
+        commands.push(makeCommand('operatorHandoff', 'Operator Handoff', actions, 'Generate a shift handoff report', ''));
+
+        if (readOperatorActivity().length) {
+            commands.push(makeCommand('operatorActivity', 'Audit Timeline', actions, 'Review filtered operator audit events', ''));
+            commands.push(makeCommand('copyOperatorAuditTimeline', 'Copy Audit Timeline', actions, 'Copy the filtered operator audit timeline', ''));
+        }
+
+        if (getOperatorPlaybookEvent()) {
+            commands.push(makeCommand('operatorPlaybook', 'Operator Playbook', actions, 'Open recommended actions for the focus event', ''));
+            commands.push(makeCommand('copyOperatorPlaybook', 'Copy Operator Playbook', actions, 'Copy recommended actions for the focus event', ''));
+        }
+
+        commands.push(makeCommand('density', 'Density: Comfortable', actions, 'Use the default balanced layout density', 'comfortable'));
+
+        return commands;
     }
 
     function getAnchorCommandLabel(anchor) {
@@ -7072,7 +7094,8 @@
             return {
                 type: 'host',
                 hostName: match[1].trim(),
-                serviceName: ''
+                serviceName: '',
+                explicit: true
             };
         }
 
@@ -7086,7 +7109,8 @@
             return {
                 type: 'service',
                 hostName: match[2].trim(),
-                serviceName: match[1].trim()
+                serviceName: match[1].trim(),
+                explicit: true
             };
         }
 
@@ -7095,7 +7119,8 @@
             return {
                 type: 'service',
                 hostName: match[1].trim(),
-                serviceName: match[2].trim()
+                serviceName: match[2].trim(),
+                explicit: true
             };
         }
 
@@ -7107,7 +7132,8 @@
             return {
                 type: 'host',
                 hostName: text,
-                serviceName: ''
+                serviceName: '',
+                explicit: false
             };
         }
 
@@ -7145,6 +7171,10 @@
         var url;
 
         if (! object) {
+            return [];
+        }
+
+        if (parsed.action && ! object.explicit) {
             return [];
         }
 
@@ -7262,6 +7292,7 @@
             .concat(collectNavigationCommands());
         var searchLabel = getCommandPaletteLabel('search-label', 'Search for');
 
+        commands = dedupeCommandPaletteCommands(commands);
         commands = commands.filter(function (command) {
             return commandMatches(command, normalizedQuery);
         }).sort(function (a, b) {
