@@ -1834,6 +1834,60 @@
         };
     }
 
+    function getIcingadbObjectStateFromNode(node) {
+        var classes = [];
+        var classMap = {};
+        var i;
+
+        if (! node) {
+            return '';
+        }
+
+        Array.prototype.slice.call(
+            node.querySelectorAll('[class*="state-"], .state, .badge, .state-badge, [class*="severity-"]')
+        ).concat([node]).forEach(function (element) {
+            String(element.className || '')
+                .toLowerCase()
+                .split(/\s+/)
+                .forEach(function (token) {
+                    if (! token.length || classMap[token]) {
+                        return;
+                    }
+
+                    classMap[token] = true;
+                    classes.push(token);
+                });
+        });
+
+        for (i = 0; i < classes.length; i++) {
+            if (
+                classes[i] === 'state-critical'
+                || classes[i] === 'critical'
+                || classes[i] === 'severity-critical'
+                || classes[i] === 'state-down'
+                || classes[i] === 'down'
+                || classes[i] === 'state-unreachable'
+                || classes[i] === 'unreachable'
+            ) {
+                return 'critical';
+            }
+        }
+
+        for (i = 0; i < classes.length; i++) {
+            if (
+                classes[i] === 'state-ok'
+                || classes[i] === 'ok'
+                || classes[i] === 'state-up'
+                || classes[i] === 'up'
+                || classes[i] === 'severity-ok'
+            ) {
+                return 'ok';
+            }
+        }
+
+        return '';
+    }
+
     function parseLatestEventsFromHistoryHtml(html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var blocks = pickEventBlocks(doc);
@@ -5780,6 +5834,7 @@
             var note = assignmentDetails && assignmentDetails.assignment
                 ? String(assignmentDetails.assignment.note || '')
                 : getIncidentAssignmentNoteCache(object);
+            var objectState = getIcingadbObjectStateFromNode(block);
             var text = '';
 
             if (! info || ! object) {
@@ -5794,8 +5849,13 @@
                 text = getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...');
             } else if (assignee.length) {
                 text = getIncidentAssignmentLabel('assignee-label', 'Assignee') + ': ' + assignee;
-            } else {
+            } else if (objectState === 'critical') {
                 text = getIncidentAssignmentLabel('no-assignee-label', 'Unassigned');
+            } else {
+                if (label) {
+                    label.remove();
+                }
+                continue;
             }
 
             if (! label) {
