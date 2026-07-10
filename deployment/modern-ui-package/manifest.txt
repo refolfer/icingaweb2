@@ -2,6 +2,11 @@ application/layouts/scripts/layout.phtml
 application/layouts/scripts/body.phtml
 application/layouts/scripts/parts/navigation.phtml
 application/controllers/LayoutController.php
+application/controllers/SearchController.php
+application/controllers/HostgroupController.php
+application/controllers/IncidentAssignmentController.php
+application/forms/Hostgroup/ResponsibilityForm.php
+application/forms/Security/RoleForm.php
 application/views/scripts/dashboard/index.phtml
 application/views/scripts/layout/menu.phtml
 application/views/scripts/search/index.phtml
@@ -15,7 +20,6 @@ doc/res/modern-ui-dashboard.ini.example
 public/css/icinga/widgets.less
 public/css/icinga/layout.less
 public/css/icinga/ux-enhancements.css
-public/css/themes/NeoNOC-Compact.less
 public/css/themes/NeoNOC-Light.less
 public/css/themes/NeoNOC.less
 public/css/themes/Windows11-Dark.less
@@ -23,3 +27,13 @@ public/css/themes/Windows11-Light.less
 public/js/icinga/behavior/floating-dashlets.js
 public/js/icinga/ui.js
 public/js/icinga/ux-enhancements.js
+library/Icinga/Web/IncidentAssignment/IncidentAssignmentStore.php
+library/Icingadb/View/HostgroupGridRenderer.php
+library/Icingadb/View/HostgroupRenderer.php
+modules/icingadb/library/Icingadb/ProvidedHook/CreateHostIncidentAssignment.php
+modules/icingadb/library/Icingadb/ProvidedHook/CreateServiceIncidentAssignment.php
+modules/icingadb/library/Icingadb/Widget/Detail/QuickActions.php
+schema/mysql-upgrades/2.13.0.sql
+schema/mysql.schema.sql
+schema/pgsql-upgrades/2.13.0.sql
+schema/pgsql.schema.sql
