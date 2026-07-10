@@ -152,4 +152,4 @@ CREATE TABLE "icingaweb_schema" (
 );
 
 INSERT INTO icingaweb_schema (version, timestamp, success)
-  VALUES ('2.13.0', extract(epoch from now()) * 1000, 'y');
+  VALUES ('2.13.1', extract(epoch from now()) * 1000, 'y');

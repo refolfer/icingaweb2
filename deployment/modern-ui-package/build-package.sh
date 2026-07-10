@@ -28,8 +28,9 @@ cp -a "${SCRIPT_DIR}/install.sh" "${PACKAGE_DIR}/install.sh"
 cp -a "${SCRIPT_DIR}/README.md" "${PACKAGE_DIR}/README.md"
 cp -a "${MANIFEST_FILE}" "${PACKAGE_DIR}/manifest.txt"
 
-while IFS= read -r rel; do
-  [[ -n "$rel" ]] || continue
+while IFS= read -r entry; do
+  [[ -n "$entry" ]] || continue
+  rel="${entry%%|*}"
   src="${REPO_ROOT}/${rel}"
   dst="${PACKAGE_DIR}/payload/${rel}"
   [[ -f "$src" ]] || {

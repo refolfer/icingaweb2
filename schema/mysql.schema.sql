@@ -78,4 +78,4 @@ CREATE TABLE icingaweb_schema (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC;
 
 INSERT INTO icingaweb_schema (version, timestamp, success)
-  VALUES ('2.13.0', UNIX_TIMESTAMP() * 1000, 'y');
+  VALUES ('2.13.1', UNIX_TIMESTAMP() * 1000, 'y');
