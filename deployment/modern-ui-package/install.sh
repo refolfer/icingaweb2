@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PAYLOAD_DIR="${SCRIPT_DIR}/payload"
 MANIFEST_FILE="${SCRIPT_DIR}/manifest.txt"
+REMOVED_PATHS_FILE="${SCRIPT_DIR}/removed-paths.txt"
 DEFAULT_WEB_TARGET="/usr/share/icingaweb2"
 DEFAULT_PHP_TARGET="/usr/share/php"
 DEFAULT_BACKUP_SUBDIR=".modern-ui-backups"
@@ -17,14 +18,19 @@ Usage:
   install.sh migrate-mysql [--target PATH] [--backup-root PATH]
       [--mysql-user USER] [--mysql-host HOST]
       [--icingaweb-db DATABASE] [--icingadb-db DATABASE]
+  install.sh migrate-pgsql [--target PATH] [--backup-root PATH]
+      [--pgsql-user USER] [--pgsql-host HOST]
+      [--icingaweb-db DATABASE] [--icingadb-db DATABASE]
 
 Examples:
   bash install.sh install
   bash install.sh migrate-mysql
+  bash install.sh migrate-pgsql
   bash install.sh restore --latest
   bash install.sh restore --backup-id 20260515-121500
 
 Set MYSQL_PWD when the selected MySQL account requires a password.
+Set PGPASSWORD when the selected PostgreSQL account requires a password.
 EOF
 }
 
@@ -124,8 +130,14 @@ list_manifest() {
   grep -v '^[[:space:]]*$' "$MANIFEST_FILE"
 }
 
+list_removed_paths() {
+  if [[ -f "$REMOVED_PATHS_FILE" ]]; then
+    grep -v '^[[:space:]]*$' "$REMOVED_PATHS_FILE"
+  fi
+}
+
 install_files() {
-  local backup_id entry src dst bkp
+  local backup_id entry src dst bkp removed_spec
   backup_id="$(date +%Y%m%d-%H%M%S)"
   BACKUP_DIR="${BACKUP_ROOT}/${backup_id}"
   mkdir -p "${BACKUP_DIR}/original"
@@ -160,7 +172,32 @@ install_files() {
     log "Installed: ${ROOT_ALIAS}:${TARGET_REL}"
   done < <(list_manifest)
 
+  while IFS= read -r removed_spec; do
+    [[ -n "$removed_spec" ]] || continue
+    parse_manifest_entry "removed|${removed_spec}"
+    dst="$(target_path)"
+    bkp="$(backup_path)"
+    if [[ -e "$dst" ]]; then
+      ensure_parent_dir "$bkp"
+      backup_copy "$dst" "$bkp"
+      rm -f "$dst"
+      log "Removed obsolete file: ${removed_spec}"
+    fi
+  done < <(list_removed_paths)
+
   backup_copy "$MANIFEST_FILE" "${BACKUP_DIR}/manifest.txt"
+  if [[ -f "$REMOVED_PATHS_FILE" ]]; then
+    backup_copy "$REMOVED_PATHS_FILE" "${BACKUP_DIR}/removed-paths.txt"
+  fi
+  if [[ "$WEB_TARGET_DIR" == "$DEFAULT_WEB_TARGET" ]] && command -v icingacli >/dev/null 2>&1; then
+    if icingacli module list 2>/dev/null | grep -Eq '^modernui[[:space:]]+enabled'; then
+      : > "${BACKUP_DIR}/modernui-was-enabled"
+    fi
+    icingacli module enable modernui >/dev/null
+    log "Enabled module: modernui"
+  elif [[ "$WEB_TARGET_DIR" == "$DEFAULT_WEB_TARGET" ]]; then
+    log "WARNING: icingacli is unavailable; enable the modernui module manually"
+  fi
   cat > "${BACKUP_DIR}/meta.env" <<EOF
 BACKUP_ID=${backup_id}
 CREATED_AT=$(date -Is)
@@ -179,12 +216,19 @@ restore_files() {
 
   local manifest="${BACKUP_DIR}/manifest.txt"
   local missing_file="${BACKUP_DIR}/missing-before-install.txt"
-  local entry dst orig key
+  local entry dst orig key removed_spec
   [[ -f "$manifest" ]] || fail "Backup manifest not found: ${manifest}"
 
   log "Restoring backup: $(basename "$BACKUP_DIR")"
   log "Icinga Web target: ${WEB_TARGET_DIR}"
   log "PHP library target: ${PHP_TARGET_DIR}"
+
+  if [[ "$WEB_TARGET_DIR" == "$DEFAULT_WEB_TARGET" ]] \
+    && [[ ! -f "${BACKUP_DIR}/modernui-was-enabled" ]] \
+    && command -v icingacli >/dev/null 2>&1; then
+    icingacli module disable modernui >/dev/null 2>&1 || true
+    log "Disabled module added by this installation: modernui"
+  fi
 
   while IFS= read -r entry; do
     [[ -n "$entry" ]] || continue
@@ -206,6 +250,21 @@ restore_files() {
       log "Removed newly added: ${key}"
     fi
   done < <(grep -v '^[[:space:]]*$' "$manifest")
+
+  if [[ -f "${BACKUP_DIR}/removed-paths.txt" ]]; then
+    while IFS= read -r removed_spec; do
+      [[ -n "$removed_spec" ]] || continue
+      parse_manifest_entry "removed|${removed_spec}"
+      dst="$(target_path)"
+      orig="${BACKUP_DIR}/original/${ROOT_ALIAS}/${TARGET_REL}"
+      if [[ -f "$orig" ]]; then
+        ensure_parent_dir "$dst"
+        backup_copy "$orig" "$dst"
+        restore_selinux_context "$dst"
+        log "Restored obsolete file removed by install: ${removed_spec}"
+      fi
+    done < "${BACKUP_DIR}/removed-paths.txt"
+  fi
 
   log "Restore finished."
 }
@@ -252,12 +311,10 @@ migrate_mysql() {
   command -v mysql >/dev/null 2>&1 || fail "mysql client is required"
   command -v mysqldump >/dev/null 2>&1 || fail "mysqldump is required"
 
-  local migration_id migration_backup table_count column_count version_count
-  local upgrade_2130="${PAYLOAD_DIR}/schema/mysql-upgrades/2.13.0.sql"
-  local upgrade_2131="${PAYLOAD_DIR}/schema/mysql-upgrades/2.13.1.sql"
-  local icingadb_schema="${PAYLOAD_DIR}/schema/icingadb/mysql/hostgroup-responsibility.sql"
-  require_file "$upgrade_2130"
-  require_file "$upgrade_2131"
+  local migration_id migration_backup
+  local modernui_schema="${PAYLOAD_DIR}/modules/modernui/schema/mysql/1.0.0.sql"
+  local icingadb_schema="${PAYLOAD_DIR}/modules/modernui/schema/icingadb/mysql/hostgroup-responsibility.sql"
+  require_file "$modernui_schema"
   require_file "$icingadb_schema"
 
   MYSQL_ARGS=(--user="$MYSQL_USER")
@@ -272,22 +329,43 @@ migrate_mysql() {
   mysqldump "${MYSQL_ARGS[@]}" "$ICINGAWEB_DB" > "${migration_backup}/${ICINGAWEB_DB}.sql"
   mysqldump "${MYSQL_ARGS[@]}" "$ICINGADB_DB" > "${migration_backup}/${ICINGADB_DB}.sql"
 
-  table_count="$(mysql_scalar "$ICINGAWEB_DB" "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'icingaweb_incident_assignment'")"
-  if [[ "$table_count" -eq 0 ]]; then
-    version_count="$(mysql_scalar "$ICINGAWEB_DB" "SELECT COUNT(*) FROM icingaweb_schema WHERE version = '2.13.0'")"
-    [[ "$version_count" -eq 0 ]] || fail "Schema says 2.13.0 is installed, but icingaweb_incident_assignment is missing"
-    apply_mysql_file "$ICINGAWEB_DB" "$upgrade_2130"
-  fi
-
-  column_count="$(mysql_scalar "$ICINGAWEB_DB" "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'icingaweb_incident_assignment' AND column_name = 'note'")"
-  if [[ "$column_count" -eq 0 ]]; then
-    version_count="$(mysql_scalar "$ICINGAWEB_DB" "SELECT COUNT(*) FROM icingaweb_schema WHERE version = '2.13.1'")"
-    [[ "$version_count" -eq 0 ]] || fail "Schema says 2.13.1 is installed, but the note column is missing"
-    apply_mysql_file "$ICINGAWEB_DB" "$upgrade_2131"
-  fi
-
+  apply_mysql_file "$ICINGAWEB_DB" "$modernui_schema"
   apply_mysql_file "$ICINGADB_DB" "$icingadb_schema"
   log "MySQL migrations finished."
+}
+
+apply_pgsql_file() {
+  local database="$1"
+  local file="$2"
+  log "Applying $(basename "$file") to ${database}"
+  psql "${PGSQL_ARGS[@]}" --dbname="$database" --set=ON_ERROR_STOP=1 --file="$file"
+}
+
+migrate_pgsql() {
+  command -v psql >/dev/null 2>&1 || fail "psql client is required"
+  command -v pg_dump >/dev/null 2>&1 || fail "pg_dump is required"
+
+  local migration_id migration_backup
+  local modernui_schema="${PAYLOAD_DIR}/modules/modernui/schema/pgsql/1.0.0.sql"
+  local icingadb_schema="${PAYLOAD_DIR}/modules/modernui/schema/icingadb/pgsql/hostgroup-responsibility.sql"
+  require_file "$modernui_schema"
+  require_file "$icingadb_schema"
+
+  PGSQL_ARGS=(--username="$PGSQL_USER")
+  if [[ -n "$PGSQL_HOST" ]]; then
+    PGSQL_ARGS+=(--host="$PGSQL_HOST")
+  fi
+
+  migration_id="db-$(date +%Y%m%d-%H%M%S)"
+  migration_backup="${BACKUP_ROOT}/${migration_id}"
+  mkdir -p "$migration_backup"
+  log "Database backup directory: ${migration_backup}"
+  pg_dump "${PGSQL_ARGS[@]}" --dbname="$ICINGAWEB_DB" --file="${migration_backup}/${ICINGAWEB_DB}.sql"
+  pg_dump "${PGSQL_ARGS[@]}" --dbname="$ICINGADB_DB" --file="${migration_backup}/${ICINGADB_DB}.sql"
+
+  apply_pgsql_file "$ICINGAWEB_DB" "$modernui_schema"
+  apply_pgsql_file "$ICINGADB_DB" "$icingadb_schema"
+  log "PostgreSQL migrations finished."
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -305,9 +383,12 @@ BACKUP_ID=""
 USE_LATEST="0"
 MYSQL_USER="root"
 MYSQL_HOST="localhost"
+PGSQL_USER="postgres"
+PGSQL_HOST=""
 ICINGAWEB_DB="icingaweb2"
 ICINGADB_DB="icingadb"
 declare -a MYSQL_ARGS=()
+declare -a PGSQL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -345,6 +426,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --icingadb-db)
       ICINGADB_DB="${2:-}"
+      shift 2
+      ;;
+    --pgsql-user)
+      PGSQL_USER="${2:-}"
+      shift 2
+      ;;
+    --pgsql-host)
+      PGSQL_HOST="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -388,6 +477,10 @@ case "$COMMAND" in
   migrate-mysql)
     mkdir -p "$BACKUP_ROOT"
     migrate_mysql
+    ;;
+  migrate-pgsql)
+    mkdir -p "$BACKUP_ROOT"
+    migrate_pgsql
     ;;
   *)
     usage

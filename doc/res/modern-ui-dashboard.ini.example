@@ -1,4 +1,4 @@
-; Example starter dashboard for NeoNOC / NeoNOC-Compact
+; Example starter dashboard for NeoNOC
 ; Copy to:
 ;   /etc/icingaweb2/dashboards/<username>/dashboard.ini
 ; and adapt URLs to your installed modules and routes.
@@ -58,4 +58,3 @@ title = "Long Downtimes"
 url = "icingadb/history"
 type = "downtime"
 limit = "20"
-

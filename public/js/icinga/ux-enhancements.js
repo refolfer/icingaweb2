@@ -92,6 +92,7 @@
     var incidentAssignmentCache = {};
     var incidentAssignmentDetailsCache = {};
     var incidentAssignmentFetchState = {};
+    var incidentAssignmentCsrfToken = '';
     var operatorDecisionAssignmentState = {
         lastSignature: '',
         inFlight: false,
@@ -120,6 +121,7 @@
         apiUrl: '',
         items: [],
         note: '',
+        csrfToken: '',
         sourceSignature: '',
         saveTimer: null,
         inFlight: false
@@ -910,7 +912,9 @@
         }
 
         tacticalState.pollingTimer = window.setInterval(function () {
-            refreshTacticalOverview(false);
+            if (! document.hidden) {
+                refreshTacticalOverview(false);
+            }
         }, TACTICAL_REFRESH_MS);
     }
 
@@ -3536,7 +3540,9 @@
         }
 
         topEventsState.pollingTimer = window.setInterval(function () {
-            refreshTopEvents(false);
+            if (! document.hidden) {
+                refreshTopEvents(false);
+            }
         }, TOP_EVENTS_REFRESH_MS);
     }
 
@@ -5698,6 +5704,9 @@
                 return response.json();
             })
             .then(function (payload) {
+                incidentAssignmentCsrfToken = payload && payload.csrfToken
+                    ? String(payload.csrfToken)
+                    : incidentAssignmentCsrfToken;
                 if (! incidentDrawerState.assignment
                     || incidentDrawerState.assignment.objectSignature !== signature
                     || incidentDrawerState.assignment.requestId !== requestId
@@ -5780,6 +5789,7 @@
             params.set('service.name', object.serviceName);
         }
         params.set('_', String(Date.now()));
+        params.set('include_users', '0');
 
         window.fetch(url + '?' + params.toString(), {
             credentials: 'same-origin',
@@ -5793,6 +5803,9 @@
                 return response.json();
             })
             .then(function (payload) {
+                incidentAssignmentCsrfToken = payload && payload.csrfToken
+                    ? String(payload.csrfToken)
+                    : incidentAssignmentCsrfToken;
                 if (payload && payload.assignment) {
                     setIncidentAssignmentCache(object, payload.assignment.assignee);
                 } else {
@@ -5900,13 +5913,15 @@
         if (typeof note === 'string') {
             params.set('note', note);
         }
+        params.set('CSRFToken', incidentAssignmentCsrfToken);
 
         return window.fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': incidentAssignmentCsrfToken
             },
             body: params.toString()
         })
@@ -5923,6 +5938,10 @@
                     if (! response.ok) {
                         throw new Error(payload && payload.error ? payload.error : 'Unable to save incident assignment');
                     }
+
+                    incidentAssignmentCsrfToken = payload && payload.csrfToken
+                        ? String(payload.csrfToken)
+                        : incidentAssignmentCsrfToken;
 
                     return payload;
                 });
@@ -6647,7 +6666,6 @@
 
         return true;
     }
-
     function openShortcutsDialog() {
         var modal = document.getElementById('keyboard-shortcuts-modal');
         var closeButton;
@@ -8169,12 +8187,14 @@
         body = new URLSearchParams();
         body.set('items', JSON.stringify(payload.items));
         body.set('note', payload.note);
+        body.set('CSRFToken', quickMenuState.csrfToken);
 
         fetch(quickMenuState.apiUrl, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-CSRF-Token': quickMenuState.csrfToken
             },
             body: body.toString()
         })
@@ -8187,6 +8207,7 @@
             })
             .then(function (result) {
                 var root = getQuickMenuRoot();
+                quickMenuState.csrfToken = String(result.csrfToken || quickMenuState.csrfToken);
                 quickMenuState.items = normalizeQuickMenuItems(result.items || []);
                 if (! quickNotebookState.dirty || quickMenuState.note === savedNote) {
                     quickMenuState.note = String(result.note || '');
@@ -8376,6 +8397,7 @@
         }
 
         quickMenuState.apiUrl = root.dataset.apiUrl || '';
+        quickMenuState.csrfToken = root.dataset.csrfToken || quickMenuState.csrfToken;
         draftNote = readQuickNotebookDraft();
         sourceSignature = getQuickMenuSourceSignature(root);
 
@@ -9261,6 +9283,13 @@
             renderIcingadbObjectAssignmentLabels();
         });
     }
+
+    document.addEventListener('visibilitychange', function () {
+        if (! document.hidden) {
+            refreshTacticalOverview(true);
+            refreshTopEvents(true);
+        }
+    });
 
     renderRecentSearches();
     initQuickMenu();

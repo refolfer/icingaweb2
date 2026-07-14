@@ -8,12 +8,14 @@ namespace Icinga\Controllers;
 use Exception;
 use Icinga\Application\Config;
 use Icinga\Data\ConfigObject;
+use Icinga\Exception\ProgrammingError;
+use Icinga\User;
 use Icinga\User\Preferences;
 use Icinga\User\Preferences\PreferencesStore;
 use Icinga\Util\Json;
 use Icinga\Web\Controller\ActionController;
 use Icinga\Web\Menu;
-use Icinga\Web\Session;
+use Icinga\Web\Security\CsrfToken;
 
 /**
  * Create complex layout parts
@@ -49,9 +51,11 @@ class LayoutController extends ActionController
     /**
      * Load or update the authenticated user's quick menu state
      */
-    public function quickmenuAction()
+    public function quickmenuAction(): void
     {
-        $this->_helper->layout()->disableLayout();
+        // @phpstan-ignore-next-line Zend helper methods are resolved dynamically.
+        $this->_helper->layout->disableLayout();
+        // @phpstan-ignore-next-line Zend helper methods are resolved dynamically.
         $this->_helper->viewRenderer->setNoRender(true);
 
         if (! $this->Auth()->isAuthenticated()) {
@@ -65,6 +69,9 @@ class LayoutController extends ActionController
         }
 
         $this->assertHttpMethod('POST');
+        if (! $this->assertValidCsrfToken()) {
+            return;
+        }
 
         $itemsJson = $this->getRequest()->getPost('items');
         $note = $this->getRequest()->getPost('note');
@@ -79,7 +86,7 @@ class LayoutController extends ActionController
 
         if ($itemsJson !== null) {
             try {
-                $decoded = Json::decode((string) $itemsJson, true);
+                $decoded = Json::decode($this->stringValue($itemsJson), true);
             } catch (Exception $_) {
                 $this->respondWithJson(['error' => 'Invalid items payload'], 400);
                 return;
@@ -107,7 +114,8 @@ class LayoutController extends ActionController
         $this->respondWithJson([
             'ok' => true,
             'items' => $items,
-            'note' => $safeNote
+            'note' => $safeNote,
+            'csrfToken' => CsrfToken::generate()
         ]);
     }
 
@@ -119,9 +127,10 @@ class LayoutController extends ActionController
      *
      * @throws Exception
      */
-    protected function saveQuickMenu(array $items, $note)
+    /** @param list<array{label:string,url:string}> $items */
+    protected function saveQuickMenu(array $items, string $note): void
     {
-        $user = $this->Auth()->getUser();
+        $user = $this->getAuthenticatedUser();
         $store = $this->createPreferencesStore();
         $preferences = $store !== null
             ? new Preferences($store->load())
@@ -137,7 +146,7 @@ class LayoutController extends ActionController
         );
         $preferences->icingaweb = $webPreferences;
 
-        Session::getSession()->user->setPreferences($preferences);
+        $user->setPreferences($preferences);
 
         if ($store !== null) {
             $store->save($preferences);
@@ -149,9 +158,10 @@ class LayoutController extends ActionController
      *
      * @return array{items: array, note: string}
      */
-    protected function loadQuickMenu()
+    /** @return array{items:list<array{label:string,url:string}>,note:string,csrfToken:string} */
+    protected function loadQuickMenu(): array
     {
-        $user = $this->Auth()->getUser();
+        $user = $this->getAuthenticatedUser();
         $preferences = $user->getPreferences();
         $store = $this->createPreferencesStore();
         $items = [];
@@ -159,7 +169,7 @@ class LayoutController extends ActionController
         if ($store !== null) {
             try {
                 $preferences = new Preferences($store->load());
-                Session::getSession()->user->setPreferences($preferences);
+                $user->setPreferences($preferences);
             } catch (Exception $_) {
                 $preferences = $user->getPreferences();
             }
@@ -184,8 +194,24 @@ class LayoutController extends ActionController
 
         return [
             'items' => $this->sanitizeQuickMenuItems($items),
-            'note' => $this->sanitizeQuickMenuNote($note)
+            'note' => $this->sanitizeQuickMenuNote($note),
+            'csrfToken' => CsrfToken::generate()
         ];
+    }
+
+    protected function assertValidCsrfToken(): bool
+    {
+        $token = $this->getRequest()->getHeader('X-CSRF-Token');
+        if ($token === null || $token === '') {
+            $token = $this->getRequest()->getPost('CSRFToken', '');
+        }
+
+        if (! CsrfToken::isValid($token)) {
+            $this->respondWithJson(['error' => 'Invalid or expired CSRF token'], 403);
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -194,7 +220,11 @@ class LayoutController extends ActionController
      * @param array $webPreferences
      * @param array $items
      */
-    protected function setChunkedQuickMenuItems(array &$webPreferences, array $items)
+    /**
+     * @param array<string,mixed> $webPreferences
+     * @param list<array{label:string,url:string}> $items
+     */
+    protected function setChunkedQuickMenuItems(array &$webPreferences, array $items): void
     {
         $this->setChunkedPreference(
             $webPreferences,
@@ -212,8 +242,13 @@ class LayoutController extends ActionController
      * @param string $chunkPrefix
      * @param string $value
      */
-    protected function setChunkedPreference(array &$webPreferences, $legacyKey, $chunkPrefix, $value)
-    {
+    /** @param array<string,mixed> $webPreferences */
+    protected function setChunkedPreference(
+        array &$webPreferences,
+        string $legacyKey,
+        string $chunkPrefix,
+        string $value
+    ): void {
         $chunks = str_split((string) $value, static::QUICK_MENU_PREF_CHUNK_LENGTH);
         $index = 0;
 
@@ -238,7 +273,8 @@ class LayoutController extends ActionController
      *
      * @return string
      */
-    protected function getChunkedQuickMenuItems(array $webPreferences)
+    /** @param array<string,mixed> $webPreferences */
+    protected function getChunkedQuickMenuItems(array $webPreferences): string
     {
         return $this->getChunkedPreference(
             $webPreferences,
@@ -258,13 +294,18 @@ class LayoutController extends ActionController
      *
      * @return string
      */
-    protected function getChunkedPreference(array $webPreferences, $legacyKey, $chunkPrefix, $default)
-    {
+    /** @param array<string,mixed> $webPreferences */
+    protected function getChunkedPreference(
+        array $webPreferences,
+        string $legacyKey,
+        string $chunkPrefix,
+        string $default
+    ): string {
         $chunks = [];
 
         foreach ($webPreferences as $key => $value) {
             if (strpos($key, $chunkPrefix) === 0) {
-                $chunks[$key] = (string) $value;
+                $chunks[$key] = $this->stringValue($value);
             }
         }
 
@@ -273,7 +314,7 @@ class LayoutController extends ActionController
             return implode('', $chunks);
         }
 
-        return (string) ($webPreferences[$legacyKey] ?? $default);
+        return $this->stringValue($webPreferences[$legacyKey] ?? $default);
     }
 
     /**
@@ -281,7 +322,7 @@ class LayoutController extends ActionController
      *
      * @return PreferencesStore|null
      */
-    protected function createPreferencesStore()
+    protected function createPreferencesStore(): ?PreferencesStore
     {
         try {
             $config = Config::app()->getSection('global');
@@ -295,7 +336,7 @@ class LayoutController extends ActionController
 
         return PreferencesStore::create(new ConfigObject([
             'resource' => $config->config_resource
-        ]), $this->Auth()->getUser());
+        ]), $this->getAuthenticatedUser());
     }
 
     /**
@@ -305,7 +346,11 @@ class LayoutController extends ActionController
      *
      * @return array
      */
-    protected function sanitizeQuickMenuItems(array $items)
+    /**
+     * @param array<int,mixed> $items
+     * @return list<array{label:string,url:string}>
+     */
+    protected function sanitizeQuickMenuItems(array $items): array
     {
         $sanitized = [];
         foreach ($items as $item) {
@@ -346,9 +391,9 @@ class LayoutController extends ActionController
      *
      * @return string
      */
-    protected function sanitizeQuickMenuNote($note)
+    protected function sanitizeQuickMenuNote(mixed $note): string
     {
-        return mb_substr(trim((string) $note), 0, static::QUICK_MENU_MAX_NOTE_LENGTH);
+        return mb_substr(trim($this->stringValue($note)), 0, static::QUICK_MENU_MAX_NOTE_LENGTH);
     }
 
     /**
@@ -358,9 +403,9 @@ class LayoutController extends ActionController
      *
      * @return string
      */
-    protected function normalizeQuickMenuUrl($url)
+    protected function normalizeQuickMenuUrl(string $url): string
     {
-        $url = preg_replace('/\s+/', '', trim($url));
+        $url = preg_replace('/\s+/', '', trim($url)) ?? '';
         if ($url === '' || strlen($url) > static::QUICK_MENU_MAX_URL_LENGTH) {
             return '';
         }
@@ -386,11 +431,27 @@ class LayoutController extends ActionController
      * @param array $payload
      * @param int   $statusCode
      */
-    protected function respondWithJson(array $payload, $statusCode = 200)
+    /** @param array<string,mixed> $payload */
+    protected function respondWithJson(array $payload, int $statusCode = 200): void
     {
         $this->getResponse()
             ->setHttpResponseCode((int) $statusCode)
             ->setHeader('Content-Type', 'application/json; charset=utf-8', true)
             ->setBody(Json::sanitize($payload));
+    }
+
+    protected function getAuthenticatedUser(): User
+    {
+        $user = $this->Auth()->getUser();
+        if ($user === null) {
+            throw new ProgrammingError('This operation requires an authenticated user');
+        }
+
+        return $user;
+    }
+
+    protected function stringValue(mixed $value): string
+    {
+        return is_scalar($value) || $value instanceof \Stringable ? (string) $value : '';
     }
 }

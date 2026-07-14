@@ -102,25 +102,6 @@ CREATE UNIQUE INDEX idx_icingaweb_user_preference
     lower((name)::text)
 );
 
-CREATE TABLE "icingaweb_incident_assignment" (
-  "object_type"  character varying(16) NOT NULL,
-  "host_name"    character varying(254) NOT NULL,
-  "service_name" character varying(255) NOT NULL DEFAULT '',
-  "assignee"     character varying(254) NOT NULL,
-  "assigned_by"  character varying(254) NOT NULL,
-  "note"         character varying(1024) NOT NULL DEFAULT '',
-  "ctime"        timestamp NULL DEFAULT NULL,
-  "mtime"        timestamp NULL DEFAULT NULL
-);
-
-ALTER TABLE ONLY "icingaweb_incident_assignment"
-  ADD CONSTRAINT pk_icingaweb_incident_assignment
-  PRIMARY KEY (
-    "object_type",
-    "host_name",
-    "service_name"
-);
-
 CREATE TABLE "icingaweb_rememberme" (
   "id"                  serial,
   "username"            character varying(254) NOT NULL,
@@ -152,4 +133,4 @@ CREATE TABLE "icingaweb_schema" (
 );
 
 INSERT INTO icingaweb_schema (version, timestamp, success)
-  VALUES ('2.13.1', extract(epoch from now()) * 1000, 'y');
+  VALUES ('2.12.0', extract(epoch from now()) * 1000, 'y');

@@ -1,6 +1,7 @@
 <?php
 
 use Icinga\Web\Navigation\ConfigMenu;
+use Icinga\Web\Security\CsrfToken;
 use Icinga\Web\Widget\SearchDashboard;
 use Icinga\Util\Json;
 
@@ -10,6 +11,10 @@ $quickMenu = $this->quickMenu ?? ['items' => [], 'note' => ''];
 $quickMenuItemsJson = Json::sanitize($quickMenu['items'] ?? []);
 $quickMenuNote = (string) ($quickMenu['note'] ?? '');
 $quickMenuUser = $this->Auth()->getUser();
+$quickMenuCsrfToken = (string) ($quickMenu['csrfToken'] ?? '');
+if ($quickMenuCsrfToken === '' && $quickMenuUser) {
+    $quickMenuCsrfToken = CsrfToken::generate();
+}
 $quickMenuUserScope = $quickMenuUser ? (string) $quickMenuUser->getUsername() : 'anonymous';
 
 if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
@@ -43,6 +48,7 @@ if ($searchDashboard->search('dummy')->getPane('search')->hasDashlets()): ?>
     data-user-scope="<?= $this->escape($quickMenuUserScope) ?>"
     data-items-json="<?= $this->escape($quickMenuItemsJson) ?>"
     data-note="<?= $this->escape($quickMenuNote) ?>"
+    data-csrf-token="<?= $this->escape($quickMenuCsrfToken) ?>"
     data-title="<?= $this->escape($this->translate('Quick Menu')) ?>"
     data-empty-label="<?= $this->escape($this->translate('No quick links yet. Right-click any link to add it.')) ?>"
     data-links-label="<?= $this->escape($this->translate('Links')) ?>"

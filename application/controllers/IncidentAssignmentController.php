@@ -6,33 +6,39 @@
 namespace Icinga\Controllers;
 
 use Exception;
+use Icinga\Exception\ProgrammingError;
 use Icinga\Authentication\User\DomainAwareInterface;
 use Icinga\Module\Icingadb\Common\Backend as IcingadbBackend;
 use Icinga\Module\Icingadb\Model\Host;
 use Icinga\Module\Icingadb\Model\Service;
 use Icinga\User;
 use Icinga\Web\Controller\AuthBackendController;
-use Icinga\Web\IncidentAssignment\IncidentAssignmentStore;
+use Icinga\Module\Modernui\IncidentAssignment\IncidentAssignmentStore;
+use Icinga\Web\Security\CsrfToken;
 use Icinga\Util\Json;
 use ipl\Stdlib\Filter;
 
 class IncidentAssignmentController extends AuthBackendController
 {
-    public function init()
+    public function init(): void
     {
         parent::init();
+        // @phpstan-ignore-next-line Zend helper methods are resolved dynamically.
         $this->_helper->layout->disableLayout();
+        // @phpstan-ignore-next-line Zend helper methods are resolved dynamically.
         $this->_helper->viewRenderer->setNoRender(true);
     }
 
-    public function indexAction()
+    public function indexAction(): void
     {
         $this->getResponse()->setHttpResponseCode(404);
     }
 
-    public function getAction()
+    public function getAction(): void
     {
-        $this->assertAuthenticated();
+        if (! $this->assertAuthenticated()) {
+            return;
+        }
         $response = $this->getResponse();
 
         $response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0', true);
@@ -52,27 +58,33 @@ class IncidentAssignmentController extends AuthBackendController
             return;
         }
 
-        $canAssign = $this->Auth()->isAuthenticated()
-            && $this->Auth()->getUser()->can('application/critical-assignments');
+        $canAssign = $this->getAuthenticatedUser()->can('application/critical-assignments');
+        $includeUsers = $this->stringValue($this->params->get('include_users', '1')) !== '0';
 
         $this->respondWithJson([
             'ok' => true,
             'object' => $object,
             'assignment' => $assignment,
-            'users' => $canAssign ? $this->collectAssignableUsers() : [],
-            'canAssign' => $canAssign
+            'users' => $canAssign && $includeUsers ? $this->collectAssignableUsers() : [],
+            'canAssign' => $canAssign,
+            'csrfToken' => $canAssign ? CsrfToken::generate() : null
         ]);
     }
 
-    public function setAction()
+    public function setAction(): void
     {
-        $this->assertAuthenticated();
+        if (! $this->assertAuthenticated()) {
+            return;
+        }
         $this->assertPermission('application/critical-assignments');
         $this->assertHttpMethod('POST');
+        if (! $this->assertValidCsrfToken()) {
+            return;
+        }
 
         $object = $this->getObjectFromRequest();
         $rawParams = $this->getRawRequestParams();
-        $assignee = trim((string) $this->getRequestValue('assignee', '', $rawParams));
+        $assignee = trim($this->stringValue($this->getRequestValue('assignee', '', $rawParams)));
         $note = null;
         if ($this->params->get('note', null) !== null || array_key_exists('note', $rawParams)) {
             $note = $this->sanitizeAssignmentNote($this->getRequestValue('note', '', $rawParams));
@@ -80,6 +92,11 @@ class IncidentAssignmentController extends AuthBackendController
 
         if ($object === null) {
             $this->respondWithJson(['error' => 'Missing object identifiers'], 400);
+            return;
+        }
+
+        if (! $this->objectExists($object)) {
+            $this->respondWithJson(['error' => 'The selected monitoring object no longer exists'], 404);
             return;
         }
 
@@ -99,7 +116,8 @@ class IncidentAssignmentController extends AuthBackendController
                 'ok' => true,
                 'assignment' => null,
                 'users' => $this->collectAssignableUsers(),
-                'canAssign' => true
+                'canAssign' => true,
+                'csrfToken' => CsrfToken::generate()
             ]);
             return;
         }
@@ -115,7 +133,7 @@ class IncidentAssignmentController extends AuthBackendController
                 $object['host_name'],
                 $object['service_name'],
                 $assignee,
-                $this->Auth()->getUser()->getUsername(),
+                $this->getAuthenticatedUser()->getUsername(),
                 $note
             );
         } catch (Exception $e) {
@@ -127,13 +145,16 @@ class IncidentAssignmentController extends AuthBackendController
             'ok' => true,
             'assignment' => $assignment,
             'users' => $this->collectAssignableUsers(),
-            'canAssign' => true
+            'canAssign' => true,
+            'csrfToken' => CsrfToken::generate()
         ]);
     }
 
-    public function summaryAction()
+    public function summaryAction(): void
     {
-        $this->assertAuthenticated();
+        if (! $this->assertAuthenticated()) {
+            return;
+        }
 
         try {
             $criticalObjects = $this->loadCriticalObjects();
@@ -150,16 +171,18 @@ class IncidentAssignmentController extends AuthBackendController
             'objects' => $criticalObjects,
             'assignments' => $assignments,
             'summary' => $summary,
-            'currentUser' => $this->Auth()->getUser()->getUsername(),
+            'currentUser' => $this->getAuthenticatedUser()->getUsername(),
             'lanes' => $summary['lanes']
         ]);
     }
 
-    public function assignedAction()
+    public function assignedAction(): void
     {
-        $this->assertAuthenticated();
+        if (! $this->assertAuthenticated()) {
+            return;
+        }
 
-        $assigned = trim((string) $this->params->get('assigned', ''));
+        $assigned = trim($this->stringValue($this->params->get('assigned', '')));
 
         try {
             $criticalObjects = $this->loadCriticalObjects();
@@ -179,22 +202,35 @@ class IncidentAssignmentController extends AuthBackendController
             ->setBody($this->renderAssignedObjects($filteredObjects, $assignments, $assigned));
     }
 
-    protected function getObjectFromRequest()
+    /** @return array{type:string,host_name:string,service_name:?string}|null */
+    protected function getObjectFromRequest(): ?array
     {
         $rawParams = $this->getRawRequestParams();
-        $type = trim((string) $this->getRequestValue('type', '', $rawParams));
+        $type = trim($this->stringValue($this->getRequestValue('type', '', $rawParams)));
         if ($type === '') {
-            $type = trim((string) $this->getRequestValue('object_type', '', $rawParams));
+            $type = trim($this->stringValue($this->getRequestValue('object_type', '', $rawParams)));
         }
 
-        $hostName = trim((string) $this->getRequestValue('host.name', $this->getRequestValue('host_name', '', $rawParams), $rawParams));
+        $hostName = trim($this->stringValue($this->getRequestValue(
+            'host.name',
+            $this->getRequestValue('host_name', '', $rawParams),
+            $rawParams
+        )));
         if ($hostName === '') {
-            $hostName = trim((string) $this->getRequestValue('object_host_name', '', $rawParams));
+            $hostName = trim($this->stringValue(
+                $this->getRequestValue('object_host_name', '', $rawParams)
+            ));
         }
 
-        $serviceName = trim((string) $this->getRequestValue('service.name', $this->getRequestValue('service_name', '', $rawParams), $rawParams));
+        $serviceName = trim($this->stringValue($this->getRequestValue(
+            'service.name',
+            $this->getRequestValue('service_name', '', $rawParams),
+            $rawParams
+        )));
         if ($serviceName === '') {
-            $serviceName = trim((string) $this->getRequestValue('object_service_name', '', $rawParams));
+            $serviceName = trim($this->stringValue(
+                $this->getRequestValue('object_service_name', '', $rawParams)
+            ));
         }
 
         if ($type === '' && $hostName === '') {
@@ -224,7 +260,8 @@ class IncidentAssignmentController extends AuthBackendController
         ];
     }
 
-    protected function getObjectsFromRequest()
+    /** @return list<array{type:string,host_name:string,service_name:?string}> */
+    protected function getObjectsFromRequest(): array
     {
         $rawParams = $this->getRawRequestParams();
         $objects = [];
@@ -253,17 +290,21 @@ class IncidentAssignmentController extends AuthBackendController
         return $this->normalizeObjects($objects);
     }
 
-    protected function sanitizeAssignmentNote($note)
+    protected function sanitizeAssignmentNote(mixed $note): string
     {
-        return mb_substr(trim((string) $note), 0, 1024);
+        return mb_substr(trim($this->stringValue($note)), 0, 1024);
     }
 
-    protected function getRequestValue($key, $default = '', array $rawParams = [])
+    /** @param array<string,mixed> $rawParams */
+    protected function getRequestValue(string $key, mixed $default = '', array $rawParams = []): mixed
     {
         $value = $default;
 
         if ($this->params->get($key, null) !== null) {
-            $value = $this->params->get($key, $default);
+            $safeDefault = is_bool($default) || is_int($default) || is_string($default) || $default === null
+                ? $default
+                : null;
+            $value = $this->params->get($key, $safeDefault);
         } elseif (array_key_exists($key, $rawParams)) {
             $value = $rawParams[$key];
         } elseif ($key === 'host.name' && array_key_exists('host_name', $rawParams)) {
@@ -275,7 +316,8 @@ class IncidentAssignmentController extends AuthBackendController
         return $value;
     }
 
-    protected function getRawRequestParams()
+    /** @return array<string,mixed> */
+    protected function getRawRequestParams(): array
     {
         $rawBody = '';
         $request = $this->getRequest();
@@ -290,10 +332,16 @@ class IncidentAssignmentController extends AuthBackendController
 
         parse_str($rawBody, $parsed);
 
-        return is_array($parsed) ? $parsed : [];
+        $normalized = [];
+        foreach ($parsed as $key => $value) {
+            $normalized[(string) $key] = $value;
+        }
+
+        return $normalized;
     }
 
-    protected function collectAssignableUsers()
+    /** @return list<string> */
+    protected function collectAssignableUsers(): array
     {
         $users = [];
         foreach ($this->loadUserBackends('Icinga\Data\Selectable') as $backend) {
@@ -329,12 +377,17 @@ class IncidentAssignmentController extends AuthBackendController
         return array_values($users);
     }
 
-    protected function isKnownUser($userName)
+    protected function isKnownUser(string $userName): bool
     {
         return in_array($userName, $this->collectAssignableUsers(), true);
     }
 
-    protected function buildAssignmentSummary(array $objects, array $assignments)
+    /**
+     * @param list<array<string,mixed>> $objects
+     * @param array<string,array<string,mixed>> $assignments
+     * @return array<string,mixed>
+     */
+    protected function buildAssignmentSummary(array $objects, array $assignments): array
     {
         $summary = [
             'me' => 0,
@@ -368,7 +421,7 @@ class IncidentAssignmentController extends AuthBackendController
             }
 
             $assignment = $assignments[$signature] ?? null;
-            $assignee = $assignment ? (string) ($assignment['assignee'] ?? '') : '';
+            $assignee = $assignment ? $this->stringValue($assignment['assignee'] ?? '') : '';
             $lane = $this->getAssignmentLane($assignee, $currentUserNames);
 
             if ($lane === 'me') {
@@ -391,16 +444,17 @@ class IncidentAssignmentController extends AuthBackendController
         return $summary;
     }
 
-    protected function loadCriticalObjects()
+    /** @return list<array{type:string,host_name:string,service_name:?string}> */
+    protected function loadCriticalObjects(): array
     {
         $db = IcingadbBackend::getDb();
         $objects = [];
 
-        foreach (
-            Host::on($db)
-                ->with(['state'])
-                ->filter(Filter::equal('state.is_problem', 'y')) as $host
-        ) {
+        $hosts = Host::on($db)
+            ->with(['state'])
+            ->filter(Filter::equal('state.is_problem', 'y'));
+        foreach ($hosts as $host) {
+            /** @var Host $host */
             $objects[] = [
                 'type' => 'host',
                 'host_name' => (string) $host->name,
@@ -408,14 +462,16 @@ class IncidentAssignmentController extends AuthBackendController
             ];
         }
 
-        foreach (
-            Service::on($db)
-                ->with(['state', 'host'])
-                ->filter(Filter::equal('state.is_problem', 'y')) as $service
-        ) {
+        $services = Service::on($db)
+            ->with(['state', 'host'])
+            ->filter(Filter::equal('state.is_problem', 'y'));
+        foreach ($services as $service) {
+            /** @var Service $service */
+            /** @var Host|null $host */
+            $host = $service->host;
             $objects[] = [
                 'type' => 'service',
-                'host_name' => (string) ($service->host->name ?? ''),
+                'host_name' => $host === null ? '' : $host->name,
                 'service_name' => (string) $service->name
             ];
         }
@@ -423,7 +479,34 @@ class IncidentAssignmentController extends AuthBackendController
         return $objects;
     }
 
-    protected function getAssignmentLane($assignee, array $currentUserNames)
+    /** @param array{type:string,host_name:string,service_name:?string} $object */
+    protected function objectExists(array $object): bool
+    {
+        $db = IcingadbBackend::getDb();
+
+        if ($object['type'] === 'host') {
+            $query = Host::on($db)
+                ->filter(Filter::equal('name', $object['host_name']))
+                ->limit(1);
+        } else {
+            $query = Service::on($db)
+                ->with(['host'])
+                ->filter(Filter::all(
+                    Filter::equal('name', $object['service_name']),
+                    Filter::equal('host.name', $object['host_name'])
+                ))
+                ->limit(1);
+        }
+
+        foreach ($query as $_) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /** @param list<string> $currentUserNames */
+    protected function getAssignmentLane(string $assignee, array $currentUserNames): string
     {
         if (! trim((string) $assignee)) {
             return 'unassigned';
@@ -432,11 +515,12 @@ class IncidentAssignmentController extends AuthBackendController
         return $this->isAssigneeCurrentUser($assignee, $currentUserNames) ? 'me' : 'assigned';
     }
 
-    protected function buildObjectSignature(array $object)
+    /** @param array<string,mixed> $object */
+    protected function buildObjectSignature(array $object): ?string
     {
-        $type = trim((string) ($object['type'] ?? ''));
-        $hostName = trim((string) ($object['host_name'] ?? ''));
-        $serviceName = trim((string) ($object['service_name'] ?? ''));
+        $type = trim($this->stringValue($object['type'] ?? ''));
+        $hostName = trim($this->stringValue($object['host_name'] ?? ''));
+        $serviceName = trim($this->stringValue($object['service_name'] ?? ''));
 
         if (! in_array($type, ['host', 'service'], true) || $hostName === '') {
             return null;
@@ -449,7 +533,12 @@ class IncidentAssignmentController extends AuthBackendController
         return $type . '|' . $hostName . '|' . ($type === 'service' ? $serviceName : '');
     }
 
-    protected function filterObjectsByAssigned(array $objects, array $assignments, $assigned)
+    /**
+     * @param list<array<string,mixed>> $objects
+     * @param array<string,array<string,mixed>> $assignments
+     * @return list<array<string,mixed>>
+     */
+    protected function filterObjectsByAssigned(array $objects, array $assignments, string $assigned): array
     {
         $filtered = [];
 
@@ -460,7 +549,9 @@ class IncidentAssignmentController extends AuthBackendController
             }
 
             $assignment = $assignments[$signature] ?? null;
-            $assignee = is_array($assignment) ? trim((string) ($assignment['assignee'] ?? '')) : '';
+            $assignee = is_array($assignment)
+                ? trim($this->stringValue($assignment['assignee'] ?? ''))
+                : '';
 
             if (! $this->matchesAssignedFilter($assignee, $assigned)) {
                 continue;
@@ -472,7 +563,7 @@ class IncidentAssignmentController extends AuthBackendController
         return $filtered;
     }
 
-    protected function matchesAssignedFilter($assignee, $assigned)
+    protected function matchesAssignedFilter(string $assignee, string $assigned): bool
     {
         $assigned = strtolower(trim((string) $assigned));
         $assigneeNames = $this->normalizeAssigneeNames($assignee);
@@ -489,14 +580,20 @@ class IncidentAssignmentController extends AuthBackendController
         return $this->namesOverlap($assigneeNames, $assignedNames);
     }
 
-    protected function renderAssignedObjects(array $objects, array $assignments, $assigned)
+    /**
+     * @param list<array<string,mixed>> $objects
+     * @param array<string,array<string,mixed>> $assignments
+     */
+    protected function renderAssignedObjects(array $objects, array $assignments, string $assigned): string
     {
         $title = $this->getAssignedFilterTitle($assigned);
 
         $html = [];
         $html[] = '<div class="incident-assignment-search">';
         $html[] = '<h2>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
-        $html[] = '<p>' . htmlspecialchars(sprintf('%d matching incidents', count($objects)), ENT_QUOTES, 'UTF-8') . '</p>';
+        $html[] = '<p>'
+            . htmlspecialchars(sprintf('%d matching incidents', count($objects)), ENT_QUOTES, 'UTF-8')
+            . '</p>';
 
         if (! count($objects)) {
             $html[] = '<p>' . htmlspecialchars('No matching incidents', ENT_QUOTES, 'UTF-8') . '</p>';
@@ -507,7 +604,9 @@ class IncidentAssignmentController extends AuthBackendController
         $html[] = '<ul class="incident-assignment-search-list">';
         foreach ($objects as $object) {
             $signature = $this->buildObjectSignature($object);
-            $assignment = $signature !== null && array_key_exists($signature, $assignments) ? $assignments[$signature] : null;
+            $assignment = $signature !== null && array_key_exists($signature, $assignments)
+                ? $assignments[$signature]
+                : null;
             $label = htmlspecialchars($this->getObjectLabel($object), ENT_QUOTES, 'UTF-8');
             $url = htmlspecialchars($this->getObjectUrl($object), ENT_QUOTES, 'UTF-8');
             $meta = htmlspecialchars($this->getObjectMeta($object, $assignment), ENT_QUOTES, 'UTF-8');
@@ -524,7 +623,7 @@ class IncidentAssignmentController extends AuthBackendController
         return join('', $html);
     }
 
-    protected function getAssignedFilterTitle($assigned)
+    protected function getAssignedFilterTitle(string $assigned): string
     {
         $assigned = trim((string) $assigned);
 
@@ -539,7 +638,8 @@ class IncidentAssignmentController extends AuthBackendController
         return 'Assigned to ' . $assigned;
     }
 
-    protected function normalizeAssigneeNames($value)
+    /** @return list<string> */
+    protected function normalizeAssigneeNames(string $value): array
     {
         $names = [];
         $normalized = strtolower(trim((string) $value));
@@ -559,34 +659,41 @@ class IncidentAssignmentController extends AuthBackendController
         return array_values(array_unique(array_filter($names)));
     }
 
-    protected function namesOverlap(array $left, array $right)
+    /**
+     * @param list<string> $left
+     * @param list<string> $right
+     */
+    protected function namesOverlap(array $left, array $right): bool
     {
         return count(array_intersect($left, $right)) > 0;
     }
 
-    protected function getObjectLabel(array $object)
+    /** @param array<string,mixed> $object */
+    protected function getObjectLabel(array $object): string
     {
         if (($object['type'] ?? '') === 'service') {
             return sprintf(
                 '%s on %s',
-                (string) ($object['service_name'] ?? ''),
-                (string) ($object['host_name'] ?? '')
+                $this->stringValue($object['service_name'] ?? ''),
+                $this->stringValue($object['host_name'] ?? '')
             );
         }
 
-        return (string) ($object['host_name'] ?? '');
+        return $this->stringValue($object['host_name'] ?? '');
     }
 
-    protected function getObjectMeta(array $object, $assignment = null)
+    /** @param array<string,mixed> $object */
+    protected function getObjectMeta(array $object, mixed $assignment = null): string
     {
-        if (! is_array($assignment) || ! trim((string) ($assignment['assignee'] ?? ''))) {
+        if (! is_array($assignment) || ! trim($this->stringValue($assignment['assignee'] ?? ''))) {
             return 'Not assigned';
         }
 
-        return 'Assigned to ' . (string) $assignment['assignee'];
+        return 'Assigned to ' . $this->stringValue($assignment['assignee']);
     }
 
-    protected function getObjectUrl(array $object)
+    /** @param array<string,mixed> $object */
+    protected function getObjectUrl(array $object): string
     {
         $baseUrl = (string) $this->getRequest()->getBaseUrl();
         if ($baseUrl === '/') {
@@ -594,29 +701,32 @@ class IncidentAssignmentController extends AuthBackendController
         }
 
         if (($object['type'] ?? '') === 'service') {
-            return $baseUrl . '/icingadb/service?name=' . rawurlencode((string) $object['service_name'])
-                . '&host.name=' . rawurlencode((string) $object['host_name']);
+            return $baseUrl . '/icingadb/service?name=' . rawurlencode(
+                $this->stringValue($object['service_name'] ?? '')
+            ) . '&host.name=' . rawurlencode($this->stringValue($object['host_name'] ?? ''));
         }
 
-        return $baseUrl . '/icingadb/host?host.name=' . rawurlencode((string) $object['host_name']);
+        return $baseUrl . '/icingadb/host?host.name=' . rawurlencode(
+            $this->stringValue($object['host_name'] ?? '')
+        );
     }
 
-    protected function getCurrentUserNames()
+    /** @return list<string> */
+    protected function getCurrentUserNames(): array
     {
-        $user = $this->Auth()->getUser();
+        $user = $this->getAuthenticatedUser();
         $names = [];
 
-        if ($user) {
-            $names = array_merge($names, $this->normalizeAssigneeNames($user->getUsername()));
-            if (method_exists($user, 'getLocalUsername')) {
-                $names = array_merge($names, $this->normalizeAssigneeNames($user->getLocalUsername()));
-            }
+        $names = array_merge($names, $this->normalizeAssigneeNames($user->getUsername()));
+        if (method_exists($user, 'getLocalUsername')) {
+            $names = array_merge($names, $this->normalizeAssigneeNames($user->getLocalUsername()));
         }
 
         return array_values(array_unique(array_filter($names)));
     }
 
-    protected function isAssigneeCurrentUser($assignee, array $currentUserNames)
+    /** @param list<string> $currentUserNames */
+    protected function isAssigneeCurrentUser(string $assignee, array $currentUserNames): bool
     {
         if (! count($currentUserNames)) {
             return false;
@@ -625,7 +735,11 @@ class IncidentAssignmentController extends AuthBackendController
         return $this->namesOverlap($this->normalizeAssigneeNames($assignee), $currentUserNames);
     }
 
-    protected function normalizeObjects(array $objects)
+    /**
+     * @param array<int,mixed> $objects
+     * @return list<array{type:string,host_name:string,service_name:?string}>
+     */
+    protected function normalizeObjects(array $objects): array
     {
         $normalized = [];
 
@@ -660,19 +774,53 @@ class IncidentAssignmentController extends AuthBackendController
         return $normalized;
     }
 
-    protected function assertAuthenticated()
+    protected function assertAuthenticated(): bool
     {
         if (! $this->Auth()->isAuthenticated()) {
             $this->respondWithJson(['error' => 'Unauthorized'], 401);
-            exit;
+            return false;
         }
+
+        return true;
     }
 
-    protected function respondWithJson(array $payload, $statusCode = 200)
+    protected function assertValidCsrfToken(): bool
+    {
+        $rawParams = $this->getRawRequestParams();
+        $token = $this->getRequest()->getHeader('X-CSRF-Token');
+        if ($token === null || $token === '') {
+            $token = $this->getRequestValue('CSRFToken', '', $rawParams);
+        }
+
+        if (! CsrfToken::isValid($token)) {
+            $this->respondWithJson(['error' => 'Invalid or expired CSRF token'], 403);
+            return false;
+        }
+
+        return true;
+    }
+
+    /** @param array<string,mixed> $payload */
+    protected function respondWithJson(array $payload, int $statusCode = 200): void
     {
         $this->getResponse()
             ->setHttpResponseCode((int) $statusCode)
             ->setHeader('Content-Type', 'application/json; charset=utf-8', true)
             ->setBody(Json::sanitize($payload));
+    }
+
+    protected function getAuthenticatedUser(): User
+    {
+        $user = $this->Auth()->getUser();
+        if ($user === null) {
+            throw new ProgrammingError('This operation requires an authenticated user');
+        }
+
+        return $user;
+    }
+
+    protected function stringValue(mixed $value): string
+    {
+        return is_scalar($value) || $value instanceof \Stringable ? (string) $value : '';
     }
 }

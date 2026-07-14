@@ -1,0 +1,4 @@
+Module: modernui
+Version: 1.0.0
+Description: Modern operator UI and incident assignment extensions
+ Provides incident ownership, host group responsibility and operator workspace assets.

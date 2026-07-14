@@ -13,7 +13,6 @@ Icinga Web 2 workflows (acknowledgements, comments, downtime, filtering, quick n
 - Constraints: keep compatibility with stock Icinga Web 2 and modules
 - Theme family:
   - `NeoNOC`: default dark operator profile
-  - `NeoNOC-Compact`: dense dark profile for crowded screens and wallboards
   - `NeoNOC-Light`: light profile for bright offices and daytime shifts
 
 ## Phase 1 - Foundation (Done In This Sketch)
@@ -63,10 +62,9 @@ Icinga Web 2 workflows (acknowledgements, comments, downtime, filtering, quick n
 ## How To Enable This Sketch
 
 1. Ensure file `public/css/themes/NeoNOC.less` exists in deployment
-2. Optionally use `public/css/themes/NeoNOC-Compact.less` for denser NOC layout
-3. Optionally use `public/css/themes/NeoNOC-Light.less` for light operator layout
-4. Open Icinga Web 2 and select theme `NeoNOC`, `NeoNOC-Compact` or `NeoNOC-Light` in user preferences
-5. Optionally enforce globally in `/etc/icingaweb2/config.ini`:
+2. Optionally use `public/css/themes/NeoNOC-Light.less` for light operator layout
+3. Open Icinga Web 2 and select theme `NeoNOC` or `NeoNOC-Light` in user preferences
+4. Optionally enforce globally in `/etc/icingaweb2/config.ini`:
 
 ```ini
 [themes]

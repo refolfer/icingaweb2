@@ -3,16 +3,20 @@
 // SPDX-FileCopyrightText: 2026 Icinga GmbH <https://icinga.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-namespace Icinga\Web\IncidentAssignment;
+namespace Icinga\Module\Modernui\IncidentAssignment;
 
 use Exception;
 use Icinga\Application\Config;
+use Icinga\Data\Db\DbConnection;
 use Icinga\Data\ResourceFactory;
 use Icinga\Exception\ConfigurationError;
 use Zend_Db_Expr;
+use Zend_Db_Adapter_Abstract;
+use Zend_Db_Select;
 
 class IncidentAssignmentStore
 {
+    const QUERY_CHUNK_SIZE = 100;
     const TABLE = 'icingaweb_incident_assignment';
     const COLUMN_OBJECT_TYPE = 'object_type';
     const COLUMN_HOST_NAME = 'host_name';
@@ -23,17 +27,17 @@ class IncidentAssignmentStore
     const COLUMN_CREATED_TIME = 'ctime';
     const COLUMN_MODIFIED_TIME = 'mtime';
 
-    protected $resourceName;
+    protected string $resourceName;
 
-    protected $db;
+    protected Zend_Db_Adapter_Abstract $db;
 
-    public function __construct($resourceName, $db)
+    public function __construct(string $resourceName, Zend_Db_Adapter_Abstract $db)
     {
         $this->resourceName = $resourceName;
         $this->db = $db;
     }
 
-    public static function create()
+    public static function create(): self
     {
         try {
             $resourceName = Config::app()->get('global', 'config_resource');
@@ -45,11 +49,17 @@ class IncidentAssignmentStore
             throw new ConfigurationError('No configuration resource is configured');
         }
 
+        $resourceName = self::stringValue($resourceName);
         $resource = ResourceFactory::create($resourceName);
+        if (! $resource instanceof DbConnection) {
+            throw new ConfigurationError('The configured resource "%s" is not a database', $resourceName);
+        }
+
         return new self($resourceName, $resource->getDbAdapter());
     }
 
-    public function load($objectType, $hostName, $serviceName = null)
+    /** @return array{assignee:string,assigned_by:string,note:string,created_at:mixed,updated_at:mixed}|null */
+    public function load(string $objectType, string $hostName, ?string $serviceName = null): ?array
     {
         try {
             $row = $this->fetchObjectRow($objectType, $hostName, $serviceName);
@@ -78,19 +88,19 @@ class IncidentAssignmentStore
     /**
      * Load incident assignments for a list of objects.
      *
-     * @param array $objects
+     * @param array<int,mixed> $objects
      *
      * @return array<string,array<string,mixed>>
      */
-    public function loadMany(array $objects)
+    public function loadMany(array $objects): array
     {
         $rows = $this->fetchRowsForObjects($objects);
         $assignments = [];
 
         foreach ($rows as $row) {
-            $objectType = (string) $this->getRowValue($row, self::COLUMN_OBJECT_TYPE);
-            $hostName = (string) $this->getRowValue($row, self::COLUMN_HOST_NAME);
-            $serviceName = (string) $this->getRowValue($row, self::COLUMN_SERVICE_NAME);
+            $objectType = self::stringValue($this->getRowValue($row, self::COLUMN_OBJECT_TYPE));
+            $hostName = self::stringValue($this->getRowValue($row, self::COLUMN_HOST_NAME));
+            $serviceName = self::stringValue($this->getRowValue($row, self::COLUMN_SERVICE_NAME));
             $signature = $this->getObjectSignature($objectType, $hostName, $serviceName);
 
             if ($signature === null) {
@@ -98,9 +108,9 @@ class IncidentAssignmentStore
             }
 
             $assignments[$signature] = [
-                'assignee' => (string) $this->getRowValue($row, self::COLUMN_ASSIGNEE),
-                'assigned_by' => (string) $this->getRowValue($row, self::COLUMN_ASSIGNED_BY),
-                'note' => (string) $this->getRowValue($row, self::COLUMN_NOTE),
+                'assignee' => self::stringValue($this->getRowValue($row, self::COLUMN_ASSIGNEE)),
+                'assigned_by' => self::stringValue($this->getRowValue($row, self::COLUMN_ASSIGNED_BY)),
+                'note' => self::stringValue($this->getRowValue($row, self::COLUMN_NOTE)),
                 'created_at' => $this->getRowValue($row, self::COLUMN_CREATED_TIME),
                 'updated_at' => $this->getRowValue($row, self::COLUMN_MODIFIED_TIME)
             ];
@@ -112,11 +122,11 @@ class IncidentAssignmentStore
     /**
      * Count incident assignments grouped by assignee for a list of objects.
      *
-     * @param array $objects
+     * @param array<int,mixed> $objects
      *
      * @return array<string,int>
      */
-    public function aggregateByAssignee(array $objects)
+    public function aggregateByAssignee(array $objects): array
     {
         $descriptors = $this->normalizeObjects($objects);
         if (! count($descriptors)) {
@@ -124,19 +134,24 @@ class IncidentAssignmentStore
         }
 
         try {
-            $select = $this->db->select()
-                ->from(
-                    self::TABLE,
-                    [
-                        self::COLUMN_ASSIGNEE,
-                        'item_count' => new Zend_Db_Expr('COUNT(*)')
-                    ]
-                )
-                ->group(self::COLUMN_ASSIGNEE);
+            $rows = [];
+            foreach (array_chunk($descriptors, self::QUERY_CHUNK_SIZE) as $chunk) {
+                $select = $this->db->select()
+                    ->from(
+                        self::TABLE,
+                        [
+                            self::COLUMN_ASSIGNEE,
+                            'item_count' => new Zend_Db_Expr('COUNT(*)')
+                        ]
+                    )
+                    ->group(self::COLUMN_ASSIGNEE);
 
-            $this->applyObjectFilters($select, $descriptors);
-
-            $rows = $select->query()->fetchAll();
+                $this->applyObjectFilters($select, $chunk);
+                $chunkRows = $select->query()->fetchAll();
+                if (is_array($chunkRows)) {
+                    $rows = array_merge($rows, $chunkRows);
+                }
+            }
         } catch (Exception $e) {
             throw new ConfigurationError(
                 'Cannot aggregate incident assignments from database',
@@ -146,28 +161,38 @@ class IncidentAssignmentStore
 
         $counts = [];
         foreach ($rows as $row) {
-            $assignee = (string) $this->getRowValue($row, self::COLUMN_ASSIGNEE);
-            $count = (int) $this->getRowValue($row, 'item_count');
+            $assignee = self::stringValue($this->getRowValue($row, self::COLUMN_ASSIGNEE));
+            $count = self::intValue($this->getRowValue($row, 'item_count'));
 
             if ($assignee === '' || $count <= 0) {
                 continue;
             }
 
-            $counts[$assignee] = $count;
+            $counts[$assignee] = ($counts[$assignee] ?? 0) + $count;
         }
 
         return $counts;
     }
 
-    public function save($objectType, $hostName, $serviceName, $assignee, $assignedBy, $note = null)
-    {
+    /** @return array{assignee:string,assigned_by?:string,note?:string,created_at?:mixed,updated_at?:mixed}|null */
+    public function save(
+        string $objectType,
+        string $hostName,
+        ?string $serviceName,
+        string $assignee,
+        string $assignedBy,
+        ?string $note = null
+    ): ?array {
+        $now = new Zend_Db_Expr('CURRENT_TIMESTAMP');
         $payload = [
             self::COLUMN_OBJECT_TYPE => $objectType,
             self::COLUMN_HOST_NAME => $hostName,
             self::COLUMN_SERVICE_NAME => $objectType === 'service' ? $serviceName : '',
             self::COLUMN_ASSIGNEE => $assignee,
             self::COLUMN_ASSIGNED_BY => $assignedBy,
-            self::COLUMN_NOTE => $note === null ? '' : $note
+            self::COLUMN_NOTE => $note === null ? '' : $note,
+            self::COLUMN_CREATED_TIME => $now,
+            self::COLUMN_MODIFIED_TIME => $now
         ];
 
         try {
@@ -181,7 +206,8 @@ class IncidentAssignmentStore
                         [
                             self::COLUMN_ASSIGNEE => $assignee,
                             self::COLUMN_ASSIGNED_BY => $assignedBy,
-                            self::COLUMN_NOTE => $note
+                            self::COLUMN_NOTE => $note,
+                            self::COLUMN_MODIFIED_TIME => $now
                         ],
                         function ($value) {
                             return $value !== null;
@@ -206,7 +232,7 @@ class IncidentAssignmentStore
         return $this->load($objectType, $hostName, $serviceName);
     }
 
-    public function remove($objectType, $hostName, $serviceName = null)
+    public function remove(string $objectType, string $hostName, ?string $serviceName = null): void
     {
         try {
             $where = $this->db->quoteInto(self::COLUMN_OBJECT_TYPE . ' = ?', $objectType)
@@ -238,7 +264,7 @@ class IncidentAssignmentStore
      *
      * @return object|false
      */
-    protected function fetchObjectRow($objectType, $hostName, $serviceName = null)
+    protected function fetchObjectRow(string $objectType, string $hostName, ?string $serviceName = null)
     {
         $select = $this->db->select()
             ->from(self::TABLE, [
@@ -251,17 +277,19 @@ class IncidentAssignmentStore
 
         $this->applyObjectFilter($select, $objectType, $hostName, $serviceName);
 
-        return $select->query()->fetchObject();
+        $row = $select->query()->fetchObject();
+
+        return is_object($row) ? $row : false;
     }
 
     /**
      * Fetch assignment rows for a list of objects.
      *
-     * @param array $objects
+     * @param array<int,mixed> $objects
      *
-     * @return array<int,object>
+     * @return array<int,array<string,mixed>|object>
      */
-    protected function fetchRowsForObjects(array $objects)
+    protected function fetchRowsForObjects(array $objects): array
     {
         $descriptors = $this->normalizeObjects($objects);
         if (! count($descriptors)) {
@@ -269,23 +297,30 @@ class IncidentAssignmentStore
         }
 
         try {
-            $select = $this->db->select()->from(
-                self::TABLE,
-                [
-                    self::COLUMN_OBJECT_TYPE,
-                    self::COLUMN_HOST_NAME,
-                    self::COLUMN_SERVICE_NAME,
-                    self::COLUMN_ASSIGNEE,
-                    self::COLUMN_ASSIGNED_BY,
-                    self::COLUMN_NOTE,
-                    self::COLUMN_CREATED_TIME,
-                    self::COLUMN_MODIFIED_TIME
-                ]
-            );
+            $rows = [];
+            foreach (array_chunk($descriptors, self::QUERY_CHUNK_SIZE) as $chunk) {
+                $select = $this->db->select()->from(
+                    self::TABLE,
+                    [
+                        self::COLUMN_OBJECT_TYPE,
+                        self::COLUMN_HOST_NAME,
+                        self::COLUMN_SERVICE_NAME,
+                        self::COLUMN_ASSIGNEE,
+                        self::COLUMN_ASSIGNED_BY,
+                        self::COLUMN_NOTE,
+                        self::COLUMN_CREATED_TIME,
+                        self::COLUMN_MODIFIED_TIME
+                    ]
+                );
 
-            $this->applyObjectFilters($select, $descriptors);
+                $this->applyObjectFilters($select, $chunk);
+                $fetchedRows = $select->query()->fetchAll();
+                if (is_array($fetchedRows)) {
+                    $rows = array_merge($rows, $fetchedRows);
+                }
+            }
 
-            return $select->query()->fetchAll();
+            return $rows;
         } catch (Exception $e) {
             throw new ConfigurationError(
                 'Cannot load incident assignments from database',
@@ -295,17 +330,17 @@ class IncidentAssignmentStore
     }
 
     /**
-     * @param object $select
-     * @param array  $objects
+     * @param array<int,array{type:string,host_name:string,service_name:?string}> $objects
      *
      * @return void
      */
-    protected function applyObjectFilters($select, array $objects)
+    protected function applyObjectFilters(Zend_Db_Select $select, array $objects): void
     {
         $where = [];
 
         foreach ($objects as $object) {
-            $where[] = '(' . $this->buildObjectFilter($object['type'], $object['host_name'], $object['service_name']) . ')';
+            $filter = $this->buildObjectFilter($object['type'], $object['host_name'], $object['service_name']);
+            $where[] = '(' . $filter . ')';
         }
 
         if (! count($where)) {
@@ -317,15 +352,18 @@ class IncidentAssignmentStore
     }
 
     /**
-     * @param object $select
      * @param string $objectType
      * @param string $hostName
      * @param string|null $serviceName
      *
      * @return void
      */
-    protected function applyObjectFilter($select, $objectType, $hostName, $serviceName = null)
-    {
+    protected function applyObjectFilter(
+        Zend_Db_Select $select,
+        string $objectType,
+        string $hostName,
+        ?string $serviceName = null
+    ): void {
         $select->where(
             $this->buildObjectFilter($objectType, $hostName, $serviceName)
         );
@@ -338,8 +376,11 @@ class IncidentAssignmentStore
      *
      * @return string
      */
-    protected function buildObjectFilter($objectType, $hostName, $serviceName = null)
-    {
+    protected function buildObjectFilter(
+        string $objectType,
+        string $hostName,
+        ?string $serviceName = null
+    ): string {
         $where = $this->db->quoteInto(self::COLUMN_OBJECT_TYPE . ' = ?', $objectType)
             . ' AND ' . $this->db->quoteInto(self::COLUMN_HOST_NAME . ' = ?', $hostName);
 
@@ -355,11 +396,11 @@ class IncidentAssignmentStore
     /**
      * Normalize object descriptors and drop invalid entries.
      *
-     * @param array $objects
+     * @param array<int,mixed> $objects
      *
      * @return array<int,array{type:string,host_name:string,service_name:string|null}>
      */
-    protected function normalizeObjects(array $objects)
+    protected function normalizeObjects(array $objects): array
     {
         $normalized = [];
         $seen = [];
@@ -370,9 +411,9 @@ class IncidentAssignmentStore
             $serviceName = null;
 
             if (is_array($object)) {
-                $type = trim((string) ($object['type'] ?? $object['object_type'] ?? ''));
-                $hostName = trim((string) ($object['host_name'] ?? $object['hostName'] ?? ''));
-                $serviceName = trim((string) ($object['service_name'] ?? $object['serviceName'] ?? ''));
+                $type = trim(self::stringValue($object['type'] ?? $object['object_type'] ?? ''));
+                $hostName = trim(self::stringValue($object['host_name'] ?? $object['hostName'] ?? ''));
+                $serviceName = trim(self::stringValue($object['service_name'] ?? $object['serviceName'] ?? ''));
             }
 
             if (! in_array($type, ['host', 'service'], true) || $hostName === '') {
@@ -412,14 +453,17 @@ class IncidentAssignmentStore
      *
      * @return string|null
      */
-    protected function getObjectSignature($objectType, $hostName, $serviceName = null)
-    {
+    protected function getObjectSignature(
+        string $objectType,
+        string $hostName,
+        ?string $serviceName = null
+    ): ?string {
         if (! in_array($objectType, ['host', 'service'], true) || $hostName === '') {
             return null;
         }
 
         if ($objectType === 'service') {
-            $serviceName = trim((string) $serviceName);
+            $serviceName = trim($serviceName ?? '');
             if ($serviceName === '') {
                 return null;
             }
@@ -433,12 +477,12 @@ class IncidentAssignmentStore
     /**
      * Read a value from a row returned by Zend_Db in either array or object mode.
      *
-     * @param array|object $row
+     * @param array<string,mixed>|object $row
      * @param string       $column
      *
      * @return mixed
      */
-    protected function getRowValue($row, $column)
+    protected function getRowValue(mixed $row, string $column): mixed
     {
         if (is_array($row) && array_key_exists($column, $row)) {
             return $row[$column];
@@ -449,5 +493,15 @@ class IncidentAssignmentStore
         }
 
         return null;
+    }
+
+    protected static function stringValue(mixed $value): string
+    {
+        return is_scalar($value) || $value instanceof \Stringable ? (string) $value : '';
+    }
+
+    protected static function intValue(mixed $value): int
+    {
+        return is_int($value) || is_float($value) || is_string($value) ? (int) $value : 0;
     }
 }

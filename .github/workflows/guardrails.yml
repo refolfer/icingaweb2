@@ -11,8 +11,8 @@ on:
       - main
 
 jobs:
-  phpstan-baseline-budget:
-    name: PHPStan baseline budget
+  modernui-quality:
+    name: Modern UI quality and package
     runs-on: ubuntu-latest
 
     steps:
@@ -22,5 +22,25 @@ jobs:
           php-version: '8.2'
           php-tools: composer
 
-      - name: Enforce PHPStan baseline budget
-        run: composer run stan:baseline:guard
+      - name: Run PHP quality suite
+        run: composer run quality
+
+      - name: Check generated assets
+        run: |
+          composer run assets
+          git diff --exit-code
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check public/js/icinga/ux-enhancements.js
+          node --check public/js/icinga/behavior/floating-dashlets.js
+          node --check public/js/icinga/ui.js
+
+      - name: Check deployment scripts
+        run: |
+          bash -n bin/build-modernui-assets.sh
+          bash -n deployment/modern-ui-package/build-package.sh
+          bash -n deployment/modern-ui-package/install.sh
+
+      - name: Build and verify deployment package
+        run: bash deployment/modern-ui-package/test-package.sh

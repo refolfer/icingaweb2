@@ -36,6 +36,19 @@ It is served directly by nginx from `public/ollama-chat/` and proxies its chat r
 
 See [doc/99-Ollama-Standalone-Chat.md](doc/99-Ollama-Standalone-Chat.md) for the nginx snippets and deployment steps.
 
+## Modern Operator UI
+
+The operator workspace extensions are versioned by the `modernui` module. Build and verify
+the deployable package with:
+
+```bash
+bash deployment/modern-ui-package/test-package.sh
+```
+
+The package includes reversible file installation, independent MySQL/PostgreSQL migrations,
+and optional nginx compression/cache snippets. See
+[deployment/modern-ui-package/README.md](deployment/modern-ui-package/README.md).
+
 ## Documentation
 
 The documentation is located in the [doc/](doc/) directory and also available

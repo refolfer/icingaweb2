@@ -5,12 +5,14 @@
     }
   },
   "scripts": {
+    "assets": "bash ./bin/build-modernui-assets.sh",
     "lint:php": "phpcs --standard=phpcs.xml",
     "stan": "phpstan analyse -c phpstan.neon",
     "stan:baseline:guard": "php ./bin/check-phpstan-baseline-budget.php",
     "test": "phpunit -c phpunit.xml",
     "quality": [
       "@lint:php",
+      "@assets",
       "@stan:baseline:guard",
       "@stan",
       "@test"

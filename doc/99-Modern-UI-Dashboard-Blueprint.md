@@ -2,7 +2,7 @@
 
 ## Goal
 
-Provide a practical starter blueprint for NOC dashboards that pair well with `NeoNOC` and `NeoNOC-Compact`.
+Provide a practical starter blueprint for NOC dashboards that pair well with `NeoNOC`.
 The same dashboard layout can be reused with `NeoNOC-Light` for daytime operations.
 
 ## Recommended Pane Structure

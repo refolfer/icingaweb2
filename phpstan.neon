@@ -21,6 +21,7 @@ parameters:
         - modules/migrate/library
         - modules/setup/library
         - modules/translation/library
+        - modules/modernui/library
 
     ignoreErrors:
         - '#^Unsafe usage of new static\(\)$#'
