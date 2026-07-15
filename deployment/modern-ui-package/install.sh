@@ -7,13 +7,17 @@ MANIFEST_FILE="${SCRIPT_DIR}/manifest.txt"
 REMOVED_PATHS_FILE="${SCRIPT_DIR}/removed-paths.txt"
 DEFAULT_WEB_TARGET="/usr/share/icingaweb2"
 DEFAULT_PHP_TARGET="/usr/share/php"
+DEFAULT_CONFIG_DIR="/etc/icingaweb2"
+DEFAULT_CONFIG_RESOURCE="icingaweb2"
 DEFAULT_BACKUP_SUBDIR=".modern-ui-backups"
 
 usage() {
   cat <<'EOF'
 Usage:
-  install.sh install [--target PATH] [--php-target PATH] [--backup-root PATH]
-  install.sh restore [--target PATH] [--php-target PATH] [--backup-root PATH] (--latest | --backup-id ID)
+  install.sh install [--target PATH] [--php-target PATH] [--config-dir PATH]
+      [--config-resource RESOURCE] [--backup-root PATH]
+  install.sh restore [--target PATH] [--php-target PATH] [--config-dir PATH]
+      [--backup-root PATH] (--latest | --backup-id ID)
   install.sh list-backups [--target PATH] [--backup-root PATH]
   install.sh migrate-mysql [--target PATH] [--backup-root PATH]
       [--mysql-user USER] [--mysql-host HOST]
@@ -126,6 +130,78 @@ restore_selinux_context() {
   fi
 }
 
+ensure_config_resource() {
+  local config_file="${CONFIG_DIR}/config.ini"
+  local config_backup="${BACKUP_DIR}/original/config/config.ini"
+
+  mkdir -p "$CONFIG_DIR"
+  if [[ -f "$config_file" ]]; then
+    if awk '
+      /^[[:space:]]*\[global\][[:space:]]*$/ { in_global = 1; next }
+      /^[[:space:]]*\[/ { in_global = 0 }
+      in_global && /^[[:space:]]*config_resource[[:space:]]*=/ { found = 1 }
+      END { exit(found ? 0 : 1) }
+    ' "$config_file"; then
+      log "Configuration resource already set in: ${config_file}"
+      return
+    fi
+
+    ensure_parent_dir "$config_backup"
+    backup_copy "$config_file" "$config_backup"
+  else
+    : > "${BACKUP_DIR}/config-ini-missing-before-install"
+  fi
+
+  if grep -Eq '^[[:space:]]*\[global\][[:space:]]*$' "$config_file" 2>/dev/null; then
+    local updated_file
+    updated_file="$(mktemp "${CONFIG_DIR}/.config.ini.XXXXXX")"
+    awk -v resource="$CONFIG_RESOURCE" '
+      BEGIN { added = 0 }
+      /^[[:space:]]*\[global\][[:space:]]*$/ && ! added {
+        print
+        print "config_resource = " resource
+        added = 1
+        next
+      }
+      { print }
+    ' "$config_file" > "$updated_file"
+    chmod --reference="$config_file" "$updated_file"
+    if [[ "$EUID" -eq 0 ]]; then
+      chown --reference="$config_file" "$updated_file"
+    fi
+    mv "$updated_file" "$config_file"
+  else
+    if [[ -s "$config_file" ]]; then
+      printf '\n' >> "$config_file"
+    fi
+    printf '[global]\nconfig_resource = %s\n' "$CONFIG_RESOURCE" >> "$config_file"
+  fi
+
+  if [[ ! -f "$config_backup" ]]; then
+    if [[ "$EUID" -eq 0 ]]; then
+      chown --reference="$CONFIG_DIR" "$config_file"
+    fi
+    chmod 0640 "$config_file"
+  fi
+  restore_selinux_context "$config_file"
+  log "Configured Icinga Web resource: ${CONFIG_RESOURCE}"
+}
+
+restore_config_resource() {
+  local config_file="${CONFIG_DIR}/config.ini"
+  local config_backup="${BACKUP_DIR}/original/config/config.ini"
+
+  if [[ -f "$config_backup" ]]; then
+    mkdir -p "$CONFIG_DIR"
+    backup_copy "$config_backup" "$config_file"
+    restore_selinux_context "$config_file"
+    log "Restored original configuration: ${config_file}"
+  elif [[ -f "${BACKUP_DIR}/config-ini-missing-before-install" ]]; then
+    rm -f "$config_file"
+    log "Removed configuration added by this installation: ${config_file}"
+  fi
+}
+
 list_manifest() {
   grep -v '^[[:space:]]*$' "$MANIFEST_FILE"
 }
@@ -148,6 +224,7 @@ install_files() {
   log "Backup ID: ${backup_id}"
   log "Icinga Web target: ${WEB_TARGET_DIR}"
   log "PHP library target: ${PHP_TARGET_DIR}"
+  log "Icinga Web configuration: ${CONFIG_DIR}"
   log "Backup directory: ${BACKUP_DIR}"
 
   while IFS= read -r entry; do
@@ -185,6 +262,8 @@ install_files() {
     fi
   done < <(list_removed_paths)
 
+  ensure_config_resource
+
   backup_copy "$MANIFEST_FILE" "${BACKUP_DIR}/manifest.txt"
   if [[ -f "$REMOVED_PATHS_FILE" ]]; then
     backup_copy "$REMOVED_PATHS_FILE" "${BACKUP_DIR}/removed-paths.txt"
@@ -203,6 +282,8 @@ BACKUP_ID=${backup_id}
 CREATED_AT=$(date -Is)
 WEB_TARGET_DIR=${WEB_TARGET_DIR}
 PHP_TARGET_DIR=${PHP_TARGET_DIR}
+CONFIG_DIR=${CONFIG_DIR}
+CONFIG_RESOURCE=${CONFIG_RESOURCE}
 PACKAGE_DIR=${SCRIPT_DIR}
 EOF
 
@@ -222,6 +303,7 @@ restore_files() {
   log "Restoring backup: $(basename "$BACKUP_DIR")"
   log "Icinga Web target: ${WEB_TARGET_DIR}"
   log "PHP library target: ${PHP_TARGET_DIR}"
+  log "Icinga Web configuration: ${CONFIG_DIR}"
 
   if [[ "$WEB_TARGET_DIR" == "$DEFAULT_WEB_TARGET" ]] \
     && [[ ! -f "${BACKUP_DIR}/modernui-was-enabled" ]] \
@@ -265,6 +347,8 @@ restore_files() {
       fi
     done < "${BACKUP_DIR}/removed-paths.txt"
   fi
+
+  restore_config_resource
 
   log "Restore finished."
 }
@@ -378,6 +462,8 @@ shift || true
 
 WEB_TARGET_DIR="$DEFAULT_WEB_TARGET"
 PHP_TARGET_DIR="$DEFAULT_PHP_TARGET"
+CONFIG_DIR="$DEFAULT_CONFIG_DIR"
+CONFIG_RESOURCE="$DEFAULT_CONFIG_RESOURCE"
 BACKUP_ROOT=""
 BACKUP_ID=""
 USE_LATEST="0"
@@ -398,6 +484,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --php-target)
       PHP_TARGET_DIR="${2:-}"
+      shift 2
+      ;;
+    --config-dir)
+      CONFIG_DIR="${2:-}"
+      shift 2
+      ;;
+    --config-resource)
+      CONFIG_RESOURCE="${2:-}"
       shift 2
       ;;
     --backup-root)
@@ -447,6 +541,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$COMMAND" ]] || { usage; exit 1; }
+[[ -n "$CONFIG_DIR" ]] || fail "Configuration directory must not be empty"
+[[ -n "$CONFIG_RESOURCE" ]] || fail "Configuration resource must not be empty"
 require_file "$MANIFEST_FILE"
 
 if [[ -z "$BACKUP_ROOT" ]]; then

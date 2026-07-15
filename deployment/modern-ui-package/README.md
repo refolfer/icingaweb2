@@ -48,6 +48,8 @@ The defaults are:
 
 - Icinga Web target: `/usr/share/icingaweb2`
 - PHP library target: `/usr/share/php`
+- Icinga Web configuration directory: `/etc/icingaweb2`
+- Icinga Web configuration resource: `icingaweb2`
 - Icinga Web database: `icingaweb2`
 - Icinga DB database: `icingadb`
 - MySQL account: `root@localhost`
@@ -61,6 +63,19 @@ MYSQL_PWD='secret' bash install.sh migrate-mysql \
   --icingaweb-db icingaweb2 \
   --icingadb-db icingadb
 ```
+
+The file installer ensures that `[global] config_resource` is present in `config.ini`.
+Existing values are preserved. If the installation uses a differently named database
+resource, select it explicitly:
+
+```bash
+bash install.sh install --config-resource custom_config_db
+```
+
+Configuration changes are included in the installation backup and are reverted by the
+`restore` command together with application files. Newly created configuration files use
+the owner and group of the Icinga Web configuration directory, so the web server retains
+read access when the directory is restricted to the `icingaweb2` group.
 
 The migration command creates database dumps before changing either database. It installs
 the incident assignment schema in the Icinga Web database and the host group responsibility

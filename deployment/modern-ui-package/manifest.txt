@@ -4,6 +4,7 @@ application/layouts/scripts/parts/navigation.phtml
 application/controllers/LayoutController.php
 application/controllers/SearchController.php
 application/controllers/HostgroupController.php|web:modules/icingadb/application/controllers/HostgroupController.php
+modules/icingadb/application/views/scripts/simple-form.phtml
 application/controllers/IncidentAssignmentController.php
 application/forms/Hostgroup/ResponsibilityForm.php|web:modules/icingadb/application/forms/Hostgroup/ResponsibilityForm.php
 application/forms/Security/RoleForm.php
