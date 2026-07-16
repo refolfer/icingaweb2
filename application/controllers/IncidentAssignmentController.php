@@ -862,7 +862,7 @@ class IncidentAssignmentController extends AuthBackendController
             ) . '&host.name=' . rawurlencode($this->stringValue($object['host_name'] ?? ''));
         }
 
-        return $baseUrl . '/icingadb/host?host.name=' . rawurlencode(
+        return $baseUrl . '/icingadb/host?name=' . rawurlencode(
             $this->stringValue($object['host_name'] ?? '')
         );
     }
