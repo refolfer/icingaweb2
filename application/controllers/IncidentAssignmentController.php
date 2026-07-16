@@ -9,6 +9,7 @@ use Exception;
 use Icinga\Application\Config;
 use Icinga\Exception\ProgrammingError;
 use Icinga\Authentication\User\DomainAwareInterface;
+use Icinga\Module\Icingadb\Common\Auth as IcingadbAuth;
 use Icinga\Module\Icingadb\Common\Backend as IcingadbBackend;
 use Icinga\Module\Icingadb\Model\Host;
 use Icinga\Module\Icingadb\Model\Service;
@@ -21,6 +22,8 @@ use ipl\Stdlib\Filter;
 
 class IncidentAssignmentController extends AuthBackendController
 {
+    use IcingadbAuth;
+
     private const HOST_CRITICAL_STATE = 1;
     private const SERVICE_CRITICAL_STATE = 2;
 
@@ -607,6 +610,7 @@ class IncidentAssignmentController extends AuthBackendController
                 Filter::equal('state.is_problem', 'y'),
                 Filter::equal('state.soft_state', self::HOST_CRITICAL_STATE)
             ));
+        $this->applyRestrictions($hosts);
         foreach ($hosts as $host) {
             /** @var Host $host */
             $objects[] = [
@@ -622,6 +626,7 @@ class IncidentAssignmentController extends AuthBackendController
                 Filter::equal('state.is_problem', 'y'),
                 Filter::equal('state.soft_state', self::SERVICE_CRITICAL_STATE)
             ));
+        $this->applyRestrictions($services);
         foreach ($services as $service) {
             /** @var Service $service */
             /** @var Host|null $host */
@@ -654,6 +659,7 @@ class IncidentAssignmentController extends AuthBackendController
                 ))
                 ->limit(1);
         }
+        $this->applyRestrictions($query);
 
         foreach ($query as $_) {
             return true;

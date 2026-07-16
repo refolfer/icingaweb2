@@ -213,9 +213,14 @@
 
     function getUrlSearchParams(url) {
         var queryIndex = url.indexOf('?');
+        var rawQuery;
 
         if (queryIndex === -1) {
-            return new URLSearchParams();
+            rawQuery = String(url || '').replace(/^[?&]+/, '');
+
+            return rawQuery.indexOf('=') === -1
+                ? new URLSearchParams()
+                : new URLSearchParams(rawQuery);
         }
 
         return new URLSearchParams(url.slice(queryIndex + 1));
@@ -435,16 +440,16 @@
             return object;
         }
 
-        object = getIcingadbObjectFromServiceTitle(node);
-        if (object) {
-            return object;
-        }
-
         if (typeof node.querySelectorAll === 'function') {
             object = findIcingadbObjectInSubtree(node);
             if (object) {
                 return object;
             }
+        }
+
+        object = getIcingadbObjectFromServiceTitle(node);
+        if (object) {
+            return object;
         }
 
         if (typeof node.closest === 'function' && node.closest('.object-detail')) {
@@ -506,6 +511,8 @@
         var hostObject;
         var serviceName;
         var hostName;
+        var serviceUrl;
+        var serviceParams;
 
         if (! node || ! node.classList || ! node.classList.contains('service')) {
             return null;
@@ -518,7 +525,7 @@
 
         serviceSubject = subjects[0];
         hostSubject = subjects[1];
-        serviceName = String(serviceSubject ? serviceSubject.textContent || '' : '').trim();
+        serviceName = '';
         hostName = '';
 
         object = getIcingadbObjectFromNode(serviceSubject);
@@ -526,13 +533,17 @@
             return object;
         }
 
-        object = getIcingadbObjectFromUrl(
-            serviceSubject && typeof serviceSubject.getAttribute === 'function'
-                ? (serviceSubject.getAttribute('href') || serviceSubject.href || '')
-                : ''
-        );
+        serviceUrl = serviceSubject && typeof serviceSubject.getAttribute === 'function'
+            ? (serviceSubject.getAttribute('href') || serviceSubject.href || '')
+            : '';
+        object = getIcingadbObjectFromUrl(serviceUrl);
         if (object && object.type === 'service') {
             return object;
+        }
+
+        serviceParams = getUrlSearchParams(serviceUrl);
+        if (serviceUrl.indexOf('icingadb/service') !== -1 || serviceParams.has('service.name')) {
+            serviceName = serviceParams.get('name') || serviceParams.get('service.name') || '';
         }
 
         hostObject = getIcingadbObjectFromUrl(
@@ -725,6 +736,10 @@
         banner.hidden = false;
     }
 
+    function serializeIcingadbUrlParams(params) {
+        return params.toString().replace(/\+/g, '%20');
+    }
+
     function buildIcingadbActionUrl(object, action) {
         var params;
         var path;
@@ -744,7 +759,7 @@
             params.set('name', object.hostName);
         }
 
-        return getBaseUrl() + '/' + path + '?' + params.toString();
+        return getBaseUrl() + '/' + path + '?' + serializeIcingadbUrlParams(params);
     }
 
     function buildIcingadbObjectUrl(object) {
@@ -765,7 +780,7 @@
             params.set('name', object.hostName);
         }
 
-        return getBaseUrl() + '/' + path + '?' + params.toString();
+        return getBaseUrl() + '/' + path + '?' + serializeIcingadbUrlParams(params);
     }
 
     function buildIcingadbContextUrls(object) {
@@ -783,17 +798,17 @@
 
             return {
                 object: buildIcingadbObjectUrl(object),
-                history: baseUrl + '/icingadb/service/history?' + params.toString(),
+                history: baseUrl + '/icingadb/service/history?' + serializeIcingadbUrlParams(params),
                 comments: baseUrl + '/icingadb/comments?'
-                    + new URLSearchParams({
+                    + serializeIcingadbUrlParams(new URLSearchParams({
                         'service.name': object.serviceName,
                         'host.name': object.hostName
-                    }).toString(),
+                    })),
                 downtimes: baseUrl + '/icingadb/downtimes?'
-                    + new URLSearchParams({
+                    + serializeIcingadbUrlParams(new URLSearchParams({
                         'service.name': object.serviceName,
                         'host.name': object.hostName
-                    }).toString()
+                    }))
             };
         }
 
@@ -802,11 +817,11 @@
 
         return {
             object: buildIcingadbObjectUrl(object),
-            history: baseUrl + '/icingadb/host/history?' + params.toString(),
+            history: baseUrl + '/icingadb/host/history?' + serializeIcingadbUrlParams(params),
             comments: baseUrl + '/icingadb/comments?'
-                + new URLSearchParams({ 'host.name': object.hostName }).toString(),
+                + serializeIcingadbUrlParams(new URLSearchParams({ 'host.name': object.hostName })),
             downtimes: baseUrl + '/icingadb/downtimes?'
-                + new URLSearchParams({ 'host.name': object.hostName }).toString()
+                + serializeIcingadbUrlParams(new URLSearchParams({ 'host.name': object.hostName }))
         };
     }
 
