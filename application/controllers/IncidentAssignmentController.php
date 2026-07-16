@@ -20,6 +20,9 @@ use ipl\Stdlib\Filter;
 
 class IncidentAssignmentController extends AuthBackendController
 {
+    private const HOST_CRITICAL_STATE = 1;
+    private const SERVICE_CRITICAL_STATE = 2;
+
     public function init(): void
     {
         parent::init();
@@ -452,7 +455,10 @@ class IncidentAssignmentController extends AuthBackendController
 
         $hosts = Host::on($db)
             ->with(['state'])
-            ->filter(Filter::equal('state.is_problem', 'y'));
+            ->filter(Filter::all(
+                Filter::equal('state.is_problem', 'y'),
+                Filter::equal('state.soft_state', self::HOST_CRITICAL_STATE)
+            ));
         foreach ($hosts as $host) {
             /** @var Host $host */
             $objects[] = [
@@ -464,7 +470,10 @@ class IncidentAssignmentController extends AuthBackendController
 
         $services = Service::on($db)
             ->with(['state', 'host'])
-            ->filter(Filter::equal('state.is_problem', 'y'));
+            ->filter(Filter::all(
+                Filter::equal('state.is_problem', 'y'),
+                Filter::equal('state.soft_state', self::SERVICE_CRITICAL_STATE)
+            ));
         foreach ($services as $service) {
             /** @var Service $service */
             /** @var Host|null $host */

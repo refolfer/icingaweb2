@@ -170,7 +170,7 @@ $currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
                         <span><?= $this->translate('Assigned') ?></span>
                         <strong data-operator-decision-count="assigned">0</strong>
                     </header>
-                    <p data-operator-decision-title="assigned"><?= $this->translate('No matching events') ?></p>
+                    <p data-operator-decision-title="assigned" hidden></p>
                     <button type="button" data-operator-decision-action="assigned">
                         <?= $this->translate('Open') ?>
                     </button>

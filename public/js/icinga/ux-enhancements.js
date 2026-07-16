@@ -2347,29 +2347,28 @@
             var card = matrix.querySelector('[data-operator-decision-lane="' + lane + '"]');
             var button = matrix.querySelector('[data-operator-decision-action="' + lane + '"]');
             var laneSummary = summary && summary.lanes ? summary.lanes[lane] : null;
+            var laneCount = summary && typeof summary[lane] === 'number'
+                ? summary[lane]
+                : events.length;
 
             if (count) {
-                count.textContent = String(summary && typeof summary[lane] === 'number'
-                    ? summary[lane]
-                    : events.length);
+                count.textContent = String(laneCount);
             }
 
             if (title) {
                 title.textContent = laneSummary && laneSummary.title
                     ? laneSummary.title
                     : getOperatorDecisionLaneTitle(first, lane);
+                title.hidden = lane === 'assigned' && laneCount <= 0;
             }
 
             if (card) {
-                card.classList.toggle('has-events', (summary && typeof summary[lane] === 'number'
-                    ? summary[lane]
-                    : events.length) > 0);
+                card.classList.toggle('has-events', laneCount > 0);
             }
 
             if (button) {
-                button.disabled = (summary && typeof summary[lane] === 'number'
-                    ? summary[lane]
-                    : events.length) <= 0 || (lane === 'me' && ! getOperatorDecisionLaneAssignedValue(lane).length);
+                button.disabled = laneCount <= 0
+                    || (lane === 'me' && ! getOperatorDecisionLaneAssignedValue(lane).length);
                 button.textContent = getOperatorDecisionLabel('openLabel', 'Open');
             }
         });
