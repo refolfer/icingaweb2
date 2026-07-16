@@ -7,6 +7,7 @@ namespace Tests\Icinga\Web\Security;
 
 use Icinga\Test\BaseTestCase;
 use Icinga\Web\Security\CsrfToken;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class CsrfTokenTest extends BaseTestCase
 {
@@ -23,9 +24,7 @@ class CsrfTokenTest extends BaseTestCase
         $this->assertFalse(CsrfToken::isValid($token));
     }
 
-    /**
-     * @dataProvider invalidTokenProvider
-     */
+    #[DataProvider('invalidTokenProvider')]
     public function testMalformedTokenIsRejected($token)
     {
         $this->assertFalse(CsrfToken::isValid($token));

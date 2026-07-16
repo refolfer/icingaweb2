@@ -7,6 +7,7 @@ namespace Tests\Icinga\Controllers;
 
 use Icinga\Controllers\IncidentAssignmentController;
 use Icinga\Test\BaseTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -21,9 +22,7 @@ class IncidentAssignmentControllerTest extends BaseTestCase
         $this->controller = $reflection->newInstanceWithoutConstructor();
     }
 
-    /**
-     * @dataProvider assignedFilterProvider
-     */
+    #[DataProvider('assignedFilterProvider')]
     public function testAssignedFilter($assignee, $filter, $expected)
     {
         $this->assertSame($expected, $this->invoke('matchesAssignedFilter', [$assignee, $filter]));

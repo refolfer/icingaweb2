@@ -7,6 +7,7 @@ namespace Tests\Icinga\Controllers;
 
 use Icinga\Controllers\LayoutController;
 use Icinga\Test\BaseTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -21,7 +22,7 @@ class LayoutControllerTest extends BaseTestCase
         $this->controller = $reflection->newInstanceWithoutConstructor();
     }
 
-    /** @dataProvider quickMenuUrlProvider */
+    #[DataProvider('quickMenuUrlProvider')]
     public function testQuickMenuUrlSanitization($input, $expected)
     {
         $this->assertSame($expected, $this->invoke('normalizeQuickMenuUrl', [$input]));
