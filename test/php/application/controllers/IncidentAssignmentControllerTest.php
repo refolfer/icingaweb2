@@ -56,6 +56,17 @@ class IncidentAssignmentControllerTest extends BaseTestCase
         $this->assertSame(1024, mb_strlen($note));
     }
 
+    public function testLocalGroupMembersAreAddedToActiveDirectoryUsers()
+    {
+        $users = $this->invoke('mergeLocalGroupMembersIntoActiveDirectory', [
+            ['admin', 'local-user'],
+            ['existing@company.test'],
+            ['ADMIN', 'new-user@company.test', 'EXISTING@COMPANY.TEST']
+        ]);
+
+        $this->assertSame(['existing@company.test', 'new-user@company.test'], $users);
+    }
+
     protected function invoke($method, array $arguments)
     {
         $reflection = new ReflectionMethod($this->controller, $method);

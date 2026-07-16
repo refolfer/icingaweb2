@@ -2240,7 +2240,8 @@ html.incident-drawer-resizing,
   letter-spacing: 0.06em;
 }
 
-.incident-drawer-assignment select {
+.incident-drawer-assignment select,
+.incident-drawer-assignment input[type="search"] {
   min-width: 0;
   width: 100%;
   min-height: 2.3em;
@@ -2254,6 +2255,7 @@ html.incident-drawer-resizing,
 }
 
 .incident-drawer-assignment select,
+.incident-drawer-assignment input[type="search"],
 .incident-drawer-assignment textarea {
   background-color: var(--to-bg);
   color: var(--to-text-strong);

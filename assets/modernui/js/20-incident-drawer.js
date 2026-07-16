@@ -1907,6 +1907,103 @@
         return getIncidentDrawerLabel(name, fallback);
     }
 
+    function normalizeIncidentAssignmentUserName(value) {
+        return String(value || '').trim().toLowerCase();
+    }
+
+    function incidentAssignmentUserNamesMatch(left, right) {
+        var normalizedLeft = normalizeIncidentAssignmentUserName(left);
+        var normalizedRight = normalizeIncidentAssignmentUserName(right);
+
+        if (! normalizedLeft.length || ! normalizedRight.length) {
+            return normalizedLeft === normalizedRight;
+        }
+
+        if (normalizedLeft === normalizedRight) {
+            return true;
+        }
+
+        return normalizedLeft.split('@')[0] === normalizedRight.split('@')[0];
+    }
+
+    function getIncidentAssignmentUserSourceLabel(value) {
+        if (value === 'local') {
+            return getIncidentAssignmentLabel('assignment-local-users-label', 'Local users');
+        }
+
+        if (value === 'active_directory') {
+            return getIncidentAssignmentLabel('assignment-ad-users-label', 'Active Directory');
+        }
+
+        return getIncidentAssignmentLabel('assignment-all-users-label', 'All users');
+    }
+
+    function getIncidentAssignmentUserSources() {
+        var assignment = incidentDrawerState.assignment || null;
+        var sourceOptions = [];
+        var sourceCount = assignment && Array.isArray(assignment.userSources)
+            ? assignment.userSources.length
+            : 0;
+        var i;
+
+        for (i = 0; i < sourceCount; i++) {
+            var source = assignment.userSources[i];
+            var users = [];
+            var j;
+
+            if (! source || ! String(source.value || '').trim() || ! Array.isArray(source.users)) {
+                continue;
+            }
+
+            for (j = 0; j < source.users.length; j++) {
+                var userName = String(source.users[j] || '').trim();
+                if (userName.length) {
+                    users.push(userName);
+                }
+            }
+
+            sourceOptions.push({
+                value: String(source.value || '').trim(),
+                label: String(source.label || '').trim() || getIncidentAssignmentUserSourceLabel(String(source.value || '').trim()),
+                users: users
+            });
+        }
+
+        if (! sourceOptions.length && assignment && Array.isArray(assignment.users) && assignment.users.length) {
+            sourceOptions.push({
+                value: 'all',
+                label: getIncidentAssignmentUserSourceLabel('all'),
+                users: assignment.users
+                    .map(function (userName) {
+                        return String(userName || '').trim();
+                    })
+                    .filter(function (userName) {
+                        return userName.length > 0;
+                    })
+            });
+        }
+
+        return sourceOptions;
+    }
+
+    function getIncidentAssignmentUserSourceForAssignee(assignee, sources) {
+        var normalizedAssignee = normalizeIncidentAssignmentUserName(assignee);
+        var i;
+
+        for (i = 0; i < sources.length; i++) {
+            var users = sources[i].users || [];
+            var j;
+
+            for (j = 0; j < users.length; j++) {
+                if (incidentAssignmentUserNamesMatch(users[j], normalizedAssignee)) {
+                    return sources[i].value;
+                }
+            }
+        }
+
+        return sources.length ? sources[0].value : '';
+    }
+
     function setIncidentAssignmentStatus(message, isError) {
         var status = document.querySelector('[data-incident-assignment-status]');
 
@@ -1962,6 +2059,10 @@
         var assignee = document.querySelector('[data-incident-assignee]');
         var notePreview = document.querySelector('[data-incident-assignment-note-preview]');
         var form = document.querySelector('[data-incident-assignment-form]');
+        var sourceWrapper = document.querySelector('[data-incident-assignee-source-wrapper]');
+        var sourceSelect = document.querySelector('[data-incident-assignee-source-select]');
+        var filterWrapper = document.querySelector('[data-incident-assignee-filter-wrapper]');
+        var filterInput = document.querySelector('[data-incident-assignee-filter]');
         var select = document.querySelector('[data-incident-assignee-select]');
         var note = document.querySelector('[data-incident-assignment-note]');
         var save = document.querySelector('[data-save-incident-assignment]');
@@ -1980,6 +2081,11 @@
             : (cachedDetails && cachedDetails.assignment
                 ? String(cachedDetails.assignment.note || '')
                 : cachedNote);
+        var sourceOptions = getIncidentAssignmentUserSources();
+        var selectedSource = '';
+        var userFilter = filterInput
+            ? normalizeIncidentAssignmentUserName(filterInput.value)
+            : '';
         if (! currentNote.trim().length) {
             currentNote = cachedNote;
         }
@@ -1988,6 +2094,23 @@
 
         if (! section || ! assignee || ! form || ! select || ! note) {
             return;
+        }
+
+        if (sourceSelect && ! sourceSelect.__incidentAssignmentSourceChangeBound) {
+            sourceSelect.addEventListener('change', function () {
+                if (filterInput) {
+                    filterInput.value = '';
+                }
+                renderIncidentAssignment();
+            });
+            sourceSelect.__incidentAssignmentSourceChangeBound = true;
+        }
+
+        if (filterInput && ! filterInput.__incidentAssignmentFilterInputBound) {
+            filterInput.addEventListener('input', function () {
+                renderIncidentAssignment();
+            });
+            filterInput.__incidentAssignmentFilterInputBound = true;
         }
 
         section.hidden = ! incidentDrawerState.object;
@@ -2035,6 +2158,12 @@
             'assignment-note-placeholder',
             'Optional note for the assigned user'
         );
+        if (filterInput) {
+            filterInput.placeholder = getIncidentAssignmentLabel(
+                'assignment-filter-placeholder-label',
+                'Type a user name...'
+            );
+        }
 
         if (save) {
             save.textContent = getIncidentAssignmentLabel('assignment-save-label', 'Save assignee');
@@ -2042,11 +2171,79 @@
         }
 
         if (canAssign) {
-            var options = ['<option value="">'
+            var options = [];
+            var sourceIndex;
+            var source;
+            var currentSourceIndex = -1;
+            var selectedUsers = [];
+
+            if (sourceSelect) {
+                for (sourceIndex = 0; sourceIndex < sourceOptions.length; sourceIndex++) {
+                    source = sourceOptions[sourceIndex];
+                    options.push('<option value="' + escapeHtml(source.value) + '">'
+                        + escapeHtml(source.label)
+                        + '</option>');
+                }
+
+                if (! selectedSource.length || ! sourceOptions.some(function (sourceOption) {
+                    return sourceOption.value === selectedSource;
+                })) {
+                    selectedSource = sourceSelect.value && sourceOptions.some(function (sourceOption) {
+                        return sourceOption.value === sourceSelect.value;
+                    })
+                        ? String(sourceSelect.value || '').trim()
+                        : getIncidentAssignmentUserSourceForAssignee(currentAssignee, sourceOptions);
+                } else {
+                    selectedSource = String(sourceSelect.value || '').trim();
+                }
+
+                if (! selectedSource.length && sourceOptions.length) {
+                    selectedSource = getIncidentAssignmentUserSourceForAssignee(currentAssignee, sourceOptions);
+                }
+
+                if (selectedSource.length) {
+                    for (currentSourceIndex = 0; currentSourceIndex < sourceOptions.length; currentSourceIndex++) {
+                        if (sourceOptions[currentSourceIndex].value === selectedSource) {
+                            selectedUsers = sourceOptions[currentSourceIndex].users.slice();
+                            break;
+                        }
+                    }
+                }
+
+                sourceSelect.innerHTML = options.join('');
+                sourceSelect.disabled = ! canAssign || sourceOptions.length < 2;
+                if (selectedSource.length) {
+                    sourceSelect.value = selectedSource;
+                }
+
+                if (sourceWrapper) {
+                    sourceWrapper.hidden = ! canAssign || sourceOptions.length < 2;
+                }
+            } else if (sourceOptions.length) {
+                selectedUsers = sourceOptions[0].users.slice();
+            }
+
+            if (sourceSelect) {
+                users = selectedUsers;
+            } else if (selectedUsers.length) {
+                users = selectedUsers;
+            }
+
+            if (userFilter.length) {
+                users = users.filter(function (userName) {
+                    return normalizeIncidentAssignmentUserName(userName).indexOf(userFilter) !== -1;
+                });
+            }
+
+            options = ['<option value="">'
                 + escapeHtml(getIncidentAssignmentLabel('assignment-placeholder-label', 'Choose a registered user'))
                 + '</option>'];
 
-            if (currentAssignee.length && users.indexOf(currentAssignee) === -1) {
+            if (currentAssignee.length
+                && users.indexOf(currentAssignee) === -1
+                && (! userFilter.length
+                    || normalizeIncidentAssignmentUserName(currentAssignee).indexOf(userFilter) !== -1)
+            ) {
                 options.push('<option value="' + escapeHtml(currentAssignee) + '" selected>'
                     + escapeHtml(currentAssignee)
                     + '</option>');
@@ -2060,18 +2257,42 @@
 
             select.innerHTML = options.join('');
             select.disabled = false;
+            if (filterWrapper) {
+                filterWrapper.hidden = false;
+            }
+            if (filterInput) {
+                filterInput.disabled = false;
+            }
 
             if (save) {
                 save.disabled = ! users.length;
             }
 
-            if (! users.length && ! statusMessage.length) {
+            if (! users.length && userFilter.length && ! statusMessage.length) {
+                statusMessage = getIncidentAssignmentLabel(
+                    'assignment-no-matching-users-label',
+                    'No users match the entered name.'
+                );
+            } else if (! users.length && ! statusMessage.length) {
                 statusMessage = getIncidentAssignmentLabel(
                     'assignment-no-users-label',
                     'No registered users are available for assignment.'
                 );
             }
         } else {
+            if (sourceWrapper) {
+                sourceWrapper.hidden = true;
+            }
+            if (sourceSelect) {
+                sourceSelect.innerHTML = '';
+                sourceSelect.disabled = true;
+            }
+            if (filterWrapper) {
+                filterWrapper.hidden = true;
+            }
+            if (filterInput) {
+                filterInput.disabled = true;
+            }
             select.innerHTML = '<option value="' + escapeHtml(currentAssignee) + '">'
                 + escapeHtml(currentAssignee.length
                     ? currentAssignee
@@ -2134,6 +2355,7 @@
             } : null,
             canAssign: false,
             users: cachedDetails && Array.isArray(cachedDetails.users) ? cachedDetails.users.slice() : [],
+            userSources: cachedDetails && Array.isArray(cachedDetails.userSources) ? cachedDetails.userSources.slice() : [],
             objectSignature: signature,
             requestId: 0,
             statusMessage: getIncidentAssignmentLabel('assignment-loading-label', 'Loading assignee...'),
@@ -2171,6 +2393,7 @@
                     assignment: payload ? payload.assignment : null,
                     canAssign: !! (payload && payload.canAssign),
                     users: payload && Array.isArray(payload.users) ? payload.users : [],
+                    userSources: payload && Array.isArray(payload.userSources) ? payload.userSources : [],
                     objectSignature: signature,
                     requestId: requestId,
                     statusMessage: '',
@@ -2202,6 +2425,7 @@
                     },
                     canAssign: !! cachedDetails.canAssign,
                     users: Array.isArray(cachedDetails.users) ? cachedDetails.users.slice() : [],
+                    userSources: Array.isArray(cachedDetails.userSources) ? cachedDetails.userSources.slice() : [],
                     objectSignature: signature,
                     requestId: requestId,
                     statusMessage: String(error && error.message ? error.message : 'Unable to load assignee.'),
@@ -2211,6 +2435,7 @@
                     assignment: null,
                     canAssign: false,
                     users: [],
+                    userSources: [],
                     objectSignature: signature,
                     requestId: requestId,
                     statusMessage: String(error && error.message ? error.message : 'Unable to load assignee.'),
@@ -2341,7 +2566,7 @@
         }
     }
 
-    function submitIncidentAssignment(object, assignee, note) {
+    function submitIncidentAssignment(object, assignee, note, userSource) {
         var url = getIncidentAssignmentSaveUrl();
         var params;
 
@@ -2362,6 +2587,9 @@
         }
         params.set('object', JSON.stringify(object));
         params.set('assignee', String(assignee || ''));
+        if (typeof userSource === 'string' && userSource.trim().length) {
+            params.set('user_source', userSource.trim());
+        }
         if (typeof note === 'string') {
             params.set('note', note);
         }
@@ -2403,6 +2631,7 @@
     function saveIncidentAssignmentFromDom() {
         var form = document.querySelector('[data-incident-assignment-form]');
         var select = document.querySelector('[data-incident-assignee-select]');
+        var sourceSelect = document.querySelector('[data-incident-assignee-source-select]');
         var note = document.querySelector('[data-incident-assignment-note]');
         var object = getIncidentAssignmentObjectFromForm(form);
         var signature = getIcingadbObjectSignature(object);
@@ -2422,7 +2651,12 @@
             incidentDrawerState.assignment.requestId = requestId;
         }
 
-        var request = submitIncidentAssignment(object, select.value, selectedNote);
+        var request = submitIncidentAssignment(
+            object,
+            select.value,
+            selectedNote,
+            sourceSelect ? String(sourceSelect.value || '').trim() : ''
+        );
 
         if (! request) {
             return;
@@ -2454,6 +2688,7 @@
                         : null),
                     canAssign: !! (payload && payload.canAssign),
                     users: payload && Array.isArray(payload.users) ? payload.users : [],
+                    userSources: payload && Array.isArray(payload.userSources) ? payload.userSources : [],
                     objectSignature: signature,
                     requestId: requestId,
                     statusMessage: getIncidentAssignmentLabel('assignment-saved-label', 'Assignee saved'),

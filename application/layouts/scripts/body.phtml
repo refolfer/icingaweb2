@@ -614,6 +614,11 @@ $currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
     data-assignment-save-label="<?= $this->escape($this->translate('Save assignee')) ?>"
     data-assignment-saved-label="<?= $this->escape($this->translate('Assignee saved')) ?>"
     data-assignment-placeholder-label="<?= $this->escape($this->translate('Choose a registered user')) ?>"
+    data-assignment-all-users-label="<?= $this->escape($this->translate('All users')) ?>"
+    data-assignment-local-users-label="<?= $this->escape($this->translate('Local users')) ?>"
+    data-assignment-ad-users-label="<?= $this->escape($this->translate('Active Directory')) ?>"
+    data-assignment-filter-placeholder-label="<?= $this->escape($this->translate('Type a user name...')) ?>"
+    data-assignment-no-matching-users-label="<?= $this->escape($this->translate('No users match the entered name.')) ?>"
     data-assignment-note-label="<?= $this->escape($this->translate('Note')) ?>"
     data-assignment-note-placeholder="<?= $this->escape($this->translate('Optional note for the assigned user')) ?>"
     data-assignment-note-preview-label="<?= $this->escape($this->translate('Note')) ?>"
@@ -688,6 +693,19 @@ $currentUserLocalName = $currentUser ? $currentUser->getLocalUsername() : '';
                 <input type="hidden" name="object_type" value="">
                 <input type="hidden" name="object_host_name" value="">
                 <input type="hidden" name="object_service_name" value="">
+                <label data-incident-assignee-source-wrapper hidden>
+                    <span><?= $this->translate('User source') ?></span>
+                    <select data-incident-assignee-source-select></select>
+                </label>
+                <label data-incident-assignee-filter-wrapper>
+                    <span><?= $this->translate('Filter user') ?></span>
+                    <input
+                        type="search"
+                        data-incident-assignee-filter
+                        placeholder="<?= $this->escape($this->translate('Type a user name...')) ?>"
+                        autocomplete="off"
+                    >
+                </label>
                 <label>
                     <span><?= $this->translate('Assign to') ?></span>
                     <select data-incident-assignee-select></select>

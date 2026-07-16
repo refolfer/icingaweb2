@@ -6,6 +6,7 @@
 namespace Icinga\Controllers;
 
 use Exception;
+use Icinga\Application\Config;
 use Icinga\Exception\ProgrammingError;
 use Icinga\Authentication\User\DomainAwareInterface;
 use Icinga\Module\Icingadb\Common\Backend as IcingadbBackend;
@@ -69,6 +70,7 @@ class IncidentAssignmentController extends AuthBackendController
             'object' => $object,
             'assignment' => $assignment,
             'users' => $canAssign && $includeUsers ? $this->collectAssignableUsers() : [],
+            'userSources' => $canAssign && $includeUsers ? $this->collectAssignableUsersBySource() : [],
             'canAssign' => $canAssign,
             'csrfToken' => $canAssign ? CsrfToken::generate() : null
         ]);
@@ -119,6 +121,7 @@ class IncidentAssignmentController extends AuthBackendController
                 'ok' => true,
                 'assignment' => null,
                 'users' => $this->collectAssignableUsers(),
+                'userSources' => $this->collectAssignableUsersBySource(),
                 'canAssign' => true,
                 'csrfToken' => CsrfToken::generate()
             ]);
@@ -148,6 +151,7 @@ class IncidentAssignmentController extends AuthBackendController
             'ok' => true,
             'assignment' => $assignment,
             'users' => $this->collectAssignableUsers(),
+            'userSources' => $this->collectAssignableUsersBySource(),
             'canAssign' => true,
             'csrfToken' => CsrfToken::generate()
         ]);
@@ -343,17 +347,48 @@ class IncidentAssignmentController extends AuthBackendController
         return $normalized;
     }
 
-    /** @return list<string> */
-    protected function collectAssignableUsers(): array
+    /**
+     * @return list<array{value:string,label:string,users:list<string>}>
+     */
+    protected function collectAssignableUsersBySource(): array
     {
-        $users = [];
-        foreach ($this->loadUserBackends('Icinga\Data\Selectable') as $backend) {
+        $hasActiveDirectoryBackend = false;
+        $sources = [
+            'local' => [
+                'value' => 'local',
+                'label' => $this->translate('Local users'),
+                'users' => []
+            ],
+            'active_directory' => [
+                'value' => 'active_directory',
+                'label' => $this->translate('Active Directory'),
+                'users' => []
+            ]
+        ];
+
+        foreach (Config::app('authentication') as $backendName => $backendConfig) {
+            if (! isset($backendConfig->backend)) {
+                continue;
+            }
+
+            $backendType = strtolower(trim((string) $backendConfig->backend));
+            if ($backendType === 'db') {
+                $source = 'local';
+            } elseif ($backendType === 'msldap') {
+                $source = 'active_directory';
+                $hasActiveDirectoryBackend = true;
+            } else {
+                continue;
+            }
+
             try {
+                $backend = $this->getUserBackend($backendName, 'Icinga\Data\Selectable');
                 if ($backend instanceof DomainAwareInterface) {
                     $domain = $backend->getDomain();
                 } else {
                     $domain = null;
                 }
+
                 $query = $backend->select(['user_name']);
                 foreach ($query as $row) {
                     $userObj = new User((string) $row->user_name);
@@ -367,11 +402,124 @@ class IncidentAssignmentController extends AuthBackendController
 
                     $userName = $userObj->getUsername();
                     if ($userName !== '') {
-                        $users[$userName] = $userName;
+                        $sources[$source]['users'][$userName] = $userName;
                     }
                 }
             } catch (Exception $_) {
                 continue;
+            }
+        }
+
+        if ($hasActiveDirectoryBackend) {
+            $sources['active_directory']['users'] = $this->mergeLocalGroupMembersIntoActiveDirectory(
+                array_values($sources['local']['users']),
+                array_values($sources['active_directory']['users']),
+                $this->collectLocalGroupMemberUsers()
+            );
+        }
+
+        $result = [];
+        foreach ($sources as $source) {
+            if (! count($source['users'])) {
+                continue;
+            }
+
+            asort($source['users'], SORT_NATURAL | SORT_FLAG_CASE);
+            $source['users'] = array_values($source['users']);
+            $result[] = $source;
+        }
+
+        return $result;
+    }
+
+    /** @return list<string> */
+    protected function collectLocalGroupMemberUsers(): array
+    {
+        $users = [];
+
+        foreach (Config::app('groups') as $backendName => $backendConfig) {
+            if (! isset($backendConfig->backend)
+                || strtolower(trim((string) $backendConfig->backend)) !== 'db'
+            ) {
+                continue;
+            }
+
+            try {
+                $backend = $this->getUserGroupBackend($backendName, 'Icinga\Data\Selectable');
+                $query = $backend
+                    ->select()
+                    ->from('group_membership', ['user_name']);
+
+                foreach ($query as $row) {
+                    $userName = (new User(trim((string) $row->user_name)))->getUsername();
+                    if ($userName !== '') {
+                        $users[$this->normalizeAssignableUserName($userName)] = $userName;
+                    }
+                }
+            } catch (Exception $_) {
+                continue;
+            }
+        }
+
+        asort($users, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return array_values($users);
+    }
+
+    /**
+     * @param list<string> $localUsers
+     * @param list<string> $activeDirectoryUsers
+     * @param list<string> $localGroupMembers
+     * @return list<string>
+     */
+    protected function mergeLocalGroupMembersIntoActiveDirectory(
+        array $localUsers,
+        array $activeDirectoryUsers,
+        array $localGroupMembers
+    ): array {
+        $localUserNames = [];
+        foreach ($localUsers as $userName) {
+            $localUserNames[$this->normalizeAssignableUserName($userName)] = true;
+        }
+
+        $users = [];
+        foreach ($activeDirectoryUsers as $userName) {
+            $normalizedUserName = $this->normalizeAssignableUserName($userName);
+            if ($normalizedUserName !== '') {
+                $users[$normalizedUserName] = trim($userName);
+            }
+        }
+
+        foreach ($localGroupMembers as $userName) {
+            $userName = trim($userName);
+            $normalizedUserName = $this->normalizeAssignableUserName($userName);
+            if ($normalizedUserName === '' || isset($localUserNames[$normalizedUserName])) {
+                continue;
+            }
+
+            if (! isset($users[$normalizedUserName])) {
+                $users[$normalizedUserName] = $userName;
+            }
+        }
+
+        asort($users, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return array_values($users);
+    }
+
+    protected function normalizeAssignableUserName(string $userName): string
+    {
+        return mb_strtolower(trim($userName));
+    }
+
+    /** @return list<string> */
+    protected function collectAssignableUsers(): array
+    {
+        $users = [];
+
+        foreach ($this->collectAssignableUsersBySource() as $source) {
+            foreach ($source['users'] as $userName) {
+                $users[$userName] = $userName;
             }
         }
 
@@ -589,12 +737,11 @@ class IncidentAssignmentController extends AuthBackendController
         return $this->namesOverlap($assigneeNames, $assignedNames);
     }
 
-    /**
-     * @param list<array<string,mixed>> $objects
-     * @param array<string,array<string,mixed>> $assignments
-     */
-    protected function renderAssignedObjects(array $objects, array $assignments, string $assigned): string
-    {
+    protected function renderAssignedObjects(
+        array $objects,
+        array $assignments,
+        string $assigned
+    ): string {
         $title = $this->getAssignedFilterTitle($assigned);
 
         $html = [];
