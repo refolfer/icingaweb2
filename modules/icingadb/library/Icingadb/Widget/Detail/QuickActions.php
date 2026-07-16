@@ -54,8 +54,7 @@ class QuickActions extends BaseHtmlElement
             }
         }
 
-        if (
-            Auth::getInstance()->hasPermission('application/critical-assignments')
+        if (Auth::getInstance()->hasPermission('application/critical-assignments')
             && $this->isCriticalProblem($this->object)
         ) {
             $this->assembleAssignmentAction(
@@ -64,8 +63,7 @@ class QuickActions extends BaseHtmlElement
             );
         }
 
-        if (
-            $this->isGrantedOn('icingadb/command/schedule-check', $this->object)
+        if ($this->isGrantedOn('icingadb/command/schedule-check', $this->object)
             || (
                 $this->object->active_checks_enabled
                 && $this->isGrantedOn('icingadb/command/schedule-check/active-only', $this->object)
@@ -101,8 +99,7 @@ class QuickActions extends BaseHtmlElement
             );
         }
 
-        if (
-            $this->isGrantedOn('icingadb/command/schedule-check', $this->object)
+        if ($this->isGrantedOn('icingadb/command/schedule-check', $this->object)
             || (
                 $this->object->active_checks_enabled
                 && $this->isGrantedOn('icingadb/command/schedule-check/active-only', $this->object)
@@ -116,8 +113,7 @@ class QuickActions extends BaseHtmlElement
             );
         }
 
-        if (
-            $this->object->passive_checks_enabled
+        if ($this->object->passive_checks_enabled
             && $this->isGrantedOn('icingadb/command/process-check-result', $this->object)
         ) {
             $this->assembleAction(

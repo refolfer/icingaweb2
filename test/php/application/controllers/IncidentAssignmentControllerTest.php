@@ -29,7 +29,7 @@ class IncidentAssignmentControllerTest extends BaseTestCase
         $this->assertSame($expected, $this->invoke('matchesAssignedFilter', [$assignee, $filter]));
     }
 
-    public function assignedFilterProvider()
+    public static function assignedFilterProvider()
     {
         return [
             ['', 'false', true],

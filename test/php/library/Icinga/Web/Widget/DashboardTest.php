@@ -283,17 +283,17 @@ class DashboardTest extends BaseTestCase
      * @depends testWhetherCreatePaneCreatesAPane
      */
     #[RunInSeparateProcess]
-    public function testWhetherDetermineActivePaneThrowsAnExceptionIfCouldNotDetermineInvalidPane()
+    public function testWhetherDetermineActivePaneFallsBackForInvalidPane()
     {
-        $this->expectException(\Icinga\Exception\ProgrammingError::class);
-
         $dashboard = new DashboardWithPredefinableActiveName();
         $dashboard->createPane('test1');
 
         Mockery::mock('alias:Icinga\Web\Url')
             ->shouldReceive('fromRequest->getParam')->andReturn('test2');
 
-        $dashboard->determineActivePane();
+        $activePane = $dashboard->determineActivePane();
+
+        $this->assertSame('test1', $activePane->getName());
     }
 
     /**

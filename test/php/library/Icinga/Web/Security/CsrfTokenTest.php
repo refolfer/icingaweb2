@@ -31,7 +31,7 @@ class CsrfTokenTest extends BaseTestCase
         $this->assertFalse(CsrfToken::isValid($token));
     }
 
-    public function invalidTokenProvider()
+    public static function invalidTokenProvider()
     {
         return [
             [''],

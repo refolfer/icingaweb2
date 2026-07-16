@@ -20,7 +20,7 @@ jobs:
         uses: Icinga/github-actions/.github/actions/php-and-dependencies@ea00fefeee718346f7cf319b61e430243c0a3797
         with:
           php-version: '8.2'
-          php-tools: composer
+          php-tools: composer, phpcs, phpstan, phpunit
 
       - name: Run PHP quality suite
         run: composer run quality

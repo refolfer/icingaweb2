@@ -27,7 +27,7 @@ class LayoutControllerTest extends BaseTestCase
         $this->assertSame($expected, $this->invoke('normalizeQuickMenuUrl', [$input]));
     }
 
-    public function quickMenuUrlProvider()
+    public static function quickMenuUrlProvider()
     {
         return [
             ['/icingadb/hosts', '/icingadb/hosts'],
