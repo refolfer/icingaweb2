@@ -89,19 +89,65 @@
 }
 
 .controls .button-link,
-.icinga-controls button:not([type]),
-.icinga-controls button[type="submit"],
+.icinga-controls button:not(.link-button),
 .icinga-controls input[type="submit"] {
   border-radius: .55em;
   border: 1px solid fade(#87c6ff, 34%);
   background: linear-gradient(180deg, #22354d 0%, #18293f 100%);
-  color: #e6f2ff;
+  color: #f5f9ff;
+  -webkit-text-fill-color: #f5f9ff;
+  font-weight: 600;
 }
 
 .controls .button-link:hover,
+.controls .button-link:focus,
 .icinga-controls button:hover,
+.icinga-controls button:focus,
+.icinga-controls input[type="submit"]:focus,
 .icinga-controls input[type="submit"]:hover {
   background: linear-gradient(180deg, #2a4262 0%, #1f3553 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.icinga-controls button.btn-primary,
+.icinga-controls button[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary {
+  border-color: #62b8ff;
+  background: linear-gradient(180deg, #2478b8 0%, #185f96 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.icinga-controls button.btn-primary:hover,
+.icinga-controls button.btn-primary:focus,
+.icinga-controls button[type="submit"].btn-primary:hover,
+.icinga-controls button[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-primary:hover,
+.icinga-controls input[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:hover,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:focus {
+  border-color: #83c8ff;
+  background: linear-gradient(180deg, #1d6da9 0%, #124f80 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.controls .button-link.disabled,
+.icinga-controls button[disabled],
+.icinga-controls button.btn-primary[disabled],
+.icinga-controls button[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"][disabled],
+.icinga-controls input[type="submit"].btn-confirm[disabled],
+.icinga-controls input[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"].btn-confirm.btn-primary[disabled] {
+  border-color: fade(#a9bdd4, 28%);
+  background: #1c2838;
+  color: #dbe8f5;
+  -webkit-text-fill-color: #dbe8f5;
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 .tabs > li > a {

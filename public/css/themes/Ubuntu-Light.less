@@ -1,0 +1,299 @@
+// SPDX-FileCopyrightText: 2026
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+@icinga-blue: #8b5e3c;
+@icinga-blue-dark: #69442e;
+@icinga-blue-light: fade(@icinga-blue, 32%);
+@icinga-secondary: #8c7665;
+@icinga-secondary-dark: #6f5b4d;
+
+@color-ok: #218739;
+@color-warning: #a66d16;
+@color-warning-handled: #c4954f;
+@color-critical: #b23b35;
+@color-critical-handled: #cf716b;
+@color-unknown: #716279;
+@color-unknown-handled: #94869a;
+@color-pending: #286ea8;
+
+@body-bg-color: #f4efe7;
+@text-color: #342a23;
+@text-color-light: fade(@text-color, 72%);
+@link-color: @text-color;
+@light-text-bg-color: fade(#4b392d, 5%);
+
+@menu-bg-color: #e9dfd2;
+@menu-hover-bg-color: #dfd2c2;
+@menu-search-hover-bg-color: #dfd2c2;
+@menu-active-bg-color: #fffaf2;
+@menu-active-hover-bg-color: #f4eadd;
+@menu-color: #4d3d32;
+@menu-active-color: #33271f;
+@menu-highlight-color: #8b5e3c;
+@menu-highlight-hover-bg-color: #765036;
+@menu-2ndlvl-color: #665347;
+@menu-2ndlvl-active-bg-color: #806048;
+@menu-2ndlvl-active-color: #ffffff;
+@menu-flyout-bg-color: #fffaf2;
+@menu-flyout-color: #3f332a;
+
+@low-sat-blue: #faf5ed;
+@low-sat-blue-dark: #e8ddcf;
+@gray: #82746a;
+@gray-semilight: #9f9186;
+@gray-light: #d3c7ba;
+@gray-lighter: #e7ded3;
+@gray-lightest: #fbf8f3;
+@disabled-gray: #655a52;
+
+@form-info-bg-color: fade(@color-ok, 13%);
+@form-error-bg-color: fade(@color-critical, 14%);
+@form-warning-bg-color: fade(@color-warning, 15%);
+
+@font-family: "Ubuntu", "Noto Sans", "Segoe UI", sans-serif;
+@font-family-wide: "Ubuntu Condensed", "Ubuntu", "Noto Sans", sans-serif;
+@font-size: 0.8125em;
+@line-height: 1.45;
+
+:root {
+  --body-bg-color: #f4efe7;
+  --body-bg-color-transparent: rgba(244, 239, 231, 0);
+  --text-color: #342a23;
+  --text-color-light: rgba(52, 42, 35, 0.72);
+  --link-color: #342a23;
+  --menu-bg-color: #e9dfd2;
+  --menu-color: #4d3d32;
+  --menu-hover-bg-color: #dfd2c2;
+  --menu-active-bg-color: #fffaf2;
+  --menu-active-color: #33271f;
+  --menu-flyout-bg-color: #fffaf2;
+  --menu-flyout-color: #3f332a;
+  --gray: #82746a;
+  --gray-semilight: #9f9186;
+  --gray-light: #d3c7ba;
+  --gray-lighter: #e7ded3;
+  --gray-lightest: #fbf8f3;
+}
+
+:focus {
+  outline: 2px solid fade(#8b5e3c, 62%);
+  outline-offset: 1px;
+}
+
+#layout {
+  background-color: @body-bg-color;
+  background-image:
+    radial-gradient(circle at 94% -8%, fade(#b9855f, 10%), transparent 34%),
+    radial-gradient(circle at 6% 112%, fade(#9a826f, 9%), transparent 42%),
+    linear-gradient(155deg, #faf7f1 0%, #f2ece3 58%, #f7f1e8 100%);
+  background-attachment: fixed;
+}
+
+#header-logo-container {
+  background: linear-gradient(145deg, #f3eadd 0%, #e8dccd 62%, #dfd0bf 100%);
+  border-bottom: 1px solid fade(#8b5e3c, 22%);
+  box-shadow: 0 .5em 1.1em fade(#4b392d, 13%);
+}
+
+#menu {
+  border-right: 1px solid fade(#8b5e3c, 17%);
+  box-shadow: .35em 0 1em fade(#4b392d, 10%);
+}
+
+#menu ul.nav-level-1 > .nav-item > a {
+  font-weight: 500;
+  letter-spacing: .012em;
+  transition: background-color 130ms ease-in, color 130ms ease-in, box-shadow 130ms ease-in, transform 130ms ease-in;
+}
+
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item:not(.selected):not(.active):hover > a,
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item:not(.selected):not(.active):focus-within > a {
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 fade(#8b5e3c, 68%);
+}
+
+#menu .nav-level-2 > .nav-item {
+  margin: .083em .417em;
+  border-radius: .4em;
+}
+
+#menu .nav-level-2 > .nav-item.active {
+  box-shadow: inset 0 0 0 1px fade(#ffffff, 34%);
+}
+
+#main > .container > .controls {
+  background: linear-gradient(180deg, fade(#fffaf2, 97%) 0%, fade(#f3eadf, 97%) 100%);
+  border-bottom: 1px solid fade(#8b5e3c, 16%);
+  backdrop-filter: blur(3px);
+}
+
+#main > .container > .controls > .tabs {
+  background: transparent;
+}
+
+#main > .container > .content {
+  background: fade(#f7f2ea, 88%);
+}
+
+.content > form,
+.content > .controls,
+.content > .container,
+.dashboard > .container > .content {
+  border: 1px solid fade(#8b5e3c, 13%);
+  border-radius: .7em;
+  background: linear-gradient(165deg, fade(#fffdf8, 97%) 0%, fade(#f8f2e9, 97%) 100%);
+  box-shadow: 0 .55em 1.2em fade(#594638, 10%);
+}
+
+.tabs > li > a {
+  border-radius: .5em .5em 0 0;
+}
+
+.tabs > li.active > a,
+.tabs > li > a:focus {
+  box-shadow: inset 0 -2px 0 #8b5e3c;
+}
+
+.common-table thead {
+  border-bottom: 1px solid fade(#8b5e3c, 21%);
+}
+
+.common-table thead th {
+  background: linear-gradient(180deg, #fffaf2 0%, #f0e6d9 100%);
+  box-shadow: 0 1px 0 fade(#8b5e3c, 17%);
+}
+
+.common-table tbody tr {
+  border-bottom-color: fade(#b2a092, 42%);
+}
+
+.common-table tbody tr:nth-child(even) {
+  background-color: fade(#e8dccf, 38%);
+}
+
+.common-table tr[href]:hover {
+  background-color: fade(#a87550, 10%);
+}
+
+.common-table tr[href].active {
+  background-color: fade(#a87550, 16%);
+  border-left-color: #8b5e3c;
+}
+
+.controls .button-link,
+.icinga-controls button:not(.link-button),
+.icinga-controls input[type="submit"],
+.icinga-controls input[type="submit"].btn-confirm {
+  border: 1px solid fade(#8b5e3c, 31%);
+  border-radius: .45em;
+  background: linear-gradient(180deg, #fffaf2 0%, #eee4d7 100%);
+  color: #3a2d24;
+  -webkit-text-fill-color: #3a2d24;
+  font-weight: 600;
+}
+
+.controls .button-link:hover,
+.controls .button-link:focus,
+.icinga-controls button:hover,
+.icinga-controls button:focus,
+.icinga-controls input[type="submit"]:hover,
+.icinga-controls input[type="submit"]:focus {
+  border-color: fade(#8b5e3c, 48%);
+  background: linear-gradient(180deg, #f8f0e5 0%, #e4d6c5 100%);
+  color: #30241c;
+  -webkit-text-fill-color: #30241c;
+}
+
+.icinga-controls button.btn-primary,
+.icinga-controls button[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary {
+  border-color: #68462f;
+  background: linear-gradient(180deg, #765037 0%, #5f3e2a 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.icinga-controls button.btn-primary:hover,
+.icinga-controls button.btn-primary:focus,
+.icinga-controls button[type="submit"].btn-primary:hover,
+.icinga-controls button[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-primary:hover,
+.icinga-controls input[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:hover,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:focus {
+  border-color: #503522;
+  background: linear-gradient(180deg, #62422d 0%, #4d321f 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.controls .button-link.disabled,
+.icinga-controls button[disabled],
+.icinga-controls button.btn-primary[disabled],
+.icinga-controls button[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"][disabled],
+.icinga-controls input[type="submit"].btn-confirm[disabled],
+.icinga-controls input[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"].btn-confirm.btn-primary[disabled] {
+  border-color: #aa9b8f;
+  background: #e5ddd2;
+  color: #4f433a;
+  -webkit-text-fill-color: #4f433a;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.controls .button-link,
+.icinga-controls button,
+.icinga-controls input[type="submit"] {
+  transition: background 130ms ease-in, border-color 130ms ease-in, color 130ms ease-in, transform 80ms ease-in;
+}
+
+.controls .button-link:active,
+.icinga-controls button:active,
+.icinga-controls input[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]),
+.icinga-controls select,
+.icinga-controls textarea,
+.search-bar,
+.view-mode-switcher > label {
+  border: 1px solid fade(#8b5e3c, 25%);
+  border-radius: .45em;
+  background-color: fade(#ffffff, 95%);
+  color: @text-color;
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]):focus,
+.icinga-controls select:focus,
+.icinga-controls textarea:focus,
+.search-bar:focus-within {
+  border-color: #8b5e3c;
+  box-shadow: 0 0 0 .2em fade(#8b5e3c, 14%);
+}
+
+.pagination-control li.active {
+  border-bottom: 2px solid #8b5e3c;
+}
+
+.pagination-control li > a:hover {
+  background-color: fade(#8b5e3c, 10%);
+}
+
+#menu .nav-level-1 > .nav-item > a > i,
+#menu .nav-level-1 > .nav-item > a > .icon,
+#menu .nav-level-1 > .nav-item > a > img.icon {
+  border-radius: 50%;
+  background: fade(#8b5e3c, 9%);
+  box-shadow: inset 0 0 0 1px fade(#8b5e3c, 16%);
+  color: #765036;
+}
+
+[class^="icon-"],
+[class*=" icon-"],
+.fa {
+  text-shadow: 0 1px 0 fade(#ffffff, 76%);
+}

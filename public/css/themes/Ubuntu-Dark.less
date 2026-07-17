@@ -1,0 +1,299 @@
+// SPDX-FileCopyrightText: 2026
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+@icinga-blue: #b47b52;
+@icinga-blue-dark: #85583d;
+@icinga-blue-light: fade(@icinga-blue, 42%);
+@icinga-secondary: #a89382;
+@icinga-secondary-dark: #806b5c;
+
+@color-ok: #5fc47a;
+@color-warning: #d6a85d;
+@color-warning-handled: #e7c78f;
+@color-critical: #d76f67;
+@color-critical-handled: #e6a19b;
+@color-unknown: #9d87a8;
+@color-unknown-handled: #bcaec3;
+@color-pending: #69a8e6;
+
+@body-bg-color: #1d1916;
+@text-color: #f3ece4;
+@text-color-light: fade(@text-color, 74%);
+@link-color: @text-color;
+@light-text-bg-color: fade(#fffaf3, 5%);
+
+@menu-bg-color: #2b241f;
+@menu-hover-bg-color: #382f29;
+@menu-search-hover-bg-color: #382f29;
+@menu-active-bg-color: #493b31;
+@menu-active-hover-bg-color: #59483b;
+@menu-color: #e4d8cd;
+@menu-active-color: #ffffff;
+@menu-highlight-color: #b47b52;
+@menu-highlight-hover-bg-color: #85583d;
+@menu-2ndlvl-color: #c8b6a7;
+@menu-2ndlvl-active-bg-color: #9b6a49;
+@menu-2ndlvl-active-color: #fffaf3;
+@menu-flyout-bg-color: #352d27;
+@menu-flyout-color: #f2e8df;
+
+@low-sat-blue: #302a25;
+@low-sat-blue-dark: #433930;
+@gray: #8e8075;
+@gray-semilight: #a99a8e;
+@gray-light: #493f37;
+@gray-lighter: #37302a;
+@gray-lightest: #29241f;
+@disabled-gray: #b5a89d;
+
+@form-info-bg-color: fade(@color-ok, 16%);
+@form-error-bg-color: fade(@color-critical, 21%);
+@form-warning-bg-color: fade(@color-warning, 19%);
+
+@font-family: "Ubuntu", "Noto Sans", "Segoe UI", sans-serif;
+@font-family-wide: "Ubuntu Condensed", "Ubuntu", "Noto Sans", sans-serif;
+@font-size: 0.8125em;
+@line-height: 1.45;
+
+:root {
+  --body-bg-color: #1d1916;
+  --body-bg-color-transparent: rgba(29, 25, 22, 0);
+  --text-color: #f3ece4;
+  --text-color-light: rgba(243, 236, 228, 0.74);
+  --link-color: #f3ece4;
+  --menu-bg-color: #2b241f;
+  --menu-color: #e4d8cd;
+  --menu-hover-bg-color: #382f29;
+  --menu-active-bg-color: #493b31;
+  --menu-active-color: #ffffff;
+  --menu-flyout-bg-color: #352d27;
+  --menu-flyout-color: #f2e8df;
+  --gray: #8e8075;
+  --gray-semilight: #a99a8e;
+  --gray-light: #493f37;
+  --gray-lighter: #37302a;
+  --gray-lightest: #29241f;
+}
+
+:focus {
+  outline: 2px solid fade(#c89b78, 78%);
+  outline-offset: 1px;
+}
+
+#layout {
+  background-color: @body-bg-color;
+  background-image:
+    radial-gradient(circle at 94% -8%, fade(#b47b52, 12%), transparent 34%),
+    radial-gradient(circle at 6% 112%, fade(#765b49, 17%), transparent 42%),
+    linear-gradient(155deg, #211c18 0%, #191613 58%, #251e19 100%);
+  background-attachment: fixed;
+}
+
+#header-logo-container {
+  background: linear-gradient(145deg, #3b3028 0%, #2b241f 62%, #241e1a 100%);
+  border-bottom: 1px solid fade(#c79470, 30%);
+  box-shadow: 0 .65em 1.5em fade(#0c0907, 38%);
+}
+
+#menu {
+  border-right: 1px solid fade(#c79470, 20%);
+  box-shadow: .45em 0 1.35em fade(#0c0907, 30%);
+}
+
+#menu ul.nav-level-1 > .nav-item > a {
+  font-weight: 500;
+  letter-spacing: .012em;
+  transition: background-color 130ms ease-in, color 130ms ease-in, box-shadow 130ms ease-in, transform 130ms ease-in;
+}
+
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item:not(.selected):not(.active):hover > a,
+#layout:not(.sidebar-collapsed) #menu ul.nav-level-1 > .nav-item:not(.selected):not(.active):focus-within > a {
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 fade(#c79470, 72%);
+}
+
+#menu .nav-level-2 > .nav-item {
+  margin: .083em .417em;
+  border-radius: .4em;
+}
+
+#menu .nav-level-2 > .nav-item.active {
+  box-shadow: inset 0 0 0 1px fade(#d5aa8d, 30%);
+}
+
+#main > .container > .controls {
+  background: linear-gradient(180deg, fade(#302923, 96%) 0%, fade(#27211d, 96%) 100%);
+  border-bottom: 1px solid fade(#b47b52, 22%);
+  backdrop-filter: blur(4px);
+}
+
+#main > .container > .controls > .tabs {
+  background: transparent;
+}
+
+#main > .container > .content {
+  background: fade(#201b17, 88%);
+}
+
+.content > form,
+.content > .controls,
+.content > .container,
+.dashboard > .container > .content {
+  border: 1px solid fade(#aa927f, 18%);
+  border-radius: .7em;
+  background: linear-gradient(165deg, fade(#332b25, 95%) 0%, fade(#28221d, 95%) 100%);
+  box-shadow: 0 .65em 1.45em fade(#0d0a08, 32%);
+}
+
+.tabs > li > a {
+  border-radius: .5em .5em 0 0;
+}
+
+.tabs > li.active > a,
+.tabs > li > a:focus {
+  box-shadow: inset 0 -2px 0 #b47b52;
+}
+
+.common-table thead {
+  border-bottom: 1px solid fade(#b47b52, 28%);
+}
+
+.common-table thead th {
+  background: linear-gradient(180deg, #40362e 0%, #342c26 100%);
+  box-shadow: 0 1px 0 fade(#d5aa8d, 22%);
+}
+
+.common-table tbody tr {
+  border-bottom-color: fade(#79695d, 34%);
+}
+
+.common-table tbody tr:nth-child(even) {
+  background-color: fade(#4b4037, 28%);
+}
+
+.common-table tr[href]:hover {
+  background-color: fade(#b47b52, 13%);
+}
+
+.common-table tr[href].active {
+  background-color: fade(#b47b52, 20%);
+  border-left-color: #b47b52;
+}
+
+.controls .button-link,
+.icinga-controls button:not(.link-button),
+.icinga-controls input[type="submit"],
+.icinga-controls input[type="submit"].btn-confirm {
+  border: 1px solid fade(#cba488, 38%);
+  border-radius: .45em;
+  background: linear-gradient(180deg, #483c33 0%, #3a3029 100%);
+  color: #fffaf3;
+  -webkit-text-fill-color: #fffaf3;
+  font-weight: 600;
+}
+
+.controls .button-link:hover,
+.controls .button-link:focus,
+.icinga-controls button:hover,
+.icinga-controls button:focus,
+.icinga-controls input[type="submit"]:hover,
+.icinga-controls input[type="submit"]:focus {
+  border-color: fade(#d5aa8d, 60%);
+  background: linear-gradient(180deg, #594a3e 0%, #493c33 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.icinga-controls button.btn-primary,
+.icinga-controls button[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-primary,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary {
+  border-color: #c69a78;
+  background: linear-gradient(180deg, #79543d 0%, #60402e 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.icinga-controls button.btn-primary:hover,
+.icinga-controls button.btn-primary:focus,
+.icinga-controls button[type="submit"].btn-primary:hover,
+.icinga-controls button[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-primary:hover,
+.icinga-controls input[type="submit"].btn-primary:focus,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:hover,
+.icinga-controls input[type="submit"].btn-confirm.btn-primary:focus {
+  border-color: #d2aa8b;
+  background: linear-gradient(180deg, #684732 0%, #503522 100%);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.controls .button-link.disabled,
+.icinga-controls button[disabled],
+.icinga-controls button.btn-primary[disabled],
+.icinga-controls button[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"][disabled],
+.icinga-controls input[type="submit"].btn-confirm[disabled],
+.icinga-controls input[type="submit"].btn-primary[disabled],
+.icinga-controls input[type="submit"].btn-confirm.btn-primary[disabled] {
+  border-color: #7f7065;
+  background: #352f29;
+  color: #ddd2c8;
+  -webkit-text-fill-color: #ddd2c8;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.controls .button-link,
+.icinga-controls button,
+.icinga-controls input[type="submit"] {
+  transition: background 130ms ease-in, border-color 130ms ease-in, color 130ms ease-in, transform 80ms ease-in;
+}
+
+.controls .button-link:active,
+.icinga-controls button:active,
+.icinga-controls input[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]),
+.icinga-controls select,
+.icinga-controls textarea,
+.search-bar,
+.view-mode-switcher > label {
+  border: 1px solid fade(#aa927f, 32%);
+  border-radius: .45em;
+  background-color: fade(#211d19, 92%);
+  color: @text-color;
+}
+
+.icinga-controls input:not([type="checkbox"]):not([type="radio"]):focus,
+.icinga-controls select:focus,
+.icinga-controls textarea:focus,
+.search-bar:focus-within {
+  border-color: #b47b52;
+  box-shadow: 0 0 0 .2em fade(#b47b52, 20%);
+}
+
+.pagination-control li.active {
+  border-bottom: 2px solid #b47b52;
+}
+
+.pagination-control li > a:hover {
+  background-color: fade(#b47b52, 13%);
+}
+
+#menu .nav-level-1 > .nav-item > a > i,
+#menu .nav-level-1 > .nav-item > a > .icon,
+#menu .nav-level-1 > .nav-item > a > img.icon {
+  border-radius: 50%;
+  background: fade(#ffffff, 8%);
+  box-shadow: inset 0 0 0 1px fade(#ddc5b2, 16%);
+  color: #e8c7ad;
+}
+
+[class^="icon-"],
+[class*=" icon-"],
+.fa {
+  text-shadow: 0 1px 0 fade(#120e0b, 72%);
+}
