@@ -38,6 +38,8 @@ bash "${PACKAGE_DIR}/install.sh" install \
 
 [[ -f "${WEB_TARGET}/modules/modernui/module.info" ]]
 [[ -f "${WEB_TARGET}/modules/icingadb/application/views/scripts/simple-form.phtml" ]]
+[[ -f "${WEB_TARGET}/public/css/themes/Ubuntu-Dark.less" ]]
+[[ -f "${WEB_TARGET}/public/css/themes/Ubuntu-Light.less" ]]
 [[ -f "${PHP_TARGET}/Icinga/Web/Security/CsrfToken.php" ]]
 [[ ! -e "${PHP_TARGET}/Icinga/Web/IncidentAssignment/IncidentAssignmentStore.php" ]]
 [[ ! -e "${WEB_TARGET}/schema/mysql-upgrades/2.13.0.sql" ]]
