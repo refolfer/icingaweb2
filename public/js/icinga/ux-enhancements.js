@@ -4199,6 +4199,22 @@
         return null;
     }
 
+    function getIcingadbObjectFromDetailContainer(container) {
+        var object;
+
+        if (! container) {
+            return null;
+        }
+
+        // Icinga Web loads details into a column without always changing window.location.
+        object = getIcingadbObjectFromUrl(container.getAttribute('data-icinga-url') || '');
+        if (object) {
+            return object;
+        }
+
+        return findIcingadbObjectInDocument(container);
+    }
+
     function getIcingadbObjectAssignmentBanner() {
         var container = getIcingadbDetailContainer();
         var banner;
@@ -5928,7 +5944,7 @@
         setIncidentAssignmentFetchState(object, true, false);
         renderIncidentAssignment();
 
-        window.fetch(url + '?' + params.toString(), {
+        window.fetch(url + '?' + serializeIcingadbUrlParams(params), {
             credentials: 'same-origin',
             cache: 'no-store'
         })
@@ -6030,7 +6046,7 @@
         params.set('_', String(Date.now()));
         params.set('include_users', '0');
 
-        window.fetch(url + '?' + params.toString(), {
+        window.fetch(url + '?' + serializeIcingadbUrlParams(params), {
             credentials: 'same-origin',
             cache: 'no-store'
         })
@@ -6067,8 +6083,9 @@
         var blocks = scope.querySelectorAll(
             '.header-item-layout.host, .header-item-layout.service, .item-layout.host, .item-layout.service'
         );
-        var pageObject = getIcingadbObjectFromUrl(window.location.href);
         var detailRoot = getIcingadbDetailContainer();
+        var pageObject = getIcingadbObjectFromDetailContainer(detailRoot)
+            || getIcingadbObjectFromUrl(window.location.href);
         var i;
 
         if (pageObject && detailRoot && detailRoot.querySelector('.object-detail')) {
@@ -7465,7 +7482,8 @@
     }
 
     function getCurrentObjectCommands() {
-        var object = getIcingadbObjectFromUrl(window.location.href);
+        var object = getIcingadbObjectFromDetailContainer(getIcingadbDetailContainer())
+            || getIcingadbObjectFromUrl(window.location.href);
         var category = 'Current Object';
         var actions = [
             ['Open object', buildIcingadbObjectUrl(object), 'Open the current IcingaDB object'],
@@ -9219,7 +9237,9 @@
         }
 
         if (objectAssignmentButton) {
-            var currentObject = getIcingadbObjectFromUrl(window.location.href) || findIcingadbObjectInDocument(document);
+            var currentObject = getIcingadbObjectFromDetailContainer(getIcingadbDetailContainer())
+                || getIcingadbObjectFromUrl(window.location.href)
+                || findIcingadbObjectInDocument(document);
 
             event.preventDefault();
             if (currentObject) {

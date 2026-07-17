@@ -1134,7 +1134,9 @@
         }
 
         if (objectAssignmentButton) {
-            var currentObject = getIcingadbObjectFromUrl(window.location.href) || findIcingadbObjectInDocument(document);
+            var currentObject = getIcingadbObjectFromDetailContainer(getIcingadbDetailContainer())
+                || getIcingadbObjectFromUrl(window.location.href)
+                || findIcingadbObjectInDocument(document);
 
             event.preventDefault();
             if (currentObject) {

@@ -560,7 +560,8 @@
     }
 
     function getCurrentObjectCommands() {
-        var object = getIcingadbObjectFromUrl(window.location.href);
+        var object = getIcingadbObjectFromDetailContainer(getIcingadbDetailContainer())
+            || getIcingadbObjectFromUrl(window.location.href);
         var category = 'Current Object';
         var actions = [
             ['Open object', buildIcingadbObjectUrl(object), 'Open the current IcingaDB object'],
