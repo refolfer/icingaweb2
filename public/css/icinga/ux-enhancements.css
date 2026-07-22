@@ -1280,6 +1280,63 @@ body.modal-open {
   flex: 0 0 auto;
 }
 
+/* Keep host group names readable when grid columns or detail panes get narrower. */
+ul.object-grid > li.item-layout.object-grid-cell.hostgroup .title > .subject,
+ul.object-grid > li.item-layout.object-grid-cell.hostgroup .caption,
+.hostgroup.table-row.item-layout > .main > .caption,
+.header-item-layout.hostgroup > .main > header > .title > .subject {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.hostgroup.table-row.item-layout > .main > header {
+  height: auto;
+  align-items: flex-start;
+}
+
+.hostgroup.table-row.item-layout > .main > header > .title {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 0;
+}
+
+.hostgroup.table-row.item-layout > .main > header > .title > .subject {
+  display: block;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+@media screen and (max-width: 64em) {
+  ul.item-table > li.hostgroup > .col:has(> .hostgroup-responsibility) > .hostgroup-responsibility {
+    visibility: hidden;
+  }
+}
+
+@media screen and (max-width: 42em) {
+  .header-item-layout.hostgroup > .main > header {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "title"
+      "caption"
+      "stats";
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .header-item-layout.hostgroup > .main > header > .extended-info {
+    width: 100%;
+  }
+}
+
 .hostgroup-responsibility {
   display: inline-flex;
   align-items: flex-start;
