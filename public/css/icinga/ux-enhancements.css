@@ -1321,6 +1321,53 @@ ul.object-grid > li.item-layout.object-grid-cell.hostgroup .caption,
   }
 }
 
+/* A split pane is narrower than the viewport, so keep each host group in one row grid. */
+#layout.twocols #col1 ul.item-table:has(> li.hostgroup) {
+  display: block;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row {
+  display: grid;
+  grid-template-columns: minmax(8em, 1fr) auto auto;
+  align-items: center;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row::before,
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row::after {
+  display: none;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row > .main {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  width: auto;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row > .col:nth-of-type(3) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row > .col:nth-of-type(4) {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row > .col:has(> .hostgroup-responsibility) {
+  display: block;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding: 0 0 0.45em;
+}
+
+#layout.twocols #col1 ul.item-table > li.hostgroup.table-row > .col:has(> .hostgroup-responsibility)
+  > .hostgroup-responsibility {
+  visibility: visible;
+  width: 100%;
+  margin: 0;
+}
+
 @media screen and (max-width: 42em) {
   .header-item-layout.hostgroup > .main > header {
     grid-template-columns: minmax(0, 1fr);
