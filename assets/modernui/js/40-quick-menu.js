@@ -1440,6 +1440,7 @@
             refreshOperatorDecisionAssignments();
         });
         window.jQuery(document).on('rendered', '#col1', function () {
+            refreshOperatorDecisionAssignments();
             updateQuickNotebookVisibility();
             initIncidentDrawerWidthResizer();
             renderIcingadbObjectAssignmentLabels();

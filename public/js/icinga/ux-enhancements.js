@@ -4288,7 +4288,7 @@
                 + getIncidentAssignmentLabel('assignment-note-label', 'Note')
                 + ': ' + currentNote;
         }
-        if (! assignee.length && ! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
+        if (! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
             prefetchIncidentAssignment(object);
         }
 
@@ -4486,7 +4486,9 @@
             return;
         }
 
-        if (! note.length && cachedNote.length) {
+        if (payload && payload.assignment === null) {
+            setIncidentAssignmentNoteCache(object, '');
+        } else if (! note.length && cachedNote.length) {
             note = cachedNote;
         }
 
@@ -6070,12 +6072,12 @@
                 incidentAssignmentCsrfToken = payload && payload.csrfToken
                     ? String(payload.csrfToken)
                     : incidentAssignmentCsrfToken;
+                setIncidentAssignmentDetailsCache(object, payload || null);
                 if (payload && payload.assignment) {
                     setIncidentAssignmentCache(object, payload.assignment.assignee);
                 } else {
                     setIncidentAssignmentCache(object, '');
                 }
-                setIncidentAssignmentDetailsCache(object, payload || null);
 
                 setIncidentAssignmentFetchState(object, false, true);
                 rerenderCachedTopEvents();
@@ -6121,7 +6123,7 @@
                 continue;
             }
 
-            if (! assignee.length && ! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
+            if (! isIncidentAssignmentLoaded(object) && ! isIncidentAssignmentLoading(object)) {
                 prefetchIncidentAssignment(object);
             }
 
@@ -9564,6 +9566,7 @@
             refreshOperatorDecisionAssignments();
         });
         window.jQuery(document).on('rendered', '#col1', function () {
+            refreshOperatorDecisionAssignments();
             updateQuickNotebookVisibility();
             initIncidentDrawerWidthResizer();
             renderIcingadbObjectAssignmentLabels();

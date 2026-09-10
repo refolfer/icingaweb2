@@ -60,6 +60,10 @@ class IncidentAssignmentController extends AuthBackendController
         try {
             $store = IncidentAssignmentStore::create();
             $assignment = $store->load($object['type'], $object['host_name'], $object['service_name']);
+            if ($assignment !== null && $this->objectHasRecovered($object)) {
+                $store->remove($object['type'], $object['host_name'], $object['service_name']);
+                $assignment = null;
+            }
         } catch (Exception $e) {
             $this->respondWithJson(['error' => $e->getMessage()], 500);
             return;
@@ -131,6 +135,11 @@ class IncidentAssignmentController extends AuthBackendController
             return;
         }
 
+        if ($this->objectHasRecovered($object)) {
+            $this->respondWithJson(['error' => 'The object has recovered; refresh its assignment'], 409);
+            return;
+        }
+
         if (! $this->isKnownUser($assignee)) {
             $this->respondWithJson(['error' => sprintf('Unknown user "%s"', $assignee)], 400);
             return;
@@ -169,6 +178,7 @@ class IncidentAssignmentController extends AuthBackendController
         try {
             $criticalObjects = $this->loadCriticalObjects();
             $store = IncidentAssignmentStore::create();
+            $this->clearRecoveredAssignments($store);
             $assignments = $store->loadMany($criticalObjects);
             $summary = $this->buildAssignmentSummary($criticalObjects, $assignments);
         } catch (Exception $e) {
@@ -197,6 +207,7 @@ class IncidentAssignmentController extends AuthBackendController
         try {
             $criticalObjects = $this->loadCriticalObjects();
             $store = IncidentAssignmentStore::create();
+            $this->clearRecoveredAssignments($store);
             $assignments = $store->loadMany($criticalObjects);
             $filteredObjects = $this->filterObjectsByAssigned($criticalObjects, $assignments, $assigned);
         } catch (Exception $e) {
@@ -601,15 +612,29 @@ class IncidentAssignmentController extends AuthBackendController
     /** @return list<array{type:string,host_name:string,service_name:?string}> */
     protected function loadCriticalObjects(): array
     {
+        return $this->loadObjectsInStates([self::HOST_CRITICAL_STATE], [self::SERVICE_CRITICAL_STATE], true);
+    }
+
+    /**
+     * @param list<int> $hostStates
+     * @param list<int> $serviceStates
+     * @return list<array{type:string,host_name:string,service_name:?string}>
+     */
+    protected function loadObjectsInStates(
+        array $hostStates,
+        array $serviceStates,
+        bool $problemsOnly = false
+    ): array
+    {
         $db = IcingadbBackend::getDb();
         $objects = [];
 
         $hosts = Host::on($db)
             ->with(['state'])
-            ->filter(Filter::all(
-                Filter::equal('state.is_problem', 'y'),
-                Filter::equal('state.soft_state', self::HOST_CRITICAL_STATE)
-            ));
+            ->filter(Filter::equal('state.soft_state', $hostStates));
+        if ($problemsOnly) {
+            $hosts->filter(Filter::equal('state.is_problem', 'y'));
+        }
         $this->applyRestrictions($hosts);
         foreach ($hosts as $host) {
             /** @var Host $host */
@@ -622,10 +647,10 @@ class IncidentAssignmentController extends AuthBackendController
 
         $services = Service::on($db)
             ->with(['state', 'host'])
-            ->filter(Filter::all(
-                Filter::equal('state.is_problem', 'y'),
-                Filter::equal('state.soft_state', self::SERVICE_CRITICAL_STATE)
-            ));
+            ->filter(Filter::equal('state.soft_state', $serviceStates));
+        if ($problemsOnly) {
+            $services->filter(Filter::equal('state.is_problem', 'y'));
+        }
         $this->applyRestrictions($services);
         foreach ($services as $service) {
             /** @var Service $service */
@@ -641,8 +666,25 @@ class IncidentAssignmentController extends AuthBackendController
         return $objects;
     }
 
+    protected function clearRecoveredAssignments(IncidentAssignmentStore $store): void
+    {
+        $objects = $this->loadObjectsInStates([0], [0, 1]);
+        $assignments = $store->loadMany($objects);
+        foreach ($objects as $object) {
+            if (isset($assignments[$this->buildObjectSignature($object)])) {
+                $store->remove($object['type'], $object['host_name'], $object['service_name']);
+            }
+        }
+    }
+
     /** @param array{type:string,host_name:string,service_name:?string} $object */
-    protected function objectExists(array $object): bool
+    protected function objectHasRecovered(array $object): bool
+    {
+        return $this->objectExists($object, true);
+    }
+
+    /** @param array{type:string,host_name:string,service_name:?string} $object */
+    protected function objectExists(array $object, bool $recoveredOnly = false): bool
     {
         $db = IcingadbBackend::getDb();
 
@@ -658,6 +700,12 @@ class IncidentAssignmentController extends AuthBackendController
                     Filter::equal('host.name', $object['host_name'])
                 ))
                 ->limit(1);
+        }
+        if ($recoveredOnly) {
+            $query->with(['state'])->filter(Filter::equal(
+                'state.soft_state',
+                $object['type'] === 'host' ? [0] : [0, 1]
+            ));
         }
         $this->applyRestrictions($query);
 
