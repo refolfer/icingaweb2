@@ -430,6 +430,15 @@
             return null;
         }
 
+        // A host row can also contain links to its services.
+        if (node.matches && node.matches('.item-layout.host, .header-item-layout.host')) {
+            var subject = node.querySelector('a.subject[href]');
+            object = subject ? getIcingadbObjectFromUrl(subject.getAttribute('href')) : null;
+            if (object && object.type === 'host') {
+                return object;
+            }
+        }
+
         object = getIcingadbObjectFromDetailFilter(node);
         if (object) {
             return object;
@@ -2543,11 +2552,13 @@
 
         if (pageObject && detailRoot && detailRoot.querySelector('.object-detail')) {
             renderIcingadbObjectAssignmentBanner(pageObject);
-            return;
         }
 
         for (i = 0; i < blocks.length; i++) {
             var block = blocks[i];
+            if (block.closest('.object-detail')) {
+                continue;
+            }
             var info = block.querySelector('.extended-info');
             var label = info ? info.querySelector('[data-object-assignee]') : null;
             var object = findIcingadbObjectInNode(block);
@@ -2559,7 +2570,7 @@
             var objectState = getIcingadbObjectStateFromNode(block);
             var text = '';
 
-            if (! info || ! object) {
+            if (! object) {
                 continue;
             }
 
@@ -2581,6 +2592,16 @@
             }
 
             if (! label) {
+                // The renderer omits empty extended information (e.g. no state-change timestamp).
+                if (! info) {
+                    var header = block.querySelector('.main > header');
+                    if (! header) {
+                        continue;
+                    }
+                    info = document.createElement('div');
+                    info.className = 'extended-info';
+                    header.appendChild(info);
+                }
                 label = document.createElement('span');
                 label.setAttribute('data-object-assignee', '');
                 label.className = 'object-assignee';
