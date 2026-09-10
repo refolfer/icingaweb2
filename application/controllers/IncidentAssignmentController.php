@@ -624,8 +624,7 @@ class IncidentAssignmentController extends AuthBackendController
         array $hostStates,
         array $serviceStates,
         bool $problemsOnly = false
-    ): array
-    {
+    ): array {
         $db = IcingadbBackend::getDb();
         $objects = [];
 
